@@ -1,8 +1,8 @@
 """Carry-forward context, the glossary and fragment holding (P7): the logic,
 without models. tests/test_translate.py runs them through the real translator."""
 
-from pyvolis.sentences import Sentence
-from pyvolis.translate import context as ctx
+from volis.sentences import Sentence
+from volis.translate import context as ctx
 
 
 def words(text: str) -> int:

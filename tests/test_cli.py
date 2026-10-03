@@ -2,7 +2,7 @@
 
 import pytest
 
-from pyvolis import cli
+from volis import cli
 
 
 def test_no_arguments_opens_the_window():

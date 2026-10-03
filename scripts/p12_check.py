@@ -1,9 +1,9 @@
 """The P12 check, as far as one machine can do it: the built folder
-(dist\\pyvolis\\) runs on its own and opens no connections.
+(dist\\volis\\) runs on its own and opens no connections.
 
     .venv\\Scripts\\python.exe scripts\\p12_check.py [folder]
 
-Runs the built pyvolis.exe, never this repository's Python:
+Runs the built volis.exe, never this repository's Python:
 
   1. --doctor: every library present and loaded from the folder;
   2. --report: every model found under the folder's own models\\;
@@ -11,7 +11,7 @@ Runs the built pyvolis.exe, never this repository's Python:
      by Qwen3 1.7B (small enough to share the GPU), with the recognizers this
      machine's checks use; transcript CER and translation chrF against the
      references; and the same run from source, to compare the time (streaming
-     and the other settings are pyvolis.toml's, the same for both);
+     and the other settings are volis-python.toml's, the same for both);
   4. for each run, every network connection the process holds, sampled every
      0.2 s with psutil: there must be none.
 
@@ -36,7 +36,7 @@ sys.path.insert(0, str(REPO))
 for stream in (sys.stdout, sys.stderr):
     stream.reconfigure(encoding="utf-8", errors="replace")
 
-from pyvolis import scoring  # noqa: E402
+from volis import scoring  # noqa: E402
 
 FIXTURES = REPO / "tests" / "fixtures" / "files"
 RUNS = [
@@ -79,8 +79,8 @@ def run(exe: Path | list[str], args: list[str], timeout: float = 1800) -> tuple[
 
 
 def main() -> int:
-    folder = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else REPO / "dist" / "pyvolis"
-    exe = folder / "pyvolis.exe"
+    folder = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else REPO / "dist" / "volis"
+    exe = folder / "volis.exe"
     if not exe.is_file():
         print(f"STOP: no {exe}. Run .\\build.ps1 first.")
         return 1
@@ -111,7 +111,7 @@ def main() -> int:
         code, out, connections = run(exe, args + ["--export", str(export)])
         seconds = time.monotonic() - began
         began = time.monotonic()
-        run([str(REPO / ".venv" / "Scripts" / "python.exe"), "-m", "pyvolis"],
+        run([str(REPO / ".venv" / "Scripts" / "python.exe"), "-m", "volis"],
             args + ["--export", str(REPO / "exports" / f"p12-source-{audio.stem}")])
         from_source = time.monotonic() - began
         reference = json.loads(audio.with_name(audio.name + ".ref.json").read_text(encoding="utf-8"))

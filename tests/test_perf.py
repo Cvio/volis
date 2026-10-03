@@ -1,4 +1,4 @@
-"""The performance panel's arithmetic (pyvolis/perf.py) and the panel in the
+"""The performance panel's arithmetic (volis/perf.py) and the panel in the
 window. No models are loaded; nvidia-smi is replaced by a fixed reading."""
 
 import os
@@ -7,7 +7,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest  # noqa: E402
 
-from pyvolis import events as ev, models, paths, perf  # noqa: E402
+from volis import events as ev, models, paths, perf  # noqa: E402
 
 GiB = 1024 ** 3
 
@@ -29,15 +29,15 @@ def test_nvidia_smi_lines_are_read_and_n_a_counts_as_zero():
 
 
 def test_a_combination_fits_is_tight_or_does_not_fit():
-    s = sample(gpu_used=2 * GiB)  # 6 GiB free for pyvolis
+    s = sample(gpu_used=2 * GiB)  # 6 GiB free for volis
     assert perf.verdict([est("recognizer", 2 * GiB), est("translator", 2 * GiB)], s).level == "fits"
     assert perf.verdict([est("translator", int(5.7 * GiB))], s).level == "tight"
     no = perf.verdict([est("recognizer", 2 * GiB), est("translator", 5 * GiB)], s)
     assert no.level == "no" and "slower" in no.text
 
 
-def test_what_pyvolis_holds_now_counts_as_room_since_it_would_be_replaced():
-    s = sample(gpu_used=7 * GiB)  # of which pyvolis has 6
+def test_what_volis_holds_now_counts_as_room_since_it_would_be_replaced():
+    s = sample(gpu_used=7 * GiB)  # of which volis has 6
     assert perf.verdict([est("translator", 5 * GiB)], s).level == "no"
     assert perf.verdict([est("translator", 5 * GiB)], s, ours_gpu_now=6 * GiB).level == "fits"
 
@@ -87,13 +87,13 @@ def window(monkeypatch, tmp_path):
     pytest.importorskip("PySide6")
     from PySide6.QtWidgets import QApplication
 
-    from pyvolis.config import Config, PyvolisConfig
-    from pyvolis.gui.window import MainWindow
+    from volis.config import Config, PythonConfig
+    from volis.gui.window import MainWindow
 
     QApplication.instance() or QApplication([])
     monkeypatch.setattr(perf, "read_gpu", lambda: sample().gpu)
     monkeypatch.setattr(paths, "performance_file", lambda root: tmp_path / "performance.json")
-    w = MainWindow(paths.app_root(), Config(), PyvolisConfig())
+    w = MainWindow(paths.app_root(), Config(), PythonConfig())
     w.save = lambda: None
     yield w
     w.perf_panel.sampler.stop()

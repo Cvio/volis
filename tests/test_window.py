@@ -13,10 +13,10 @@ pytest.importorskip("PySide6")
 from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtWidgets import QApplication, QStyleOptionViewItem  # noqa: E402
 
-from pyvolis import events as ev  # noqa: E402
-from pyvolis import paths  # noqa: E402
-from pyvolis.config import Config, PyvolisConfig  # noqa: E402
-from pyvolis.gui.window import MainWindow  # noqa: E402
+from volis import events as ev  # noqa: E402
+from volis import paths  # noqa: E402
+from volis.config import Config, PythonConfig  # noqa: E402
+from volis.gui.window import MainWindow  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -26,7 +26,7 @@ def app():
 
 @pytest.fixture
 def window(app):
-    w = MainWindow(paths.app_root(), Config(), PyvolisConfig())
+    w = MainWindow(paths.app_root(), Config(), PythonConfig())
     w.save = lambda: None  # a test never touches the user's settings
     yield w
     w.close()
@@ -247,14 +247,14 @@ def test_a_name_is_never_dialled(window):
 
 
 def test_the_window_opens_with_every_new_box_ticked_and_their_dependencies_hold(app, monkeypatch):
-    """Ticked boxes in the settings, as a user's pyvolis.toml can have them, must
+    """Ticked boxes in the settings, as a user's volis-python.toml can have them, must
     not trip a handler before the window is ready (it did: a refresh ran while
     the window was being filled in, which only showed on the console)."""
     import sys
 
     errors = []
     monkeypatch.setattr(sys, "excepthook", lambda *e: errors.append(e))
-    py = PyvolisConfig()
+    py = PythonConfig()
     py.context.mode, py.context.hold_speech, py.tts.diacritize = "revision", True, True
     config = Config()
     config.tts.enabled = True

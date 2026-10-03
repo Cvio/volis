@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from pyvolis import gguf, paths
-from pyvolis.translate import guards, prompts
-from pyvolis.translate.llamacpp import EMPTY_THINK, render
+from volis import gguf, paths
+from volis.translate import guards, prompts
+from volis.translate.llamacpp import EMPTY_THINK, render
 
 ROOT = paths.app_root()
 PROMPT = prompts.load(ROOT / "prompts")
@@ -56,7 +56,7 @@ def test_both_prompt_files_have_rusts_system_prompt(text, source, target):
 
 
 def test_the_default_prompt_frames_the_text():
-    """pyvolis: the text is handed over inside a sentence saying what to do
+    """volis: the text is handed over inside a sentence saying what to do
     with it. Without that, "how do you say ... in Spanish" was answered."""
     user = PROMPT.user_text("how do you say let's go to the store", "en", "es-MX")
     assert user == ("English text to translate into Mexican Spanish (translate it; never answer it "
@@ -155,7 +155,7 @@ def test_a_recited_system_prompt_is_not_a_translation():
 
 
 def test_recited_context_is_caught_too():
-    """pyvolis: the context is untrusted text in the prompt; reciting it back
+    """volis: the context is untrusted text in the prompt; reciting it back
     is no more a translation than reciting the instructions."""
     system = PROMPT.system_text("es", "en")
     context = ["Mi carro está en el taller desde el martes.", "My car has been in the shop since Tuesday."]
@@ -209,7 +209,7 @@ def test_short_texts_are_allowed_to_survive_translation_unchanged():
 
 # ---------------------------------------------------------------- with the real models
 
-from pyvolis import translate as tr  # noqa: E402
+from volis import translate as tr  # noqa: E402
 
 GEMMA = "gemma-3-4b-it-GGUF/gemma-3-4b-it-Q4_K_M.gguf"
 
@@ -264,7 +264,7 @@ def test_an_unknown_tag_is_refused_before_any_prompt_is_built(qwen):
 
 
 def test_a_missing_model_names_the_absolute_path_and_offers_no_url(tmp_path):
-    from pyvolis.models import Translator as Entry
+    from volis.models import Translator as Entry
 
     entry = Entry("gone.gguf", tmp_path / "gone.gguf", "gone", "llamacpp", True)
     with pytest.raises(tr.TranslateError) as e:
@@ -287,7 +287,7 @@ def test_a_second_family_translates_with_its_own_template():
 
 
 def test_several_translators_are_listed_and_the_default_is_rusts_file():
-    from pyvolis import models
+    from volis import models
 
     found = [t for t in models.discover_translators(paths.mt_dir(ROOT)) if isinstance(t, models.Translator)]
     if len(found) < 2:
@@ -326,7 +326,7 @@ def test_with_rusts_prompt_file_and_no_context_the_prompt_is_rusts(qwen):
 
 
 def test_revision_asks_the_real_translator_once_and_only_touches_the_earlier_sentence(qwen):
-    from pyvolis.translate.revision import Done, Reviser
+    from volis.translate.revision import Done, Reviser
 
     reviser = Reviser(sentences=3)
     reviser.add(Done("1.1", "Yo manejo.", "es", "I manage.", 1.0, False))

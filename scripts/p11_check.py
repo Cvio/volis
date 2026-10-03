@@ -33,7 +33,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
-from pyvolis import paths  # noqa: E402
+from volis import paths  # noqa: E402
 
 paths.apply_offline_environment(paths.app_root())
 for stream in (sys.stdout, sys.stderr):
@@ -43,10 +43,10 @@ import logging  # noqa: E402
 
 logging.disable(logging.WARNING)
 
-from pyvolis import events as ev, scoring  # noqa: E402
-from pyvolis.config import Config, PyvolisConfig  # noqa: E402
-from pyvolis.filesource import read_16k_mono  # noqa: E402
-from pyvolis.pipeline import ArraySource, Options, Pipeline, run_to_end  # noqa: E402
+from volis import events as ev, scoring  # noqa: E402
+from volis.config import Config, PythonConfig  # noqa: E402
+from volis.filesource import read_16k_mono  # noqa: E402
+from volis.pipeline import ArraySource, Options, Pipeline, run_to_end  # noqa: E402
 
 FILES = REPO / "tests" / "fixtures" / "files"
 BASE_MT = "qwen3-1.7b-q4_k_m.gguf"
@@ -60,7 +60,7 @@ def run_file(root: Path, name: str, source: str, asr: str, mt: str = "", transla
         return None
     reference = json.loads(path.with_name(path.name + ".ref.json").read_text(encoding="utf-8"))
     config = Config.parse(f'[asr]\nengine = "{asr}"\n[languages]\nsource = "{source}"\ntarget = "en"\n')
-    pyconfig, _ = PyvolisConfig.load(paths.pyvolis_config_file(root))
+    pyconfig, _ = PythonConfig.load(paths.python_config_file(root))
     events: queue.Queue = queue.Queue()
     options = Options(translate=translate, mt=mt, streaming=False, context="carry", prompt="default")
     out = run_to_end(Pipeline(root, config, options, events, ArraySource(read_16k_mono(path)), pyconfig), events)
@@ -151,7 +151,7 @@ def translators(root: Path) -> bool:
             subprocess.run([sys.executable, str(REPO / "scripts" / "make_test_lora.py"), str(mt_dir / BASE_MT),
                             str(folder / "test-adapter.gguf"), "--strength", str(strength)], check=True,
                            capture_output=True)
-            (folder / "pyvolis.toml").write_text(f'base = "{BASE_MT}"\n', encoding="utf-8")
+            (folder / "volis-python.toml").write_text(f'base = "{BASE_MT}"\n', encoding="utf-8")
             r = run_file(root, "es_419-to-en.wav", "es", asr, f"{TEST_LORA}/test-adapter.gguf", translate=True)
             if r and base and "error" not in r and "error" not in base:
                 same = sum(a == b for a, b in zip(r["translations"], base["translations"]))

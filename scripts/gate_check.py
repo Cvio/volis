@@ -1,12 +1,12 @@
-"""Does pyvolis hear itself? The live pipeline with the voice on, run twice
+"""Does volis hear itself? The live pipeline with the voice on, run twice
 through the VB-Audio cable: half-duplex on, then off (Rust's M4 check).
 
     .venv\\Scripts\\python.exe scripts\\gate_check.py [--clips 2]
 
 The cable is both the microphone ("CABLE Output") and the speakers ("CABLE
-Input"), so everything pyvolis says comes straight back into its microphone:
+Input"), so everything volis says comes straight back into its microphone:
 the worst case for feedback. Spanish fixture clips are played into the cable.
-With the gate on, only that Spanish is transcribed. With it off, pyvolis
+With the gate on, only that Spanish is transcribed. With it off, volis
 transcribes its own English voice as well, which is what the gate is for.
 Nothing comes out of the real speakers.
 """
@@ -23,7 +23,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
-from pyvolis import paths  # noqa: E402
+from volis import paths  # noqa: E402
 
 paths.apply_offline_environment(paths.app_root())
 for stream in (sys.stdout, sys.stderr):
@@ -31,10 +31,10 @@ for stream in (sys.stdout, sys.stderr):
 
 import numpy as np  # noqa: E402
 
-from pyvolis import events as ev, playback  # noqa: E402
-from pyvolis.config import Config, PyvolisConfig  # noqa: E402
-from pyvolis.filesource import read_16k_mono  # noqa: E402
-from pyvolis.pipeline import Options, Pipeline  # noqa: E402
+from volis import events as ev, playback  # noqa: E402
+from volis.config import Config, PythonConfig  # noqa: E402
+from volis.filesource import read_16k_mono  # noqa: E402
+from volis.pipeline import Options, Pipeline  # noqa: E402
 
 CABLE_IN, CABLE_OUT = "CABLE Input (VB-Audio Virtual Cable)", "CABLE Output (VB-Audio Virtual Cable)"
 
@@ -47,7 +47,7 @@ def run(half_duplex: bool, clips: list[np.ndarray]) -> tuple[list[str], int]:
         f"[tts]\nenabled = true\nhalf_duplex = {'true' if half_duplex else 'false'}\n"
     )
     events: queue.Queue = queue.Queue()
-    pipeline = Pipeline(root, config, Options(), events, None, PyvolisConfig()).start()
+    pipeline = Pipeline(root, config, Options(), events, None, PythonConfig()).start()
     heard, spoken, listening, stopped = [], 0, False, False
     # The "person talking": a second player on the same cable, with no gate of its own.
     talker = playback.Player(CABLE_IN, playback.Gate(False))
@@ -101,13 +101,13 @@ def main() -> int:
         print(f"\n== half-duplex {'on' if half_duplex else 'off'}")
         heard, spoken = run(half_duplex, clips)
         results[half_duplex] = heard
-        print(f"  pyvolis spoke {spoken} sentence(s); transcribed {len(heard)}:")
+        print(f"  volis spoke {spoken} sentence(s); transcribed {len(heard)}:")
         for text in heard:
             print(f"    {text}")
     on, off = results[True], results[False]
     print(f"\nwith the gate: {len(on)} transcript(s); without it: {len(off)}")
     extra = len(off) - len(on)
-    print("the gate keeps pyvolis from hearing itself: " +
+    print("the gate keeps volis from hearing itself: " +
           ("yes" if on and extra > 0 else "NOT SHOWN (no difference between the two runs)"))
     return 0 if on and extra > 0 else 1
 

@@ -1,6 +1,6 @@
 """Download the test clips into tests/fixtures/ (not committed). Run through
 tests/fetch-fixtures.ps1. A development tool that uses the internet, like
-fetch-model.ps1; pyvolis never runs it.
+fetch-model.ps1; volis never runs it.
 
 For each language, the first 10 clips of FLEURS's test split, with their
 reference transcripts. FLEURS publishes each split's audio as one large
@@ -35,7 +35,7 @@ COUNT = 10
 
 
 def fetch(url: str):
-    request = urllib.request.Request(url, headers={"User-Agent": "pyvolis-fetch-fixtures"})
+    request = urllib.request.Request(url, headers={"User-Agent": "volis-fetch-fixtures"})
     return urllib.request.urlopen(request, timeout=60)
 
 

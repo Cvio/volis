@@ -9,9 +9,9 @@ import numpy as np
 import pytest
 from test_models import QWEN, model, write_gguf
 
-from pyvolis import gguf, models, paths
-from pyvolis.asr import llamacpp_audio
-from pyvolis.models import Role
+from volis import gguf, models, paths
+from volis.asr import llamacpp_audio
+from volis.models import Role
 
 ROOT = paths.app_root()
 ADAPTER = {"general.architecture": "qwen3", "general.type": "adapter", "general.name": "my tune",
@@ -37,7 +37,7 @@ def test_a_speech_gguf_without_its_encoder_says_what_is_missing(tmp_path):
 
 
 def test_the_folder_can_say_what_the_model_is_asked(tmp_path):
-    model(tmp_path, "custom", None, ["m.gguf", "mmproj-m.gguf"], pyvolis__toml='prompt = "Write down this {language} speech."\n')
+    model(tmp_path, "custom", None, ["m.gguf", "mmproj-m.gguf"], volis_python__toml='prompt = "Write down this {language} speech."\n')
     [engine] = models.discover(tmp_path, Role.ASR)
     assert engine.settings["prompt"] == "Write down this {language} speech."
 
@@ -79,9 +79,9 @@ def test_an_adapter_whose_base_is_missing_says_where_it_looked(tmp_path):
     assert "openai/whisper-small" in lora.unusable and str((tmp_path / "whisper-small").absolute()) in lora.unusable
 
 
-def test_the_base_can_be_named_in_the_folders_pyvolis_toml(tmp_path):
+def test_the_base_can_be_named_in_the_folders_volis_toml(tmp_path):
     model(tmp_path, "whisper-small-hf", None, ["model.safetensors"], config__json='{"model_type": "whisper"}')
-    model(tmp_path, "my-lora", None, ["adapter_model.safetensors"], pyvolis__toml='base = "whisper-small-hf"\nlanguages = ["ar"]\n',
+    model(tmp_path, "my-lora", None, ["adapter_model.safetensors"], volis_python__toml='base = "whisper-small-hf"\nlanguages = ["ar"]\n',
           adapter_config__json='{"base_model_name_or_path": "openai/whisper-small"}')
     lora = next(e for e in models.discover(tmp_path, Role.ASR) if e.dir_name == "my-lora")
     assert lora.enabled() and Path(lora.settings["base_dir"]).name == "whisper-small-hf" and lora.languages == ["ar"]
@@ -101,7 +101,7 @@ def test_a_gguf_adapter_is_a_translator_of_its_own_on_the_base_it_names(tmp_path
     write_gguf(tmp_path / "qwen3.gguf", QWEN)
     (tmp_path / "tuned").mkdir()
     write_gguf(tmp_path / "tuned" / "adapter.gguf", ADAPTER)
-    (tmp_path / "tuned" / "pyvolis.toml").write_text('base = "qwen3.gguf"\nscale = 0.5\n', encoding="utf-8")
+    (tmp_path / "tuned" / "volis-python.toml").write_text('base = "qwen3.gguf"\nscale = 0.5\n', encoding="utf-8")
     base, tuned = models.discover_translators(tmp_path)
     assert tuned.enabled() and tuned.id == "tuned/adapter.gguf"
     assert (tuned.path, tuned.lora, tuned.lora_scale) == (tmp_path / "qwen3.gguf", tmp_path / "tuned" / "adapter.gguf", 0.5)
@@ -120,7 +120,7 @@ def test_a_gguf_adapter_that_cannot_be_attached_says_why(tmp_path):
         (tmp_path / name).mkdir()
         write_gguf(tmp_path / name / "adapter.gguf", ADAPTER)
         if toml:
-            (tmp_path / name / "pyvolis.toml").write_text(toml, encoding="utf-8")
+            (tmp_path / name / "volis-python.toml").write_text(toml, encoding="utf-8")
     found = {t.id: t for t in models.discover_translators(tmp_path)}
     for name, _toml, expected in (("unnamed", 0, "name the translator it is for"), ("missing", 0, "is not installed"),
                                   ("wrong", 0, "is a gemma3 model")):
@@ -180,7 +180,7 @@ def installed(folder: Path, name: str):
 
 
 def clip(name: str):
-    from pyvolis.filesource import read_16k_mono
+    from volis.filesource import read_16k_mono
 
     folder = ROOT / "tests" / "fixtures" / "fleurs" / name
     if not (folder / "refs.jsonl").is_file():
@@ -190,7 +190,7 @@ def clip(name: str):
 
 
 def test_a_gguf_speech_model_transcribes_in_the_language_it_is_told():
-    from pyvolis import asr, scoring
+    from volis import asr, scoring
 
     engine = installed(paths.asr_dir(ROOT), "Qwen3-ASR-0.6B-GGUF")
     audio, reference = clip("es_419")
@@ -206,7 +206,7 @@ def test_a_gguf_speech_model_transcribes_in_the_language_it_is_told():
 
 
 def test_a_lora_adapter_loads_on_its_base_and_changes_what_it_hears():
-    from pyvolis import asr
+    from volis import asr
 
     adapter = installed(paths.asr_dir(ROOT), "whisper-algerian-darja-small")
     base = installed(paths.asr_dir(ROOT), "whisper-small")
@@ -223,8 +223,8 @@ def test_a_lora_adapter_loads_on_its_base_and_changes_what_it_hears():
 
 
 def test_a_transformers_translator_translates_and_is_guarded():
-    from pyvolis import translate as tr
-    from pyvolis.translate import prompts
+    from volis import translate as tr
+    from volis.translate import prompts
 
     entry = next((t for t in models.discover_translators(paths.mt_dir(ROOT)) if getattr(t, "id", "") == "Qwen3-0.6B"), None)
     if entry is None or not entry.enabled():

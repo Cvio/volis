@@ -1,17 +1,17 @@
-"""The P9 check against Rust volis: pyvolis and the real volis.exe pair, talk
+"""The P9 check against volis-rust: volis and the real volis-rust.exe pair, talk
 in both directions, take the floor, and each notices when the other is killed.
 
     .venv\\Scripts\\python.exe scripts\\pair_check.py
 
-Rust volis pairs only in its window (its --listen never does), so this opens
+volis-rust pairs only in its window (its --listen never does), so this opens
 the Rust window from the parity folder and asks for two clicks in it: Start,
-and later Connect. Everything else is driven from here. The pyvolis end is
-the real peer thread (pyvolis/peer.py), without models: what crosses the wire
+and later Connect. Everything else is driven from here. The volis end is
+the real peer thread (volis/peer.py), without models: what crosses the wire
 is text, and that is what is checked.
 
-Needs machine.yaml (the path of volis.exe), the VB-Audio cable (Rust listens
+Needs machine.yaml (the path of volis-rust.exe), the VB-Audio cable (Rust listens
 to it; a Spanish clip is played into it) and tests\\fetch-fixtures.ps1.
-pyvolis with pyvolis is checked by tests\\test_peer.py and tests\\test_paired.py.
+volis with volis is checked by tests\\test_peer.py and tests\\test_paired.py.
 """
 
 from __future__ import annotations
@@ -31,19 +31,19 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "parity"))
 
-from pyvolis import paths  # noqa: E402
+from volis import paths  # noqa: E402
 
 paths.apply_offline_environment(paths.app_root())
 for stream in (sys.stdout, sys.stderr):
     stream.reconfigure(encoding="utf-8", errors="replace")
 
 import tomlkit  # noqa: E402
-from asr import ANSI, CABLE_IN, CABLE_OUT, WORK, mirror, play, volis_exe  # noqa: E402
+from asr import ANSI, CABLE_IN, CABLE_OUT, WORK, mirror, play, volis_rust_exe  # noqa: E402
 
-from pyvolis import audio, peer  # noqa: E402
-from pyvolis import events as ev  # noqa: E402
-from pyvolis.config import Config  # noqa: E402
-from pyvolis.filesource import read_16k_mono  # noqa: E402
+from volis import audio, peer  # noqa: E402
+from volis import events as ev  # noqa: E402
+from volis.config import Config  # noqa: E402
+from volis.filesource import read_16k_mono  # noqa: E402
 
 RUST_PORT, OUR_PORT = 47811, 47812
 RESULTS: list[tuple[str, bool, str]] = []
@@ -55,10 +55,10 @@ def result(what: str, ok: bool, detail: str = "") -> None:
 
 
 class RustWindow:
-    """volis.exe's window, from the parity folder, set up to pair."""
+    """volis-rust.exe's window, from the parity folder, set up to pair."""
 
     def __init__(self) -> None:
-        exe = volis_exe()
+        exe = volis_rust_exe()
         if WORK.exists():
             shutil.rmtree(WORK)
         WORK.mkdir(parents=True)
@@ -107,11 +107,11 @@ class RustWindow:
 
 
 class Ours:
-    """The pyvolis end: the peer thread, with its events and what it asked of the pipeline."""
+    """The volis end: the peer thread, with its events and what it asked of the pipeline."""
 
     def __init__(self) -> None:
         config = Config()
-        config.peer.enabled, config.peer.display_name = True, "pyvolis"
+        config.peer.enabled, config.peer.display_name = True, "volis"
         config.peer.listen_addr, config.peer.discovery = f"127.0.0.1:{OUR_PORT}", False
         config.languages.source, config.languages.target = "en", "es"
         self.events: queue.Queue = queue.Queue()
@@ -156,23 +156,23 @@ def main() -> int:
 
     rust, ours = RustWindow(), Ours()
     try:
-        print("\n>>> In the Rust volis window that just opened: press Start. (Waiting up to 5 minutes.)", flush=True)
+        print("\n>>> In the volis-rust window that just opened: press Start. (Waiting up to 5 minutes.)", flush=True)
         deadline = time.monotonic() + 300
         while not port_open(RUST_PORT):
             if time.monotonic() > deadline or rust.proc.poll() is not None:
-                raise SystemExit("STOP: Rust volis never started listening on its pairing port")
+                raise SystemExit("STOP: volis-rust never started listening on its pairing port")
             time.sleep(0.5)
         time.sleep(1.0)  # that probe was a connection too; let Rust drop it
 
-        print("\npyvolis dials Rust volis")
+        print("\nvolis dials volis-rust")
         ours.peer.connect(peer.Address("127.0.0.1", RUST_PORT))
         hello = ours.wait_for(is_a(ev.PeerMsg, kind="connected"))
-        result("pyvolis is paired, and knows who with", hello is not None and hello.name == "rust-volis",
+        result("volis is paired, and knows who with", hello is not None and hello.name == "rust-volis",
                f"{hello.name}, speaks {hello.speaks}, sends {hello.sends}" if hello else "no Hello from Rust")
-        line = rust.wait_for_line(r'paired with "pyvolis"', 10)
+        line = rust.wait_for_line(r'paired with "volis"', 10)
         result("Rust is paired, and knows who with", line is not None, (line or "").split("paired mode: ")[-1])
 
-        print("\npyvolis takes a turn and speaks to Rust")
+        print("\nvolis takes a turn and speaks to Rust")
         ours.peer.want_turn()
         granted = ours.wait_for(is_a(ev.FloorChanged, holder="me"), 5)
         result("Rust grants the floor; only then does the microphone open",
@@ -181,47 +181,47 @@ def main() -> int:
         ours.peer.deliver(peer.Outgoing("1.1", "es", "¿Dónde está la estación?", "en", "Where is the station?"))
         sent = ours.wait_for(is_a(ev.Sent), 5)
         result("the sentence is sent", sent is not None and sent.to == "rust-volis")
-        rust.wait_for_line(r"paired mode: from pyvolis", 10, mark)
+        rust.wait_for_line(r"paired mode: from volis", 10, mark)
         time.sleep(0.3)
         got = "\n".join(rust.lines[mark:])
         result("Rust receives it: the translation and the original",
                "[es] ¿Dónde está la estación?" in got and "[en] Where is the station?" in got)
         ours.peer.release_floor()
-        result("pyvolis hands the floor back", ours.wait_for(is_a(ev.FloorChanged, holder="free"), 5) is not None)
+        result("volis hands the floor back", ours.wait_for(is_a(ev.FloorChanged, holder="free"), 5) is not None)
 
-        print("\nRust volis hears Spanish (through the cable) and speaks to pyvolis")
+        print("\nvolis-rust hears Spanish (through the cable) and speaks to volis")
         listening = rust.wait_for_line(r"capture started|listening continuously", 120)
         if listening is None:
             print("  (Rust's models are still loading...)")
         play(read_16k_mono(wavs[0]), devices[CABLE_IN].index, rate)
         remote = ours.wait_for(is_a(ev.Remote), 120)
-        result("pyvolis receives Rust's translation, with the original",
+        result("volis receives Rust's translation, with the original",
                remote is not None and remote.lang == "en" and remote.source_lang == "es" and bool(remote.text),
                f"[{remote.source_lang}] {remote.source_text[:60]}... -> [{remote.lang}] {remote.text[:60]}..."
                if remote else "nothing arrived")
 
-        print("\nthe pyvolis end is killed (its sockets close with no goodbye)")
+        print("\nthe volis end is killed (its sockets close with no goodbye)")
         mark = len(rust.lines)
         for link in list(ours.peer._links):
             link.shut()
         line = rust.wait_for_line(r"paired mode: disconnected", 15, mark)
-        result("Rust says so, by name", line is not None and "pyvolis" in line, (line or "").split("WARN ")[-1])
+        result("Rust says so, by name", line is not None and "volis" in line, (line or "").split("WARN ")[-1])
         gone = ours.wait_for(is_a(ev.PeerMsg, kind="disconnected"), 15)
-        result("pyvolis is listening again", gone is not None)
+        result("volis is listening again", gone is not None)
 
-        print("\n>>> In the Rust volis window: press Connect (the address is filled in). (Waiting up to 5 minutes.)",
+        print("\n>>> In the volis-rust window: press Connect (the address is filled in). (Waiting up to 5 minutes.)",
               flush=True)
         hello = ours.wait_for(is_a(ev.PeerMsg, kind="connected"), 300)
-        result("Rust dials pyvolis and they pair", hello is not None and hello.name == "rust-volis")
+        result("Rust dials volis and they pair", hello is not None and hello.name == "rust-volis")
 
-        print("\npyvolis holds the floor and Rust volis is killed")
+        print("\nvolis holds the floor and volis-rust is killed")
         ours.peer.want_turn()
         ours.wait_for(is_a(ev.FloorChanged, holder="me"), 5)
         while not ours.asked.empty():
             ours.asked.get()
         rust.kill()
         gone = ours.wait_for(is_a(ev.PeerMsg, kind="disconnected"), 15)
-        result("pyvolis says so, by name", gone is not None and "rust-volis" in gone.reason,
+        result("volis says so, by name", gone is not None and "rust-volis" in gone.reason,
                gone.reason if gone else "")
         freed = ours.wait_for(is_a(ev.FloorChanged, holder="free"), 5)
         closed = None

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from pyvolis import paths
+from volis import paths
 
 
 def test_a_verbatim_drive_path_is_made_readable():
@@ -35,11 +35,11 @@ def test_every_location_hangs_off_the_root_it_is_given():
 
 def test_from_source_the_root_is_the_repository():
     root = paths.app_root()
-    assert (root / "pyvolis" / "__main__.py").is_file()
+    assert (root / "volis" / "__main__.py").is_file()
 
 
 def test_every_cache_a_library_might_use_is_inside_the_app():
-    root = Path(r"X:\somewhere\pyvolis")
+    root = Path(r"X:\somewhere\volis")
     env = paths.offline_environment(root)
     assert env["HF_HUB_OFFLINE"] == env["TRANSFORMERS_OFFLINE"] == env["HF_DATASETS_OFFLINE"] == "1"
     for key in ("HF_HOME", "TORCH_HOME", "CUDA_CACHE_PATH", "XDG_CACHE_HOME", "TRITON_CACHE_DIR", "NUMBA_CACHE_DIR"):

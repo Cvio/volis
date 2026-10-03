@@ -1,11 +1,11 @@
-"""Translation parity: for Qwen3 with the default prompt, pyvolis translates
-each sentence as Rust volis does.
+"""Translation parity: for Qwen3 with the default prompt, volis translates
+each sentence as volis-rust does.
 
     .venv\\Scripts\\python.exe parity\\translate.py [es_419 en_us]
 
-Rust volis translates only what it hears, so its parity copy runs --listen
+volis-rust translates only what it hears, so its parity copy runs --listen
 on the VB-Audio cable while fixture clips play into it (as parity\\asr.py),
-and logs every transcript and translation. pyvolis then translates exactly
+and logs every transcript and translation. volis then translates exactly
 the text Rust translated, with the same GGUF, and the outputs are compared,
 refusals included. Exact audio isn't needed here, so the cable may be at any
 rate.
@@ -28,10 +28,10 @@ sys.path.insert(0, str(REPO / "parity"))
 
 from asr import CABLE_IN, LANGUAGE, Rust, play  # noqa: E402
 
-from pyvolis import audio, paths  # noqa: E402
-from pyvolis import translate as tr  # noqa: E402
-from pyvolis.filesource import read_16k_mono  # noqa: E402
-from pyvolis.translate import prompts  # noqa: E402
+from volis import audio, paths  # noqa: E402
+from volis import translate as tr  # noqa: E402
+from volis.filesource import read_16k_mono  # noqa: E402
+from volis.translate import prompts  # noqa: E402
 
 for stream in (sys.stdout, sys.stderr):
     stream.reconfigure(encoding="utf-8", errors="replace")
@@ -54,7 +54,7 @@ def main(argv: list[str]) -> int:
         rust = Rust(source, target, compare=False)
         try:
             if not rust.listening.wait(180):
-                raise SystemExit("STOP: Rust volis never started listening:\n" + "\n".join(rust.lines[-30:]))
+                raise SystemExit("STOP: volis-rust never started listening:\n" + "\n".join(rust.lines[-30:]))
             for i, ref in enumerate(refs):
                 play(read_16k_mono(folder / ref["file"]), devices[CABLE_IN].index, rate)
                 # Until every utterance heard so far is translated or refused.
@@ -86,14 +86,14 @@ def main(argv: list[str]) -> int:
     translator.close()
 
     same = sum(1 for r in rows if r[3] == r[4])
-    print(f"\n{same} of {len(rows)} translations identical (Rust on the CPU; pyvolis on the "
+    print(f"\n{same} of {len(rows)} translations identical (Rust on the CPU; volis on the "
           f"{rows[0][6].upper() if rows else '?'})")
     for name, index, text, theirs, ours, seconds, _ in rows:
         mark = "same" if theirs == ours else "DIFF"
         shown = "(refused)" if theirs is None else theirs
         line = f"  {mark} {name} {index:>2}  {text}\n        Rust:    {shown}"
         if theirs != ours:
-            line += f"\n        pyvolis: {'(refused)' if ours is None else ours}"
+            line += f"\n        volis: {'(refused)' if ours is None else ours}"
         print(line + f"   [{seconds * 1000:.0f} ms]")
     return 0
 

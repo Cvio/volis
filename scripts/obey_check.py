@@ -24,7 +24,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
-from pyvolis import paths  # noqa: E402
+from volis import paths  # noqa: E402
 
 paths.apply_offline_environment(paths.app_root())
 for stream in (sys.stdout, sys.stderr):
@@ -34,8 +34,8 @@ import logging  # noqa: E402
 
 logging.disable(logging.WARNING)
 
-from pyvolis import translate as tr  # noqa: E402
-from pyvolis.translate import prompts  # noqa: E402
+from volis import translate as tr  # noqa: E402
+from volis.translate import prompts  # noqa: E402
 
 # (source, target, text, a translation matches this, an answer matches this)
 CASES = [

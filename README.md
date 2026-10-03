@@ -1,13 +1,13 @@
-# pyvolis
+# volis
 
 Offline speech-to-speech translation, in Python: the same app as
-[Rust volis](../volis/README.md), plus models you can drop in straight from Hugging Face
+[volis-rust](../volis-rust/README.md), plus models you can drop in straight from Hugging Face
 without converting them. It never uses the internet. Everything it needs lives in this folder.
 
-Status: milestone P12 of `pyvolis-build.md`, the last. pyvolis has its window: live translation from the
+Status: milestone P12 of `volis-build.md`, the last. volis has its window: live translation from the
 microphone, taking turns or listening continuously, with voice output; file mode with a
 timeline and export; text shown while you speak, and translation that knows what was said
-before; two PCs can pair, with pyvolis or Rust volis at either end; and two people can share
+before; two PCs can pair, with volis or volis-rust at either end; and two people can share
 one machine, a key each.
 
 ## Setup (development)
@@ -27,21 +27,21 @@ else. If security software is removing DLLs, give it an exclusion for this folde
 Then:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pyvolis --report
+.\.venv\Scripts\python.exe -m volis --report
 ```
 
 ## The copy-to-run folder
 
-To run pyvolis on another Windows PC, which needs no Python, no setup and no internet:
+To run volis on another Windows PC, which needs no Python, no setup and no internet:
 
 ```powershell
 .\build.ps1
 ```
 
-This makes `dist\pyvolis\`: `pyvolis.exe`, the libraries it needs in `_internal\`, and
-`models\`, `config\`, `prompts\` and this machine's `volis.toml` and `pyvolis.toml` beside
+This makes `dist\volis\`: `volis.exe`, the libraries it needs in `_internal\`, and
+`models\`, `config\`, `prompts\` and this machine's `volis.toml` and `volis-python.toml` beside
 it. Copy or zip that whole folder; on the other PC, unzip it anywhere and double-click
-`pyvolis.exe`. The window opens, with a console window behind it, as Rust volis does: the same
+`volis.exe`. The window opens, with a console window behind it, as volis-rust does: the same
 exe takes `--report`, `--doctor`, `--file` and the rest from a terminal.
 
 - **Size:** about 5.6 GB for the program (PyTorch with CUDA is most of it) plus the models
@@ -50,7 +50,7 @@ exe takes `--report`, `--doctor`, `--file` and the rest from a terminal.
   repository, models are hard-linked into `dist\`, so they take no more disk until copied.
 - **The other PC needs an NVIDIA GPU** and its driver, when the GPU build of the translator is
   installed here (`wheels\cuda\`). The CUDA libraries themselves are in the folder.
-- **First thing on a new PC:** `pyvolis.exe --doctor` (in a terminal, in the folder). It checks
+- **First thing on a new PC:** `volis.exe --doctor` (in a terminal, in the folder). It checks
   every library is present, the right version, and loaded from the folder itself.
 - **Security software** that removes DLLs breaks the folder in the same way as the
   environment; `--doctor` names what is missing. Ask for an exclusion for the folder.
@@ -59,14 +59,14 @@ exe takes `--report`, `--doctor`, `--file` and the rest from a terminal.
 
 ## Models
 
-`models\` beside the app, the same layout as Rust volis:
+`models\` beside the app, the same layout as volis-rust:
 
 | Folder | What goes there |
 |---|---|
 | `models\vad\silero_vad.onnx` | the voice activity detector |
-| `models\asr\<name>\` | a recognizer: a Rust volis folder with `engine.toml`; a Hugging Face download (Whisper, wav2vec2/MMS, Cohere Transcribe and other speech models `transformers` supports); a GGUF speech model with its audio encoder (`mmproj-*.gguf`: Qwen3-ASR, Gemma 4, Voxtral); or a LoRA adapter folder (`adapter_config.json`) beside its base |
-| `models\tts\<name>\` | a Piper voice with `engine.toml`, as in Rust volis |
-| `models\mt\` | translators: one `.gguf` at the top (the one Rust volis uses too), and any others **one folder per model** (Rust volis refuses two `.gguf` files at the top): a `.gguf`, a safetensors language model, or a LoRA adapter `.gguf` with a `pyvolis.toml` naming its base |
+| `models\asr\<name>\` | a recognizer: a volis-rust folder with `engine.toml`; a Hugging Face download (Whisper, wav2vec2/MMS, Cohere Transcribe and other speech models `transformers` supports); a GGUF speech model with its audio encoder (`mmproj-*.gguf`: Qwen3-ASR, Gemma 4, Voxtral); or a LoRA adapter folder (`adapter_config.json`) beside its base |
+| `models\tts\<name>\` | a Piper voice with `engine.toml`, as in volis-rust |
+| `models\mt\` | translators: one `.gguf` at the top (the one volis-rust uses too), and any others **one folder per model** (volis-rust refuses two `.gguf` files at the top): a `.gguf`, a safetensors language model, or a LoRA adapter `.gguf` with a `volis-python.toml` naming its base |
 
 To add a model from Hugging Face:
 
@@ -86,7 +86,7 @@ kind of folder needs.
 It downloads into a folder named after the model and never needs `engine.toml`. For a gated
 model, accept its terms on the model's page first, then run `.\fetch-model.ps1 -Login` once.
 
-A downloaded folder may hold an optional `pyvolis.toml` to override what was detected:
+A downloaded folder may hold an optional `volis-python.toml` to override what was detected:
 
 ```toml
 name = "Whisper large-v3-turbo Spanish (fine-tune)"
@@ -105,9 +105,9 @@ listed as "languages unknown" and offered for every language.
 - *For a recognizer:* put the adapter folder (`adapter_config.json`, `adapter_model.safetensors`)
   in `models\asr\` beside its base model's folder. It appears as its own recognizer. The base
   is found by name (`openai/whisper-small` means the folder `whisper-small`); if yours is
-  named differently, say `base = "<folder>"` in the adapter folder's `pyvolis.toml`.
+  named differently, say `base = "<folder>"` in the adapter folder's `volis-python.toml`.
 - *For a GGUF translator:* put the adapter `.gguf` (from llama.cpp's `convert_lora_to_gguf.py`)
-  in its own folder in `models\mt\` with a `pyvolis.toml`:
+  in its own folder in `models\mt\` with a `volis-python.toml`:
 
   ```toml
   base = "qwen3-1.7b-q4_k_m.gguf"   # the translator it is for, as --report lists it
@@ -117,13 +117,13 @@ listed as "languages unknown" and offered for every language.
 **A GGUF speech model** needs both its `.gguf` and its `mmproj-*.gguf` in one folder. A model
 that only transcribes (Qwen3-ASR) is given the audio alone; a general model that also hears
 (Gemma 4, Voxtral) is asked to transcribe. To change the wording, or to say which kind a
-model is, put `prompt = "..."` in the folder's `pyvolis.toml` (`""` = the audio alone,
+model is, put `prompt = "..."` in the folder's `volis-python.toml` (`""` = the audio alone,
 `{language}` = the language's name).
 
 ## The window
 
 ```powershell
-.\.venv\Scripts\python.exe -m pyvolis
+.\.venv\Scripts\python.exe -m volis
 ```
 
 Pick what is spoken and what to translate into; the recognizer list is ordered for that
@@ -148,18 +148,18 @@ while it runs:
   while one has the focus; click anywhere else to give them back. Not while paired.
 
 Each sentence and its translation is shown, and the translation spoken. Half-duplex mutes the
-microphone while pyvolis speaks; turn it off only with headphones. `--listen` on the command
+microphone while volis speaks; turn it off only with headphones. `--listen` on the command
 line always listens continuously.
 
 **Pair with another PC:** two PCs, one conversation. Each translates what its own person says
 and sends only the text; the other PC shows it and speaks it. Tick the box on both, press
 Start on both, then on either one type the address the other shows under "This PC" (or pick it
-from "Found") and press Connect. It works with Rust volis at the other end. Taking turns, a
+from "Found") and press Connect. It works with volis-rust at the other end. Taking turns, a
 press of the turn key asks the other PC for the floor and the microphone opens only when it
 answers; the indicator says when the other person is talking. Listening continuously while
 paired needs headsets, and the window says so in red for as long as it is true. If the link
 drops, both ends say why and the floor is released. Only IP addresses are accepted: a name
-would have to be looked up, and pyvolis never does that. Revision is off while paired.
+would have to be looked up, and volis never does that. Revision is off while paired.
 
 **File** mode: open a recording (File > Open, or drop it on the window), choose Real time or
 Fast, and Start. Each row is a sentence; clicking a row plays that stretch of the recording.
@@ -200,10 +200,10 @@ from the next sentence and isn't saved.
 ## The performance panel
 
 **View > Performance** (Ctrl+Shift+P) opens a panel beside the window; drag its title bar to
-pull it out as a window of its own. It is closed each time pyvolis starts.
+pull it out as a window of its own. It is closed each time volis starts.
 
 - **Now:** once a second, the GPU (memory, load, temperature, clock, power), system memory and
-  the CPU, each split into pyvolis, other programs and free, so you can see whether another
+  the CPU, each split into volis, other programs and free, so you can see whether another
   program (a video call, say) has room. A graph of the last five minutes with a tick for each
   sentence; the models loaded and what each takes; and for the last sentences, the time to
   recognise, translate (with how many earlier sentences went with it as context) and reach
@@ -216,12 +216,12 @@ pull it out as a window of its own. It is closed each time pyvolis starts.
   been loaded, and its file sizes before that.
 
 GPU figures come from `nvidia-smi`, which comes with NVIDIA's driver. Windows doesn't report
-one program's GPU memory, so pyvolis's share is what its models take, and "others" is the rest.
+one program's GPU memory, so volis's share is what its models take, and "others" is the rest.
 
 ## Translating a file
 
 ```powershell
-.\.venv\Scripts\python.exe -m pyvolis --file talk.m4a --from es-MX --to en --fast
+.\.venv\Scripts\python.exe -m volis --file talk.m4a --from es-MX --to en --fast
 ```
 
 WAV, MP3, M4A, FLAC, OGG and Opus open as they are. The file goes through the same pipeline as
@@ -244,8 +244,8 @@ transcript's CER and the translation's chrF, cleaned as model-bench cleans them.
 
 ## Settings
 
-`volis.toml` is shared with Rust volis, same keys and meanings. Settings only pyvolis has go in
-`pyvolis.toml` beside it (Rust volis refuses sections it doesn't know). All optional:
+`volis.toml` is shared with volis-rust, same keys and meanings. Settings only volis has go in
+`volis-python.toml` beside it (volis-rust refuses sections it doesn't know). All optional:
 
 ```toml
 [vad]
@@ -265,7 +265,7 @@ streaming = false   # show text while speaking (continuous and file mode)
 interval_s = 1.0    # how often the growing utterance is transcribed
 
 [context]
-mode = "carry"      # "off" = each sentence alone, as Rust volis does; "revision" = carry,
+mode = "carry"      # "off" = each sentence alone, as volis-rust does; "revision" = carry,
                     # and earlier translations are replaced when later sentences change them
 sentences = 4       # how many earlier sentences, at most
 token_budget = 400  # and never more than this many tokens of them
@@ -285,18 +285,18 @@ hold_ms = 1500
 
 [translate]
 model = ""          # as --report lists it; "" = the .gguf at the top of models\mt\
-prompt = "default"  # a file in prompts\; "rust" = exactly what Rust volis sends
+prompt = "default"  # a file in prompts\; "rust" = exactly what volis-rust sends
 device = "auto"     # "auto" = the GPU if the GPU build is installed, "cpu", or "cuda"
 ```
 
-Pairing is set in `volis.toml`, shared with Rust volis: `[peer] enabled`, `listen_addr`
+Pairing is set in `volis.toml`, shared with volis-rust: `[peer] enabled`, `listen_addr`
 (default `0.0.0.0:47800`; two programs on one PC need different ports), `peer_addr` (the last
 address typed), `display_name` (default: the computer's name) and `discovery`.
 
 ```powershell
-.\.venv\Scripts\python.exe -m pyvolis --devices        # names for [audio] in volis.toml
-.\.venv\Scripts\python.exe -m pyvolis --listen --seconds 30 --compare
-.\.venv\Scripts\python.exe -m pyvolis --translate "¿Dónde está la estación?" --from es --to en
+.\.venv\Scripts\python.exe -m volis --devices        # names for [audio] in volis.toml
+.\.venv\Scripts\python.exe -m volis --listen --seconds 30 --compare
+.\.venv\Scripts\python.exe -m volis --translate "¿Dónde está la estación?" --from es --to en
 .\.venv\Scripts\python.exe scripts\transcribe.py es_419 ar_eg   # every model on the fixtures
 .\tests\fetch-fixtures.ps1                               # test clips (development)
 .\.venv\Scripts\python.exe scripts\vad_cuts.py --wav   # cut points with and without pre-roll
@@ -307,7 +307,7 @@ address typed), `display_name` (default: the computer's name) and `discovery`.
 
 llama-cpp-python is compiled here, once, by `.\build-llama.ps1` (needs Visual Studio Build
 Tools), and the wheel is kept in `wheels\`, so `setup.ps1` needs no compiler. It is a CPU
-build, as Rust volis's translator is.
+build, as volis-rust's translator is.
 
 For translation on the GPU (several times faster), build the GPU wheel on the machine:
 install NVIDIA's CUDA Toolkit 12.8 or 12.9 (not 13; Custom install, driver components
@@ -318,9 +318,9 @@ unticked), then `.\build-llama.ps1 -Cuda` and `.\setup.ps1`. The wheel goes in `
 `scripts\obey_check.py` measures whether a translator and prompt translate questions and
 requests or answer them.
 
-## Checking against Rust volis
+## Checking against volis-rust
 
-Copy `machine.example.yaml` to `machine.yaml` and point it at `volis.exe`, then:
+Copy `machine.example.yaml` to `machine.yaml` and point it at `volis-rust.exe`, then:
 
 ```powershell
 .\.venv\Scripts\python.exe parity\report.py

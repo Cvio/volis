@@ -1,6 +1,12 @@
-# Handoff: where pyvolis stands
+# Handoff: where volis stands
 
-Last updated 2026-10-01. Read `CLAUDE.md` first, then `pyvolis-build.md`.
+> Renamed on 2026-10-03: this app was **pyvolis** and is now **volis** (package `volis`,
+> `volis.exe`); the Rust app was volis and is now **volis-rust**. The Python-only settings file
+> `pyvolis.toml` is now `volis-python.toml`, in the app folder and in model folders. Everything
+> below was rewritten with the new names, including the history: read "volis" in an entry
+> dated before the rename as the app then called pyvolis.
+
+Last updated 2026-10-01. Read `CLAUDE.md` first, then `volis-build.md`.
 
 ## Status
 
@@ -8,7 +14,7 @@ Last updated 2026-10-01. Read `CLAUDE.md` first, then `pyvolis-build.md`.
   `engine.toml` folders, Hugging Face folders and GGUF translators, `--report`, `doctor.ps1`,
   `fetch-model.ps1`, `parity\report.py`, and the offline test.
 - **P1 done:** `--devices` (identical to Rust's output), microphone capture (`audio.py`), the
-  file source (`filesource.py`, PyAV), Silero VAD with the pre-roll (`vad.py`), `pyvolis.toml`
+  file source (`filesource.py`, PyAV), Silero VAD with the pre-roll (`vad.py`), `volis-python.toml`
   with `[vad].pre_roll_ms`, `tests\fetch-fixtures.ps1`, and `scripts\vad_cuts.py` (cut points
   with and without the pre-roll, from a file, the fixtures or the microphone).
 - **P2 done, one check partly open (below):** recognizers through sherpa-onnx (`asr/sherpa.py`)
@@ -16,11 +22,11 @@ Last updated 2026-10-01. Read `CLAUDE.md` first, then `pyvolis-build.md`.
   hallucination guards (`asr/guards.py`, `config/hallucinations.toml`), `ring.py`, `compare.py`,
   the pipeline core (`pipeline.py`) and `--listen` with `--seconds`, `--wav`, `--compare`.
   Scripts: `scripts/transcribe.py` (every model on the fixtures: CER, share of outputs without
-  punctuation, real-time factor), `parity/asr.py` (Rust volis vs pyvolis on the same audio).
+  punctuation, real-time factor), `parity/asr.py` (volis-rust vs volis on the same audio).
 - **P3 done:** GGUF translators through llama-cpp-python (`translate/llamacpp.py`), prompts from
   each model's own chat template, Rust's cleaning and three guards (`translate/guards.py`),
-  prompt files (`prompts/`), several translators (`[translate]` in `pyvolis.toml`), and
-  `--translate` / `--print-prompt`. `parity/translate.py` compares with Rust volis.
+  prompt files (`prompts/`), several translators (`[translate]` in `volis-python.toml`), and
+  `--translate` / `--print-prompt`. `parity/translate.py` compares with volis-rust.
 - **P4 done:** `--file` (`filerun.py`): an audio file through the live pipeline, with sentences
   (`sentences.py`), a translation thread, the events (`events.py`), the export folder
   (`export.py`) and quick scores (`scoring.py`, with model-bench's `textclean.py` copied
@@ -29,7 +35,7 @@ Last updated 2026-10-01. Read `CLAUDE.md` first, then `pyvolis-build.md`.
   conversation in the window: all three looked right). The window (`gui/window.py`,
   drawing `gui/session.py`), voice output (`tts.py`, `playback.py`, the half-duplex gate), and
   `--report --load`. Checked without a person: `scripts/window_check.py` (the window through a
-  file run, offscreen, with a responsiveness measurement), `scripts/gate_check.py` (does pyvolis
+  file run, offscreen, with a responsiveness measurement), `scripts/gate_check.py` (does volis
   hear itself, through the VB-Audio cable).
 - **P6 done:** continuous and turn-based modes, switchable while running; the turn key in toggle
   and hold styles; the microphone device closed between turns; a turn as one utterance, trimmed
@@ -49,8 +55,8 @@ Last updated 2026-10-01. Read `CLAUDE.md` first, then `pyvolis-build.md`.
 - **P9 done:** paired mode. `wire.py`, `floor.py`, `discovery.py` and `peer.py` are ports of
   the Rust modules, protocol version 2 unchanged; the pipeline routes a paired run's
   translations to the other PC and speaks what arrives; the window has the peer panel.
-  Checked with pyvolis at both ends (`tests/test_peer.py`, `tests/test_paired.py`) and against
-  the real `volis.exe` (`scripts/pair_check.py`, 12 of 12). See "P9 findings".
+  Checked with volis at both ends (`tests/test_peer.py`, `tests/test_paired.py`) and against
+  the real `volis-rust.exe` (`scripts/pair_check.py`, 12 of 12). See "P9 findings".
 - **P10 done:** shared-machine mode, a recognizer per side, varieties per side. `shared.py`
   ports Rust's `shared.rs`; the pipeline loads each side's recognizer once and keeps it, takes
   a turn's recognizer, language, target and voice from the key that started it, and drops
@@ -75,14 +81,14 @@ Last updated 2026-10-01. Read `CLAUDE.md` first, then `pyvolis-build.md`.
 - **Decisions for P12, by the user:** NVIDIA machines only for now (so the GPU build of
   llama.cpp ships; a machine without an NVIDIA card is not a target); several GB for the
   folder is expected; choosing GPU or CPU is a nice-to-have (`[translate] device` exists).
-  Rust volis's prompt stays as it is. Linux is not needed for now.
+  volis-rust's prompt stays as it is. Linux is not needed for now.
 - **Holding speech for revision** (`[context] hold_speech`, off by default; difference 67),
   **vowel marks for Arabic voices** (`[tts] diacritize`, off by default; differences 68, 69) and
   `fetch-model.ps1 -Role tts` were added after P11, at the user's request. Whether the marks
   make the voices sound better has not been judged by a listener.
-- **P12 done (on this machine):** `build.ps1` makes `dist\pyvolis\` with PyInstaller in
+- **P12 done (on this machine):** `build.ps1` makes `dist\volis\` with PyInstaller in
   one-folder mode, which collected everything (no fallback to a shipped environment was
-  needed). `pyvolis.exe --doctor` checks the folder; `scripts\p12_check.py` runs the built
+  needed). `volis.exe --doctor` checks the folder; `scripts\p12_check.py` runs the built
   program. See "P12 findings". **The check on a second machine (no Python, no internet) is the
   user's to do.**
 
@@ -99,12 +105,12 @@ Waiting on the user:
 
 To build, when the user says:
 - **Done 2026-10-03, see difference 73:** a performance panel (the user's answers, 2026-10-03). A developer's tool, shipped to
-  everyone (it can be switched off in code before a deployment). Purpose: know what pyvolis
+  everyone (it can be switched off in code before a deployment). Purpose: know what volis
   costs this machine, whether another model combination would leave room for another program
   (say, a video-over-IP messaging app), and whether something (more context, a long sentence)
   makes the cost spike.
   - *Now:* every number that bears on performance, updated about once a second: GPU memory per
-    model, pyvolis's total, other programs' and what is free; system memory the same way; CPU
+    model, volis's total, other programs' and what is free; system memory the same way; CPU
     and GPU load; GPU temperature and clock; and per sentence, the time to transcribe,
     translate (with how much context it carried) and speak, and the delay from the end of
     speech to the first sound. Amber and red when memory is nearly full or speech falls behind.
@@ -136,37 +142,37 @@ Later: the rename to volis (and dropping the Rust-compatibility rules); Linux.
 
 ## Development models
 
-`models\` holds **hard links** to Rust volis's model files (`target\release\models\`), made by
-`parity\link_models.py`: the same bytes, no copies, and deleting pyvolis's side never touches
+`models\` holds **hard links** to volis-rust's model files (`target\release\models\`), made by
+`parity\link_models.py`: the same bytes, no copies, and deleting volis's side never touches
 Rust's. `models\asr\whisper-small\` is a hard link to model-converter's download of
 `openai/whisper-small` (without its `fetched.json`). `volis.toml` is a copy of Rust's.
 
-## Differences from Rust volis, with the reasons
+## Differences from volis-rust, with the reasons
 
-1. **pyvolis-only settings go in `pyvolis.toml`, not `[pyvolis.*]` in `volis.toml`.** Rust's
+1. **volis-only settings go in `volis-python.toml`, not `[volis.*]` in `volis.toml`.** Rust's
    `Config` has `#[serde(deny_unknown_fields)]` at the top level, so any extra section would
-   stop Rust volis loading the shared file. No milestone so far needs a pyvolis setting, so the
+   stop volis-rust loading the shared file. No milestone so far needs a volis setting, so the
    file doesn't exist yet.
 2. **An ASR folder without `engine.toml` is examined, not skipped.** Rust skips it with a
-   warning; pyvolis recognises Hugging Face and GGUF folders, and lists anything it can't
+   warning; volis recognises Hugging Face and GGUF folders, and lists anything it can't
    recognise as an error with the reason. TTS folders keep Rust's rule.
 3. **Several translators.** Rust uses the one `.gguf` at the top of `models\mt\` and refuses to
-   start if there are two. pyvolis lists that file plus one or more per subfolder, and its report
+   start if there are two. volis lists that file plus one or more per subfolder, and its report
    warns when there are two at the top.
-4. **A GGUF with no chat template is listed as unusable,** because pyvolis builds prompts from the
+4. **A GGUF with no chat template is listed as unusable,** because volis builds prompts from the
    model's own template (Rust hardcodes Qwen's). The Qwen3 file Rust uses has one.
 5. **`--listen` and the window** don't exist yet; they arrive at P2 and P5. With no arguments
-   pyvolis says the window arrives at P5.
-6. **Logs** go to `logs\pyvolis.log.<date>` (Rust: `volis.log.<date>`), plus `logs\doctor.json`.
-7. **Varieties error message** names both `pyvolis/varieties.py` and Rust's `src/varieties.rs`,
-   because the tables must stay the same (a test pins pyvolis's to Rust's).
+   volis says the window arrives at P5.
+6. **Logs** go to `logs\volis.log.<date>` (Rust: `volis.log.<date>`), plus `logs\doctor.json`.
+7. **Varieties error message** names both `volis/varieties.py` and Rust's `src/varieties.rs`,
+   because the tables must stay the same (a test pins volis's to Rust's).
 8. **Devices are PortAudio's WASAPI list** (sounddevice). cpal's default Windows host is WASAPI,
    so names and order match Rust's; the "F32" in each device line is assumed (WASAPI shared
    mode always delivers float32), where cpal asks the device.
 9. **Resampling uses soxr, not sherpa-onnx's linear resampler.** A better filter for the same
    job. Recognition of 16 kHz input (the fixtures) is unaffected; audio from a 48 kHz
    microphone reaches the recognizer slightly differently than in Rust.
-10. **The pre-roll length is a setting**, `[vad].pre_roll_ms` in `pyvolis.toml`, default 600 ms
+10. **The pre-roll length is a setting**, `[vad].pre_roll_ms` in `volis-python.toml`, default 600 ms
     (Rust's fixed value; the build file assumed 300 ms, but Rust already found 300 too short for
     "¿Cuántos años tienes?"). 0 turns it off. Segments also record where the detector itself
     said speech began, so the lead-in can be measured.
@@ -175,10 +181,10 @@ Rust's. `models\asr\whisper-small\` is a hard link to model-converter's download
 12. **File input is new** (`filesource.py`): WAV, MP3, M4A/AAC, FLAC, OGG/Vorbis, Opus, ALAC,
     decoded by PyAV, averaged to mono and resampled like the microphone.
 
-13. **`--compare` manages GPU memory.** Rust keeps every engine loaded. pyvolis loads every
+13. **`--compare` manages GPU memory.** Rust keeps every engine loaded. volis loads every
     engine if they fit; if the GPU models don't, they take turns (each loaded for its run and
     released) while the CPU (sherpa) models stay loaded. Runs are always one after another.
-14. **Hallucination guards are new** (`[guards]` in `pyvolis.toml`, each switchable). The
+14. **Hallucination guards are new** (`[guards]` in `volis-python.toml`, each switchable). The
     speech-probability guard uses a second Silero model from the same `silero_vad.onnx`, run by
     sherpa-onnx at `min_peak_probability` (0.8): sherpa-onnx's Python binding doesn't expose
     Silero's probabilities, but it applies a threshold to each window, which answers "did any
@@ -197,7 +203,7 @@ Rust's. `models\asr\whisper-small\` is a hard link to model-converter's download
 19. **Prompts come from each GGUF's chat template** (Rust hardcodes Qwen's ChatML). For Qwen3
     the rendered prompt is byte-identical to Rust's `prompt_for` (tests/test_translate.py),
     with thinking turned off through the template's `enable_thinking`.
-20. **Several translators**: `[translate].model` in `pyvolis.toml` (default: the file at the
+20. **Several translators**: `[translate].model` in `volis-python.toml` (default: the file at the
     top of `models\mt\`, Rust's); `[translate].prompt` picks a prompt file.
 
 21. **Translation is per sentence, not per utterance** (agreed with the user before P4). A stage
@@ -220,7 +226,7 @@ Rust's. `models\asr\whisper-small\` is a hard link to model-converter's download
 26. **Every PortAudio stream is opened on one audio thread** (`audio.on_audio_thread`), and
     PortAudio is initialised on it. Through PortAudio's WASAPI backend, a stream fails to start
     ("Unanticipated host error") when opened on a thread other than the one that initialised
-    PortAudio, and pyvolis opens streams from the pipeline's thread and the window's. cpal has
+    PortAudio, and volis opens streams from the pipeline's thread and the window's. cpal has
     no such restriction.
 27. **The voice speaks sentence by sentence** (translation is per sentence), and "first audio"
     is timed from when the utterance was cut, as in Rust.
@@ -230,7 +236,7 @@ Rust's. `models\asr\whisper-small\` is a hard link to model-converter's download
     time (Rust has no equivalent).
 
 30. **A turn ends when all its sentences have run their course.** In Rust a turn is one
-    utterance with one reply, finished when that reply ends. In pyvolis a turn can hold several
+    utterance with one reply, finished when that reply ends. In volis a turn can hold several
     sentences, so the window stays in "processing" until every one is translated or refused
     and, when replies are spoken, spoken; the voice going quiet between two sentences doesn't
     end it. Taking a new turn cuts off whatever is being spoken, as in Rust; sentences of the
@@ -321,12 +327,12 @@ Rust's. `models\asr\whisper-small\` is a hard link to model-converter's download
 48. **Paired mode:** revision is to be off while paired (P9), as the build file says.
 
 49. **Translation-only models (TranslateGemma)** have a chat template that takes the two language
-    codes and the text and writes its own instructions. pyvolis detects that template
+    codes and the text and writes its own instructions. volis detects that template
     (`source_lang_code` in it) and gives it what it asks for; the prompt file and the glossary
     are not used with such a model, context still is. A variety its table lacks (en-US) is
     sent as the bare language.
 50. **A turn crosses the wire sentence by sentence.** Rust sends one `Utterance` per turn;
-    pyvolis translates per sentence, so it sends one `Utterance` per sentence (the same
+    volis translates per sentence, so it sends one `Utterance` per sentence (the same
     message, more of them) and releases the floor behind the last. A marker in the translation
     queue (`END_OF_TURN`) keeps that order. Rust shows and speaks each as it arrives.
 51. **Context stays local and revision is off while paired,** as the build file says: only
@@ -344,12 +350,12 @@ Rust's. `models\asr\whisper-small\` is a hard link to model-converter's download
 55. **A file run never pairs** (Rust has no file mode), and neither does `--listen` or a
     comparison, as in Rust.
 56. **Shared mode: one table, not two.** Rust shows each person's turns in their own column.
-    pyvolis shows the two columns as panels (language and key in large letters, the status,
+    volis shows the two columns as panels (language and key in large letters, the status,
     the side's pickers, a heavy border and colour on the active side) above its one table, in
     which each row is marked with whose words it is (an arrow before the time). A
     conversation reads in order that way, and the table is what file mode and export share.
 57. **Any recognizer that is told the language may hear a side without the warning.** Rust
-    warns for everything but Whisper ("decides the language itself"); in pyvolis only
+    warns for everything but Whisper ("decides the language itself"); in volis only
     Parakeet does, since Whisper, MMS and Cohere through transformers are all told. A
     downloaded model that doesn't say which languages it knows may be chosen for a side, with
     a note in the column.
@@ -358,7 +364,7 @@ Rust's. `models\asr\whisper-small\` is a hard link to model-converter's download
     as the source, its source as the translation), which is an equally true pair in this
     direction. So an answer is translated knowing the question. Rust has no context.
 59. **Cancelling drops what is under way at every stage** (Rust's cancel generation, extended
-    to recognition, which pyvolis runs on its own thread): a turn being recognised, sentences
+    to recognition, which volis runs on its own thread): a turn being recognised, sentences
     queued or being translated, speech queued or being synthesised.
 60. **The mode radio buttons are in an explicit button group.** With a third button, Qt's
     automatic exclusion between sibling radio buttons left two of them checked; found by the
@@ -371,19 +377,19 @@ Rust's. `models\asr\whisper-small\` is a hard link to model-converter's download
     so `asr/llamacpp_audio.py` calls the multimodal functions itself: the audio as 16 kHz
     samples, the prompt from the model's chat template, greedy decoding. In this process, as
     everything is.
-63. **Two kinds of speech model, told apart by name or by the folder's `pyvolis.toml`.** A
+63. **Two kinds of speech model, told apart by name or by the folder's `volis-python.toml`.** A
     model trained only to transcribe (a name containing "asr": Qwen3-ASR) is given the audio
     alone, and its answer is begun for it with `language Spanish<asr_text>`, so the language
     is told and not detected. Any other (Gemma 4, Voxtral) is asked in words to transcribe
-    the audio in the language. `prompt = "..."` in the folder's `pyvolis.toml` sets the words
+    the audio in the language. `prompt = "..."` in the folder's `volis-python.toml` sets the words
     (`""` = the audio alone). The language is given by its English name, never as a variety.
 64. **A LoRA adapter for a recognizer is merged into its base at load** (`peft`,
     `merge_and_unload`), in memory only: recognition runs at the base's speed and no file is
     written. The base is the folder beside the adapter named like the last part of the
     adapter's `base_model_name_or_path` ("openai/whisper-small" -> `whisper-small`), or
-    `base = "..."` in the adapter folder's `pyvolis.toml`. It is never fetched.
+    `base = "..."` in the adapter folder's `volis-python.toml`. It is never fetched.
 65. **A GGUF LoRA adapter is a translator of its own:** a folder in `models\mt\` with the
-    adapter `.gguf` and a `pyvolis.toml` saying `base = "<translator id>"` (and optionally
+    adapter `.gguf` and a `volis-python.toml` saying `base = "<translator id>"` (and optionally
     `scale = 0.5`). An adapter for another architecture than its base's is refused by name.
 66. **Transformers translators** load the folder with `AutoModelForCausalLM`, build the prompt
     with the tokenizer's own chat template (Qwen3's thinking off), decode greedily, and pass
@@ -399,13 +405,13 @@ Rust's. `models\asr\whisper-small\` is a hard link to model-converter's download
     14 spoken, 6 revised before they were spoken, none after. The mechanism works; the revisions
     are as mixed as P8 found ("I can't find it." -> "I can't find him." better; "three houses
     and a motorbike" -> "and a dog" worse).
-68. **Vowel marks for Arabic before the voice** (`[tts] diacritize` in `pyvolis.toml`, default
-    off; `pyvolis/tashkeel.py`). Piper restores Arabic's short vowels with a small model
+68. **Vowel marks for Arabic before the voice** (`[tts] diacritize` in `volis-python.toml`, default
+    off; `volis/tashkeel.py`). Piper restores Arabic's short vowels with a small model
     (libtashkeel) before espeak-ng pronounces the text; sherpa-onnx, which both apps use to run
-    Piper voices, leaves that step out. pyvolis can now run it: a port of piper-phonemize's
+    Piper voices, leaves that step out. volis can now run it: a port of piper-phonemize's
     `tashkeel.cpp` on the same model file, through the `onnxruntime` Python package. One
     departure from Piper's code: U+064B (fathatan) is removed from the input with the other
-    marks (Piper leaves it, and text that had one comes out with two). Rust volis has the same
+    marks (Piper leaves it, and text that had one comes out with two). volis-rust has the same
     gap and no fix.
 69. **`onnxruntime==1.28.0` is a dependency** (for 68). Checked: on Windows the package carries
     the runtime inside its own extension and loads no `onnxruntime.dll`, so sherpa-onnx's
@@ -420,7 +426,7 @@ Rust's. `models\asr\whisper-small\` is a hard link to model-converter's download
   package is only ever added by editing `pyproject.toml` and running `uv lock`, never by
   `pip install` into the environment.
 - **Exact pins that matter:** `sherpa-onnx` and `sherpa-onnx-core` 1.13.8 (onnxruntime.dll
-  1.28.2, as Rust volis links), `onnxruntime` 1.28.0, `llama-cpp-python` 0.3.35 (the wheel in
+  1.28.2, as volis-rust links), `onnxruntime` 1.28.0, `llama-cpp-python` 0.3.35 (the wheel in
   `wheels\`; the GPU build in `wheels\cuda\` is made on the machine by `build-llama.ps1 -Cuda`
   and needs CUDA Toolkit 12.9), torch 2.11.0+cu128 (carries the CUDA 12 runtime the GPU
   llama.cpp loads), transformers 5.18.0, peft 0.21.1, Python 3.12.10, uv 0.11.x.
@@ -432,7 +438,7 @@ Rust's. `models\asr\whisper-small\` is a hard link to model-converter's download
 - **Not carried by the repo:** the GPU wheel (344 MB, git-ignored) and `models\`. A new
   development machine needs `build-llama.ps1 -Cuda` once, or the wheel copied into
   `wheels\cuda\` before `setup.ps1`.
-70. **The built program is a console program**, as Rust volis is (it has no
+70. **The built program is a console program**, as volis-rust is (it has no
     `windows_subsystem` setting): a double-click opens the window with a console behind it, and
     the same exe takes every command-line option. A window-only exe would need a second
     build of the same folder for the command line.
@@ -443,14 +449,14 @@ Rust's. `models\asr\whisper-small\` is a hard link to model-converter's download
     counts as Windows).
 72. **The sherpa-onnx recognizer folders end in `-onnx-int8`** (`whisper-large-v3-turbo-onnx-int8`,
     `parakeet-tdt-0.6b-v3-onnx-int8`, and the two converted fine-tunes), at the user's request, so
-    the picker shows which recognizers are compressed ONNX on the CPU. Rust volis's own folders
+    the picker shows which recognizers are compressed ONNX on the CPU. volis-rust's own folders
     keep their names; folder names mean nothing to it. `whisper-large-v3-turbo` is now OpenAI's
     original, on the GPU: on the fixtures it scored Spanish CER 0.5% (int8: 0.6%) and Arabic 3.3%
     (int8: 5.2%), at RTF 0.33 and 0.22 against 0.41 and 0.52.
-73. **The performance panel** (View > Performance, `pyvolis/perf.py`, `gui/perf_panel.py`), at
-    the user's request; Rust volis has none. GPU figures from `nvidia-smi` once a second (a
+73. **The performance panel** (View > Performance, `volis/perf.py`, `gui/perf_panel.py`), at
+    the user's request; volis-rust has none. GPU figures from `nvidia-smi` once a second (a
     short program that reads counters; no new library). Windows reports N/A for each process's
-    GPU memory, so pyvolis's share is the sum of its loaded models (`ModelLoaded`) and other
+    GPU memory, so volis's share is the sum of its loaded models (`ModelLoaded`) and other
     programs' is the rest. `Translated` events now carry `context_turns`, how many earlier
     sentences went with the sentence. Measurements are kept in `logs\performance.json`.
     Checked on the Spanish fixture in the real window: 14 sentences timed with their context,
@@ -458,7 +464,7 @@ Rust's. `models\asr\whisper-small\` is a hard link to model-converter's download
 
 ## P12 findings
 
-- **PyInstaller 6.22.3, one-folder mode** (`pyvolis.spec`), in uv.lock's `build` group so a
+- **PyInstaller 6.22.3, one-folder mode** (`volis.spec`), in uv.lock's `build` group so a
   build machine gets the same version. It collected torch with its CUDA libraries, PySide6,
   sounddevice's PortAudio, PyAV, onnxruntime and transformers by its own hooks. What it can't
   see is named in the spec: llama.cpp's and sherpa-onnx's DLLs (loaded by path), librosa's
@@ -467,7 +473,7 @@ Rust's. `models\asr\whisper-small\` is a hard link to model-converter's download
 - **Size:** 5.6 GB for the program (`_internal\`), plus `models\` (47 GB here, everything in
   MODELS.md). Build time about 4 minutes.
 - **`scripts\p12_check.py`, on the built program** (Qwen3 1.7B translating, this machine's
-  `pyvolis.toml` otherwise, streaming on):
+  `volis-python.toml` otherwise, streaming on):
 
   Three runs each; the times vary run to run by more than built and source differ.
 
@@ -550,25 +556,25 @@ Rust's. `models\asr\whisper-small\` is a hard link to model-converter's download
   English came out in `es-MX`, spoken by `vits-piper-es_MX-claude-high` (the Mexico-tuned
   voice, chosen first for a side set to Spanish (Mexico)); Spanish came out in `en`, spoken
   by `vits-piper-en_US-lessac-medium`. Each recognizer loaded once.
-- **Not done: the same turns through Rust volis side by side.** Rust's shared mode exists
+- **Not done: the same turns through volis-rust side by side.** Rust's shared mode exists
   only in its window, with keys. The recognizers are the same files and were compared with
   Rust's at P2 (Parakeet identical; Whisper int8 the same but for sub-sample differences).
 - **Not done by a person:** two people at the keyboard with speakers at normal volume (Rust's
   M7.5 check): that the other key does nothing during a turn, that Escape silences a turn,
-  that pyvolis never translates its own voice, that whose turn it is can be read from across
+  that volis never translates its own voice, that whose turn it is can be read from across
   a table. The logic for each is tested; the room is not.
 - The log line says `transcribing as "es-MX"`; the recognizer itself is given `es` (each
   backend takes the language of the tag), as Rust's M7.7 check asks.
 
 ## P9 findings
 
-- `scripts/pair_check.py` against `volis.exe` (its window, since Rust's `--listen` never
-  pairs; two clicks in it, Start and Connect): pyvolis dials Rust and both name the other;
-  Rust grants the floor and only then does the microphone open; a sentence from pyvolis
+- `scripts/pair_check.py` against `volis-rust.exe` (its window, since Rust's `--listen` never
+  pairs; two clicks in it, Start and Connect): volis dials Rust and both name the other;
+  Rust grants the floor and only then does the microphone open; a sentence from volis
   arrives in Rust with its original; Rust hears Spanish through the cable and its translation
-  arrives in pyvolis with the original; the pyvolis end killed with no goodbye, and Rust says
-  "pyvolis closed the connection"; Rust dials pyvolis and they pair; Rust killed while
-  pyvolis holds the floor, and pyvolis says "rust-volis dropped the connection", releases the
+  arrives in volis with the original; the volis end killed with no goodbye, and Rust says
+  "volis closed the connection"; Rust dials volis and they pair; Rust killed while
+  volis holds the floor, and volis says "rust-volis dropped the connection", releases the
   floor and closes the microphone. 12 of 12.
 - The clicks in the Rust window were made by Claude through desktop automation, not by the
   user. Not tested: two real machines on a cable or switch, the firewall diagnostic against a
@@ -647,13 +653,13 @@ is the one revision helps most. llama-cpp-python 0.3.35 loads the `gemma4` archi
 
   (On the CPU build the default prompt scored 24, 23, 24, 23.) So carry-forward context made
   the problem much worse with Rust's prompt; that was a P7 regression, found by the user.
-  Rust volis has the same weakness without context (22 and 18 of 24 here).
+  volis-rust has the same weakness without context (22 and 18 of 24 here).
 - Quality on the Spanish fixture is unchanged by the frame: chrF 58.5 to 59.8 for Qwen3, 62.2
   to 63.6 for Gemma, across both prompts, with and without context.
 - **Translation time, GPU against CPU** (RTX 4070 laptop): Qwen3 median about 410 ms a
   sentence against 920 ms to 2.4 s (the CPU figure depends on what else is running); Gemma
   about 650 ms against 3.2 s.
-- **Open: the GPU wheel's CPU path isn't Rust's.** With the CPU wheel, pyvolis and Rust gave
+- **Open: the GPU wheel's CPU path isn't Rust's.** With the CPU wheel, volis and Rust gave
   identical translations (25 of 25, P3). With the GPU wheel installed and `device = "cpu"`,
   `parity/translate.py` gives 19 of 24 identical; turning off `offload_kqv` and `op_offload`
   made it 14, so that isn't the cause and was not kept. The cause isn't found (the GPU wheel
@@ -667,7 +673,7 @@ is the one revision helps most. llama-cpp-python 0.3.35 loads the `gemma4` archi
   there. A P12 question; the CPU wheel is the safe default and is what the repo carries.
 - The parity harness played audio from the main thread, which stopped working when audio got
   its own thread (P5); it now plays through `audio.on_audio_thread`. It also gives Rust a
-  recognizer Rust has when the user's `volis.toml` names a pyvolis-only one.
+  recognizer Rust has when the user's `volis.toml` names a volis-only one.
 - GPU recognizers make one pass over a second of silence when they load (`HfAsr.warm_up`): the
   user's first turn took 1093 ms to transcribe against about 300 ms for the later ones.
 
@@ -723,7 +729,7 @@ is the one revision helps most. llama-cpp-python 0.3.35 loads the `gemma4` archi
   probe reported 0 ms. No library holds Python's lock for long. Scoring a file at the end froze
   the window for 380 ms until it was moved to its own thread.
 - **The gate** (`scripts/gate_check.py`): with the cable as both microphone and speakers,
-  half-duplex on gave only the Spanish that was played; off, pyvolis also transcribed its own
+  half-duplex on gave only the Spanish that was played; off, volis also transcribed its own
   English voice and tried to translate it. As in Rust, speech that overlaps the voice is lost.
 - **Right to left:** alignment isn't enough. A cell needs a right-to-left base direction
   (`DirectionDelegate`), or the final full stop and embedded numbers land on the wrong side.
@@ -767,8 +773,8 @@ is the one revision helps most. llama-cpp-python 0.3.35 loads the `gemma4` archi
 
 ## P2 findings
 
-- **Recognition parity with Rust (`parity/asr.py`).** Rust volis listens to the VB-Audio cable
-  while the Spanish fixtures play into it; pyvolis transcribes the WAVs Rust wrote. Parakeet:
+- **Recognition parity with Rust (`parity/asr.py`).** volis-rust listens to the VB-Audio cable
+  while the Spanish fixtures play into it; volis transcribes the WAVs Rust wrote. Parakeet:
   identical on every utterance. Whisper (all three int8 ONNX folders): 13 of ~33 differ, by a
   word or a capital. Cause, shown: Rust's WAVs are 16-bit, and changing the audio by less than
   one 16-bit step flips int8 Whisper's text ("Los personas" -> "Las zonas"; scaling by
@@ -790,7 +796,7 @@ is the one revision helps most. llama-cpp-python 0.3.35 loads the `gemma4` archi
   guard, for the user to decide: text implausibly short for the length of the segment.
 - **Persian ("fa")** was missing from the varieties table; added in both apps (below).
 
-## Changes made in Rust volis too, by the user's decision
+## Changes made in volis-rust too, by the user's decision
 
 - 2026-09-30: the translation prompt's dialect sentence read "aloud,using" and carried
   indentation and trailing spaces; fixed in `translate.rs`.
@@ -799,5 +805,5 @@ is the one revision helps most. llama-cpp-python 0.3.35 loads the `gemma4` archi
 - 2026-09-30: Persian added to the varieties table in both apps: `fa` (Persian) and `fa-IR`
   (Persian (Iran), "Iranian Persian" in the prompt).
 
-The Rust changes are left uncommitted for the user to review and commit, and `volis.exe` is
-not rebuilt (Rust volis doesn't know `fa` until it is).
+The Rust changes are left uncommitted for the user to review and commit, and `volis-rust.exe` is
+not rebuilt (volis-rust doesn't know `fa` until it is).

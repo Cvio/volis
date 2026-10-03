@@ -1,9 +1,9 @@
 """Shared-machine mode in the window's state: port of Rust's shared tests in
 `gui.rs`. No Qt here."""
 
-from pyvolis import events as ev
-from pyvolis.gui import session as ses
-from pyvolis.gui.session import Session
+from volis import events as ev
+from volis.gui import session as ses
+from volis.gui.session import Session
 
 
 def shared_session() -> Session:
@@ -74,7 +74,7 @@ def test_shared_keys_do_nothing_outside_shared_mode():
     assert not s.shared_can_cancel()
 
 
-# ---------------------------------------------------------------- pyvolis
+# ---------------------------------------------------------------- volis
 
 
 def test_a_turn_of_several_sentences_keeps_its_side_until_the_last_is_spoken():

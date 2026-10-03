@@ -20,8 +20,8 @@ import numpy as np
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
-from pyvolis.filesource import read_16k_mono  # noqa: E402
-from pyvolis.pipeline import write_wav  # noqa: E402
+from volis.filesource import read_16k_mono  # noqa: E402
+from volis.pipeline import write_wav  # noqa: E402
 
 GAP_SECONDS = 1.2
 

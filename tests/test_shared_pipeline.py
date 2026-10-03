@@ -10,12 +10,12 @@ import numpy as np
 import pytest
 from test_paired import FakeMic, Running, Upper, is_a, speech  # noqa: F401 - speech is a fixture
 
-from pyvolis import asr, models, paths
-from pyvolis import events as ev
-from pyvolis import shared as sh
-from pyvolis.asr import AsrResult
-from pyvolis.config import Config, PyvolisConfig
-from pyvolis.pipeline import Options, Pipeline
+from volis import asr, models, paths
+from volis import events as ev
+from volis import shared as sh
+from volis.asr import AsrResult
+from volis.config import Config, PythonConfig
+from volis.pipeline import Options, Pipeline
 
 LEFT_ASR, RIGHT_ASR = "parakeet-tdt-0.6b-v3-onnx-int8", "whisper-large-v3-turbo-onnx-int8"
 
@@ -52,7 +52,7 @@ def shared_run(monkeypatch, audio, texts, right_asr=RIGHT_ASR, right_language="e
         f'left_asr = "{LEFT_ASR}"\nright_asr = "{right_asr}"\n')
     run = Running.__new__(Running)
     run.events, run.seen, run.mic, run.translator = queue.Queue(), [], FakeMic(audio), Upper()
-    run.pipeline = Pipeline(paths.app_root(), config, Options(), run.events, run.mic, PyvolisConfig())
+    run.pipeline = Pipeline(paths.app_root(), config, Options(), run.events, run.mic, PythonConfig())
     run.pipeline._translator = lambda: run.translator
     run.pipeline.start()
     engines = [e for e in models.discover(folder, models.Role.ASR) if isinstance(e, models.Engine)]
@@ -174,7 +174,7 @@ def test_one_model_chosen_for_both_sides_loads_once(monkeypatch, speech):  # noq
         f'[asr]\nengine = "{RIGHT_ASR}"\n[mode]\nkind = "shared"\n[tts]\nenabled = false\n'
         f'[shared]\nleft_language = "en"\nright_language = "es"\nleft_asr = "{RIGHT_ASR}"\nright_asr = "{RIGHT_ASR}"\n')
     events: queue.Queue = queue.Queue()
-    pipeline = Pipeline(paths.app_root(), config, Options(), events, FakeMic(speech), PyvolisConfig())
+    pipeline = Pipeline(paths.app_root(), config, Options(), events, FakeMic(speech), PythonConfig())
     pipeline._translator = Upper
     pipeline.start()
     try:
@@ -189,4 +189,4 @@ def test_one_model_chosen_for_both_sides_loads_once(monkeypatch, speech):  # noq
 
 def test_a_shared_machine_never_pairs():
     config = Config.parse('[peer]\nenabled = true\n[mode]\nkind = "shared"\n')
-    assert not Pipeline(paths.app_root(), config, Options(), queue.Queue(), FakeMic(np.zeros(16)), PyvolisConfig()).paired
+    assert not Pipeline(paths.app_root(), config, Options(), queue.Queue(), FakeMic(np.zeros(16)), PythonConfig()).paired

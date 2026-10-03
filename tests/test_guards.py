@@ -1,13 +1,13 @@
-"""The hallucination guards (new in pyvolis)."""
+"""The hallucination guards (new in volis)."""
 
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-from pyvolis import paths
-from pyvolis.asr import guards as g
-from pyvolis.filesource import read_16k_mono
+from volis import paths
+from volis.asr import guards as g
+from volis.filesource import read_16k_mono
 
 ROOT = paths.app_root()
 PHRASES = g.load_phrases(paths.hallucinations_file(ROOT))

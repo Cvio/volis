@@ -1,5 +1,5 @@
 [project]
-name = "pyvolis"
+name = "volis"
 version = "0.1.0"
 description = "Offline speech-to-speech translation: the Python volis, with drop-in models."
 # torch, sherpa-onnx and PySide6 all publish wheels for 3.12 (model-converter
@@ -9,16 +9,16 @@ dependencies = [
     "numpy",
     "tomlkit",
     # Model cards' front matter (`language:`) is YAML. Already required by
-    # huggingface_hub; named here because pyvolis imports it directly.
+    # huggingface_hub; named here because volis imports it directly.
     "pyyaml",
     "sherpa-onnx==1.13.8",
     # sherpa-onnx's wheels require this, but its sdist declares no
     # dependencies and uv locks from the sdist's metadata, so without this line
     # it is silently left out. It puts onnxruntime.dll (1.28.2, the version
-    # Rust volis links) beside sherpa-onnx's extension. Without it sherpa-onnx
+    # volis-rust links) beside sherpa-onnx's extension. Without it sherpa-onnx
     # finds the old onnxruntime.dll in System32 and crashes.
     "sherpa-onnx-core==1.13.8",
-    # Runs the Arabic vowel-marking model (pyvolis/tashkeel.py), which sherpa-onnx
+    # Runs the Arabic vowel-marking model (volis/tashkeel.py), which sherpa-onnx
     # leaves out of Piper's pipeline. Checked on Windows: this package has the
     # runtime inside its own extension and loads no onnxruntime.dll, so
     # sherpa-onnx's 1.28.2 stays the only one in the process (doctor.ps1's
@@ -38,7 +38,7 @@ dependencies = [
     "librosa",
     # Built here by build-llama.ps1 (CPU; see there why), kept in wheels\.
     "llama-cpp-python==0.3.35",
-    # llama-cpp-python renders chat templates with it; pyvolis does too.
+    # llama-cpp-python renders chat templates with it; volis does too.
     "jinja2",
     # chrF for the quick scores, the implementation model-bench uses.
     "sacrebleu",
@@ -47,7 +47,7 @@ dependencies = [
 ]
 
 [project.scripts]
-pyvolis = "pyvolis.__main__:main"
+volis = "volis.__main__:main"
 
 [dependency-groups]
 dev = ["pytest"]

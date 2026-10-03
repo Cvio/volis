@@ -22,14 +22,14 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "scripts"))
 
-from pyvolis import paths  # noqa: E402
+from volis import paths  # noqa: E402
 
 paths.apply_offline_environment(paths.app_root())
 
 from p8_check import DIALOGUES  # noqa: E402
 
-from pyvolis import models, tts  # noqa: E402
-from pyvolis.pipeline import write_wav  # noqa: E402
+from volis import models, tts  # noqa: E402
+from volis.pipeline import write_wav  # noqa: E402
 
 
 def main() -> int:

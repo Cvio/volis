@@ -7,9 +7,9 @@ import queue
 import time
 from types import SimpleNamespace
 
-from pyvolis import events as ev, sentences
-from pyvolis.config import PyvolisConfig
-from pyvolis.pipeline import Options, Route, Stats, TranslationThread
+from volis import events as ev, sentences
+from volis.config import PythonConfig
+from volis.pipeline import Options, Route, Stats, TranslationThread
 
 from test_revision import Scripted
 
@@ -36,7 +36,7 @@ class Voice:
 
 
 def thread(answers, hold_speech=True, hold_s=5.0, mode="revision", lossless=True):
-    py = PyvolisConfig()
+    py = PythonConfig()
     py.context.mode, py.context.hold_speech, py.context.hold_speech_s = mode, hold_speech, hold_s
     seen: queue.Queue = queue.Queue()
     pipeline = SimpleNamespace(pyconfig=py, options=Options(), stats=Stats(), emit=seen.put, glossary=[],
@@ -126,7 +126,7 @@ def test_stopping_at_once_drops_the_held_sentence():
 
 
 def test_off_by_default_speech_is_never_delayed_and_nothing_spoken_is_revised():
-    assert PyvolisConfig().context.hold_speech is False
+    assert PythonConfig().context.hold_speech is False
     t, voice, pipeline, _ = thread(DRIVE, hold_speech=False)
     say(t, 1, "Yo manejo.")
     settle(t)

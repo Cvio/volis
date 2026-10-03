@@ -1,12 +1,12 @@
-# Builds the copy-to-run folder (P12): dist\pyvolis\, with pyvolis.exe, the
+# Builds the copy-to-run folder (P12): dist\volis\, with volis.exe, the
 # libraries it needs, and config\, prompts\, models\ and the settings beside
 # it. Zip that folder, unzip it on another Windows PC, double-click
-# pyvolis.exe: no Python and no internet needed there.
+# volis.exe: no Python and no internet needed there.
 #
 #     .\build.ps1               the whole folder, models included
 #     .\build.ps1 -NoModels     the program only (models\ holds just its README files)
 #
-# Run .\setup.ps1 first. Uses PyInstaller (one-folder mode, pyvolis.spec),
+# Run .\setup.ps1 first. Uses PyInstaller (one-folder mode, volis.spec),
 # installed from uv.lock's "build" group. The GPU build of the translator is
 # what ships when wheels\cuda\ has one (build-llama.ps1 -Cuda); it needs an
 # NVIDIA GPU on the other PC.
@@ -39,23 +39,23 @@ try {
         if ($LASTEXITCODE -ne 0) { Fail "installing $($cudaWheel.FullName) failed" }
     }
 
-    Write-Host "`n== Building dist\pyvolis\ (a few minutes)"
+    Write-Host "`n== Building dist\volis\ (a few minutes)"
     $log = Join-Path $repo "logs\pyinstaller.log"
     New-Item -ItemType Directory -Force (Join-Path $repo "logs") | Out-Null
-    & $python -m PyInstaller --noconfirm --clean --distpath dist --workpath build pyvolis.spec *> $log
+    & $python -m PyInstaller --noconfirm --clean --distpath dist --workpath build volis.spec *> $log
     if ($LASTEXITCODE -ne 0) { Fail "PyInstaller failed; see $log" }
 
     Write-Host "`n== Settings, prompts and models beside the program"
-    $layout = @((Join-Path $repo "scripts\layout_build.py"), (Join-Path $repo "dist\pyvolis"))
+    $layout = @((Join-Path $repo "scripts\layout_build.py"), (Join-Path $repo "dist\volis"))
     if ($NoModels) { $layout += "--no-models" }
     & $python @layout
-    if ($LASTEXITCODE -ne 0) { Fail "laying out dist\pyvolis\ failed" }
+    if ($LASTEXITCODE -ne 0) { Fail "laying out dist\volis\ failed" }
 
-    Write-Host "`n== Checking the built folder (pyvolis.exe --doctor)"
-    & (Join-Path $repo "dist\pyvolis\pyvolis.exe") --doctor
+    Write-Host "`n== Checking the built folder (volis.exe --doctor)"
+    & (Join-Path $repo "dist\volis\volis.exe") --doctor
     if ($LASTEXITCODE -ne 0) { Fail "the built folder failed its checks (above)" }
 }
 finally {
     Pop-Location
 }
-Write-Host "`nBuilt: $(Join-Path $repo 'dist\pyvolis')" -ForegroundColor Green
+Write-Host "`nBuilt: $(Join-Path $repo 'dist\volis')" -ForegroundColor Green

@@ -10,12 +10,12 @@ import time
 import numpy as np
 import pytest
 
-from pyvolis import asr, paths, peer
-from pyvolis import events as ev
-from pyvolis import translate as tr
-from pyvolis.asr import AsrResult
-from pyvolis.config import Config, PyvolisConfig
-from pyvolis.pipeline import Options, Pipeline
+from volis import asr, paths, peer
+from volis import events as ev
+from volis import translate as tr
+from volis.asr import AsrResult
+from volis.config import Config, PythonConfig
+from volis.pipeline import Options, Pipeline
 
 SECOND = 16_000
 
@@ -101,7 +101,7 @@ class Running:
         self.seen: list = []
         self.mic = FakeMic(audio)
         self.translator = Upper()
-        pyconfig = PyvolisConfig()
+        pyconfig = PythonConfig()
         pyconfig.context.mode = context
         self.pipeline = Pipeline(paths.app_root(), config, Options(), self.events, self.mic, pyconfig)
         self.pipeline._recognizer = lambda engines: Says(text)
@@ -238,11 +238,11 @@ def test_a_killed_link_mid_turn_closes_the_microphone_and_says_why(monkeypatch, 
 
 def test_a_file_and_a_comparison_never_pair():
     config = Config.parse('[peer]\nenabled = true\n')
-    from pyvolis.pipeline import ArraySource
+    from volis.pipeline import ArraySource
 
-    assert not Pipeline(paths.app_root(), config, Options(), queue.Queue(), ArraySource(np.zeros(16)), PyvolisConfig()).paired
+    assert not Pipeline(paths.app_root(), config, Options(), queue.Queue(), ArraySource(np.zeros(16)), PythonConfig()).paired
     assert not Pipeline(paths.app_root(), config, Options(compare=True), queue.Queue(), FakeMic(np.zeros(16)),
-                        PyvolisConfig()).paired
-    assert Pipeline(paths.app_root(), config, Options(), queue.Queue(), FakeMic(np.zeros(16)), PyvolisConfig()).paired
+                        PythonConfig()).paired
+    assert Pipeline(paths.app_root(), config, Options(), queue.Queue(), FakeMic(np.zeros(16)), PythonConfig()).paired
     assert not Pipeline(paths.app_root(), config, Options(pair=False), queue.Queue(), FakeMic(np.zeros(16)),
-                        PyvolisConfig()).paired
+                        PythonConfig()).paired

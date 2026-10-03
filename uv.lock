@@ -1043,67 +1043,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pyvolis"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "av" },
-    { name = "huggingface-hub" },
-    { name = "jinja2" },
-    { name = "librosa" },
-    { name = "llama-cpp-python" },
-    { name = "numpy" },
-    { name = "onnxruntime" },
-    { name = "peft" },
-    { name = "psutil" },
-    { name = "pyside6" },
-    { name = "pyyaml" },
-    { name = "sacrebleu" },
-    { name = "sherpa-onnx" },
-    { name = "sherpa-onnx-core" },
-    { name = "sounddevice" },
-    { name = "soxr" },
-    { name = "tomlkit" },
-    { name = "torch" },
-    { name = "transformers" },
-]
-
-[package.dev-dependencies]
-build = [
-    { name = "pyinstaller" },
-]
-dev = [
-    { name = "pytest" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "av" },
-    { name = "huggingface-hub" },
-    { name = "jinja2" },
-    { name = "librosa" },
-    { name = "llama-cpp-python", path = "wheels/llama_cpp_python-0.3.35-py3-none-win_amd64.whl" },
-    { name = "numpy" },
-    { name = "onnxruntime", specifier = "==1.28.0" },
-    { name = "peft" },
-    { name = "psutil", specifier = ">=7" },
-    { name = "pyside6" },
-    { name = "pyyaml" },
-    { name = "sacrebleu" },
-    { name = "sherpa-onnx", specifier = "==1.13.8" },
-    { name = "sherpa-onnx-core", specifier = "==1.13.8" },
-    { name = "sounddevice" },
-    { name = "soxr" },
-    { name = "tomlkit" },
-    { name = "torch", index = "https://download.pytorch.org/whl/cu128" },
-    { name = "transformers", specifier = ">=5.4" },
-]
-
-[package.metadata.requires-dev]
-build = [{ name = "pyinstaller", specifier = "==6.22.3" }]
-dev = [{ name = "pytest" }]
-
-[[package]]
 name = "pywin32-ctypes"
 version = "0.2.3"
 source = { registry = "https://pypi.org/simple" }
@@ -1550,3 +1489,64 @@ sdist = { url = "https://files.pythonhosted.org/packages/e3/05/b17359e1cefb4f909
 wheels = [
     { url = "https://files.pythonhosted.org/packages/92/9d/c4e665119135114480843e7ab388fa94d8480650450e6f8e26b70d323a4c/urllib3-2.8.0-py3-none-any.whl", hash = "sha256:0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3", size = 135717, upload-time = "2026-09-15T19:29:34.577Z" },
 ]
+
+[[package]]
+name = "volis"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "av" },
+    { name = "huggingface-hub" },
+    { name = "jinja2" },
+    { name = "librosa" },
+    { name = "llama-cpp-python" },
+    { name = "numpy" },
+    { name = "onnxruntime" },
+    { name = "peft" },
+    { name = "psutil" },
+    { name = "pyside6" },
+    { name = "pyyaml" },
+    { name = "sacrebleu" },
+    { name = "sherpa-onnx" },
+    { name = "sherpa-onnx-core" },
+    { name = "sounddevice" },
+    { name = "soxr" },
+    { name = "tomlkit" },
+    { name = "torch" },
+    { name = "transformers" },
+]
+
+[package.dev-dependencies]
+build = [
+    { name = "pyinstaller" },
+]
+dev = [
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "av" },
+    { name = "huggingface-hub" },
+    { name = "jinja2" },
+    { name = "librosa" },
+    { name = "llama-cpp-python", path = "wheels/llama_cpp_python-0.3.35-py3-none-win_amd64.whl" },
+    { name = "numpy" },
+    { name = "onnxruntime", specifier = "==1.28.0" },
+    { name = "peft" },
+    { name = "psutil", specifier = ">=7" },
+    { name = "pyside6" },
+    { name = "pyyaml" },
+    { name = "sacrebleu" },
+    { name = "sherpa-onnx", specifier = "==1.13.8" },
+    { name = "sherpa-onnx-core", specifier = "==1.13.8" },
+    { name = "sounddevice" },
+    { name = "soxr" },
+    { name = "tomlkit" },
+    { name = "torch", index = "https://download.pytorch.org/whl/cu128" },
+    { name = "transformers", specifier = ">=5.4" },
+]
+
+[package.metadata.requires-dev]
+build = [{ name = "pyinstaller", specifier = "==6.22.3" }]
+dev = [{ name = "pytest" }]

@@ -5,10 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from pyvolis import shared
-from pyvolis.config import Shared
-from pyvolis.models import Engine, ModelFile
-from pyvolis.shared import LEFT, RIGHT, Direction, SharedError, direction
+from volis import shared
+from volis.config import Shared
+from volis.models import Engine, ModelFile
+from volis.shared import LEFT, RIGHT, Direction, SharedError, direction
 
 
 def engine(dir_name: str, backend: str, languages: list[str], present: bool = True, **more) -> Engine:
@@ -124,7 +124,7 @@ def test_the_picker_lists_only_usable_voices_for_the_language():
     assert [v.engine.dir_name for v in shared.voices_for("es", voices())] == ["piper-es-es", "piper-es-mx"]
 
 
-# ---------------------------------------------------------------- pyvolis
+# ---------------------------------------------------------------- volis
 
 
 def test_a_side_set_to_a_variety_is_spoken_by_the_voice_tuned_for_it_first():

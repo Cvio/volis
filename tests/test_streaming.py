@@ -2,8 +2,8 @@
 
 import numpy as np
 
-from pyvolis.asr import AsrResult, Word
-from pyvolis.asr.streaming import LocalAgreement, agreed_prefix
+from volis.asr import AsrResult, Word
+from volis.asr.streaming import LocalAgreement, agreed_prefix
 
 SECOND = 16_000
 
@@ -113,11 +113,11 @@ def test_the_pipeline_streams_commits_sentences_early_and_ends_consistent(monkey
 
     import pytest
 
-    from pyvolis import asr, paths
-    from pyvolis import events as ev
-    from pyvolis.config import Config, PyvolisConfig
-    from pyvolis.filesource import read_16k_mono
-    from pyvolis.pipeline import ArraySource, Options, Pipeline, run_to_end
+    from volis import asr, paths
+    from volis import events as ev
+    from volis.config import Config, PythonConfig
+    from volis.filesource import read_16k_mono
+    from volis.pipeline import ArraySource, Options, Pipeline, run_to_end
 
     root = paths.app_root()
     folder = root / "tests" / "fixtures" / "fleurs" / "es_419"
@@ -149,7 +149,7 @@ def test_the_pipeline_streams_commits_sentences_early_and_ends_consistent(monkey
     silence = np.zeros(SECOND, np.float32)
     source = ArraySource(np.concatenate([silence, clip, silence]))
     out = run_to_end(Pipeline(root, config, Options(translate=False, streaming=True), events, source,
-                              PyvolisConfig()), events)
+                              PythonConfig()), events)
     assert not out.errors, out.errors
     kinds = [type(e).__name__ for e in out.events]
     partials, finals, sentences = out.of(ev.Partial), out.of(ev.Final), out.of(ev.SentenceMsg)
@@ -168,10 +168,10 @@ def test_the_pipeline_streams_commits_sentences_early_and_ends_consistent(monkey
 def test_segment_mode_makes_one_pass_and_shows_nothing_provisional(monkeypatch):
     import queue
 
-    from pyvolis import asr, paths
-    from pyvolis import events as ev
-    from pyvolis.config import Config, PyvolisConfig
-    from pyvolis.pipeline import ArraySource, Options, Pipeline, run_to_end
+    from volis import asr, paths
+    from volis import events as ev
+    from volis.config import Config, PythonConfig
+    from volis.pipeline import ArraySource, Options, Pipeline, run_to_end
 
     calls = []
 
@@ -206,7 +206,7 @@ def test_segment_mode_makes_one_pass_and_shows_nothing_provisional(monkeypatch):
     config = Config.parse('[asr]\nengine = "parakeet-tdt-0.6b-v3-onnx-int8"\n[languages]\nsource = "es"\n')
     events: queue.Queue = queue.Queue()
     out = run_to_end(Pipeline(paths.app_root(), config, Options(translate=False, streaming=False), events,
-                              ArraySource(audio_in), PyvolisConfig()), events)
+                              ArraySource(audio_in), PythonConfig()), events)
     # One pass per utterance. (A lone "hola." for ten seconds of speech is
     # dropped by the too-few-words guard: still one pass.)
     assert out.of(ev.Partial) == []

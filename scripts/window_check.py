@@ -23,7 +23,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 # The offscreen platform has no fonts of its own; without these a screenshot is all boxes.
 os.environ.setdefault("QT_QPA_FONTDIR", os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "Fonts"))
 
-from pyvolis import paths  # noqa: E402
+from volis import paths  # noqa: E402
 
 paths.apply_offline_environment(paths.app_root())
 for stream in (sys.stdout, sys.stderr):
@@ -32,9 +32,9 @@ for stream in (sys.stdout, sys.stderr):
 from PySide6.QtCore import QTimer  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
-from pyvolis.config import Config, PyvolisConfig  # noqa: E402
-from pyvolis.gui import session as ses  # noqa: E402
-from pyvolis.gui.window import MainWindow, _select  # noqa: E402
+from volis.config import Config, PythonConfig  # noqa: E402
+from volis.gui import session as ses  # noqa: E402
+from volis.gui.window import MainWindow, _select  # noqa: E402
 
 
 def main() -> int:
@@ -49,7 +49,7 @@ def main() -> int:
     root = paths.app_root()
     app = QApplication([])
     config, _ = Config.load(paths.config_file(root))
-    window = MainWindow(root, config, PyvolisConfig.load(paths.pyvolis_config_file(root))[0])
+    window = MainWindow(root, config, PythonConfig.load(paths.python_config_file(root))[0])
     window.save = lambda: None  # a check must not touch the user's settings
     window.show()
     window._filling = True

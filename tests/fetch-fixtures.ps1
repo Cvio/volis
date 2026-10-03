@@ -1,6 +1,6 @@
 # Downloads the test clips into tests\fixtures\ (not committed): the first 10
 # FLEURS test clips for Spanish, Persian, Arabic and English, with their
-# reference transcripts. A development tool that uses the internet; pyvolis
+# reference transcripts. A development tool that uses the internet; volis
 # itself never does. Your own recordings go in tests\fixtures\user\.
 #
 #     .\tests\fetch-fixtures.ps1

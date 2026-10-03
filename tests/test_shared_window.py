@@ -11,10 +11,10 @@ from PySide6.QtCore import QEvent, Qt  # noqa: E402
 from PySide6.QtGui import QKeyEvent  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
-from pyvolis import events as ev  # noqa: E402
-from pyvolis import paths  # noqa: E402
-from pyvolis.config import Config, PyvolisConfig  # noqa: E402
-from pyvolis.gui.window import MainWindow  # noqa: E402
+from volis import events as ev  # noqa: E402
+from volis import paths  # noqa: E402
+from volis.config import Config, PythonConfig  # noqa: E402
+from volis.gui.window import MainWindow  # noqa: E402
 
 
 class FakePipeline:
@@ -52,7 +52,7 @@ def app():
 @pytest.fixture
 def window(app):
     config = Config.parse('[mode]\nkind = "shared"\n[shared]\nleft_language = "en"\nright_language = "es-MX"\n')
-    w = MainWindow(paths.app_root(), config, PyvolisConfig())
+    w = MainWindow(paths.app_root(), config, PythonConfig())
     if not w.engines or not w.voices:
         w.close()
         pytest.skip("needs the development models")

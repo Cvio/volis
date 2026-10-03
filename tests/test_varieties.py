@@ -2,7 +2,7 @@
 
 import pytest
 
-from pyvolis import varieties as v
+from volis import varieties as v
 
 
 def test_every_row_is_well_formed():

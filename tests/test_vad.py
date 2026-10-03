@@ -10,11 +10,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pyvolis import paths
-from pyvolis.audio import SAMPLE_RATE
-from pyvolis.config import ConfigError, PyvolisConfig
-from pyvolis.filesource import chunks, read_16k_mono
-from pyvolis.vad import Segment, Segmenter, VadError, VadSettings
+from volis import paths
+from volis.audio import SAMPLE_RATE
+from volis.config import ConfigError, PythonConfig
+from volis.filesource import chunks, read_16k_mono
+from volis.vad import Segment, Segmenter, VadError, VadSettings
 
 ROOT = paths.app_root()
 MODEL = paths.vad_model_file(ROOT)
@@ -140,14 +140,14 @@ def test_vad_cuts_speech_out_of_a_recording():
         assert all(s.end_ms() <= total_ms + 1 for s in segments)
 
 
-# ---------------------------------------------------------------- pyvolis.toml
+# ---------------------------------------------------------------- volis-python.toml
 
 
-def test_pyvolis_toml_is_optional_and_strict(tmp_path):
-    config, found = PyvolisConfig.load(tmp_path / "pyvolis.toml")
+def test_volis_toml_is_optional_and_strict(tmp_path):
+    config, found = PythonConfig.load(tmp_path / "volis-python.toml")
     assert not found and config.vad.pre_roll_ms == 600
-    (tmp_path / "pyvolis.toml").write_text("[vad]\npre_roll_ms = 0\n", encoding="utf-8")
-    assert PyvolisConfig.load(tmp_path / "pyvolis.toml")[0].vad.pre_roll_ms == 0
-    (tmp_path / "pyvolis.toml").write_text("[vad]\npre_roll = 300\n", encoding="utf-8")
+    (tmp_path / "volis-python.toml").write_text("[vad]\npre_roll_ms = 0\n", encoding="utf-8")
+    assert PythonConfig.load(tmp_path / "volis-python.toml")[0].vad.pre_roll_ms == 0
+    (tmp_path / "volis-python.toml").write_text("[vad]\npre_roll = 300\n", encoding="utf-8")
     with pytest.raises(ConfigError, match="pre_roll"):
-        PyvolisConfig.load(tmp_path / "pyvolis.toml")
+        PythonConfig.load(tmp_path / "volis-python.toml")

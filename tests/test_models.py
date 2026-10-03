@@ -1,4 +1,4 @@
-"""Port of the tests in Rust `models.rs`, then pyvolis's own discovery."""
+"""Port of the tests in Rust `models.rs`, then volis's own discovery."""
 
 import json
 import struct
@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from pyvolis import gguf, models
-from pyvolis.models import Engine, Failed, Fit, FitKind, ModelError, Role
+from volis import gguf, models
+from volis.models import Engine, Failed, Fit, FitKind, ModelError, Role
 
 PARAKEET = """
 name = "Parakeet TDT 0.6B v3 (int8)"
@@ -32,7 +32,7 @@ def model(root: Path, name: str, engine_toml: str | None, files=(), **extra: str
     for f in files:
         (d / f).write_bytes(b"stub")
     for filename, text in extra.items():
-        (d / filename.replace("__", ".")).write_text(text, encoding="utf-8")
+        (d / filename.replace("__", ".").replace("volis_python", "volis-python")).write_text(text, encoding="utf-8")
     return d
 
 
@@ -203,10 +203,10 @@ def test_unknown_languages_rank_after_every_declared_fit():
     assert [r.engine.dir_name for r in models.rank("es", [unknown, known])] == ["a-general", "b-unknown"]
 
 
-def test_pyvolis_toml_overrides_what_was_detected(tmp_path):
+def test_volis_toml_overrides_what_was_detected(tmp_path):
     hf_folder(
         tmp_path, "fa-whisper", README__md=CARD,
-        pyvolis__toml='name = "Whisper Persian"\nlanguages = ["ar"]\nvarieties = ["ar-IQ"]\n'
+        volis_python__toml='name = "Whisper Persian"\nlanguages = ["ar"]\nvarieties = ["ar-IQ"]\n'
         'device = "cpu"\ndtype = "float32"\n',
     )
     [engine] = models.discover(tmp_path, Role.ASR)
@@ -215,12 +215,12 @@ def test_pyvolis_toml_overrides_what_was_detected(tmp_path):
     assert engine.settings == {"device": "cpu", "dtype": "float32"}
 
 
-def test_a_bad_pyvolis_toml_is_an_error_naming_it(tmp_path):
-    d = hf_folder(tmp_path, "x", pyvolis__toml='device = "tpu"\n')
+def test_a_bad_volis_toml_is_an_error_naming_it(tmp_path):
+    d = hf_folder(tmp_path, "x", volis_python__toml='device = "tpu"\n')
     [entry] = models.discover(tmp_path, Role.ASR)
     assert isinstance(entry, Failed)
-    assert str((d / "pyvolis.toml").absolute()) in entry.error
-    hf_folder(tmp_path, "y", pyvolis__toml='colour = "blue"\n')
+    assert str((d / "volis-python.toml").absolute()) in entry.error
+    hf_folder(tmp_path, "y", volis_python__toml='colour = "blue"\n')
     assert "unknown key" in models.discover(tmp_path, Role.ASR)[1].error
 
 
@@ -252,7 +252,7 @@ def test_remote_code_needs_trust_remote_code(tmp_path):
     hf_folder(tmp_path, "remote", config=cfg)
     [engine] = models.discover(tmp_path, Role.ASR)
     assert not engine.enabled() and "trust_remote_code" in engine.unusable
-    hf_folder(tmp_path, "trusted", config=cfg, pyvolis__toml="trust_remote_code = true\n")
+    hf_folder(tmp_path, "trusted", config=cfg, volis_python__toml="trust_remote_code = true\n")
     assert models.discover(tmp_path, Role.ASR)[1].enabled()
 
 

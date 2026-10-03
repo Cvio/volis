@@ -1,5 +1,5 @@
 """Put what the built program reads beside it: run by build.ps1 after
-PyInstaller. dist\\pyvolis\\ then holds pyvolis.exe, _internal\\, and the same
+PyInstaller. dist\\volis\\ then holds volis.exe, _internal\\, and the same
 config\\, prompts\\ and models\\ the repository has, where paths.app_root()
 looks for them.
 
@@ -50,8 +50,8 @@ def main() -> int:
     parser.add_argument("--no-models", action="store_true", help="only the README files in models\\")
     args = parser.parse_args()
     dist = args.dist.resolve()
-    if not (dist / "pyvolis.exe").is_file():
-        print(f"STOP: no {dist / 'pyvolis.exe'}; PyInstaller has not built it", file=sys.stderr)
+    if not (dist / "volis.exe").is_file():
+        print(f"STOP: no {dist / 'volis.exe'}; PyInstaller has not built it", file=sys.stderr)
         return 1
 
     for folder in ("config", "prompts"):
@@ -59,7 +59,7 @@ def main() -> int:
         shutil.copytree(REPO / folder, dist / folder)
         print(f"  {folder}\\")
     # The settings as this machine has them, so the copy starts the same way.
-    for name in ("volis.toml", "pyvolis.toml"):
+    for name in ("volis.toml", "volis-python.toml"):
         if (REPO / name).is_file():
             shutil.copy2(REPO / name, dist / name)
             print(f"  {name}")
@@ -69,7 +69,7 @@ def main() -> int:
     if args.no_models:
         counts = tree(models, dist / "models", skip=lambda p: p.name != "README.txt")
     else:
-        # .cache\: Hugging Face's download bookkeeping, never read by pyvolis.
+        # .cache\: Hugging Face's download bookkeeping, never read by volis.
         counts = tree(models, dist / "models", skip=lambda p: ".cache" in p.parts)
     print(f"  models\\: {counts['linked'] + counts['copied']} files, {counts['bytes'] / 1e9:.1f} GB "
           f"({counts['linked']} hard-linked, {counts['copied']} copied)")
