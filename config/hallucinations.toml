@@ -1,5 +1,5 @@
 # Text speech recognizers invent on silence or noise, per language. Edit freely:
-# pyvolis reads this file at start. Matching ignores case, punctuation and
+# volis reads this file at start. Matching ignores case, punctuation and
 # extra spaces. Every drop is logged with its reason, so a wrong one can be spotted.
 #
 #   whole     = the whole transcript is exactly this: drop it

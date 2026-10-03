@@ -24,7 +24,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
-from pyvolis import paths  # noqa: E402
+from volis import paths  # noqa: E402
 
 paths.apply_offline_environment(paths.app_root())
 for stream in (sys.stdout, sys.stderr):
@@ -34,14 +34,14 @@ import logging  # noqa: E402
 
 logging.disable(logging.WARNING)
 
-from pyvolis import events as ev, scoring  # noqa: E402
-from pyvolis import translate as tr  # noqa: E402
-from pyvolis.config import Config, PyvolisConfig  # noqa: E402
-from pyvolis.filesource import read_16k_mono  # noqa: E402
-from pyvolis.pipeline import ArraySource, Options, Pipeline, run_to_end  # noqa: E402
-from pyvolis.translate import context as ctx  # noqa: E402
-from pyvolis.translate import prompts  # noqa: E402
-from pyvolis.translate.revision import Done, Reviser  # noqa: E402
+from volis import events as ev, scoring  # noqa: E402
+from volis import translate as tr  # noqa: E402
+from volis.config import Config, PythonConfig  # noqa: E402
+from volis.filesource import read_16k_mono  # noqa: E402
+from volis.pipeline import ArraySource, Options, Pipeline, run_to_end  # noqa: E402
+from volis.translate import context as ctx  # noqa: E402
+from volis.translate import prompts  # noqa: E402
+from volis.translate.revision import Done, Reviser  # noqa: E402
 
 # (source, target, first sentence, second sentence, the first is right when it matches this)
 DIALOGUES = [
@@ -61,7 +61,7 @@ DIALOGUES = [
 
 
 def dialogues(root: Path, mts: list[str]) -> None:
-    pyconfig, _ = PyvolisConfig.load(paths.pyvolis_config_file(root))
+    pyconfig, _ = PythonConfig.load(paths.python_config_file(root))
     py = pyconfig.context
     for mt in mts:
         entry = tr.choose(root, mt)
@@ -100,7 +100,7 @@ def dialogues(root: Path, mts: list[str]) -> None:
 def run_file(root: Path, path: Path, source: str, target: str, asr: str, mt: str, mode: str, speak: bool = False,
              max_age: float | None = None, hold: bool = False) -> dict:
     config = Config.parse(f'[asr]\nengine = "{asr}"\n[languages]\nsource = "{source}"\ntarget = "{target}"\n')
-    pyconfig, _ = PyvolisConfig.load(paths.pyvolis_config_file(root))
+    pyconfig, _ = PythonConfig.load(paths.python_config_file(root))
     if max_age is not None:
         pyconfig.context.revise_max_age_s = max_age
     pyconfig.context.hold_speech = hold

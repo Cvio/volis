@@ -10,12 +10,12 @@ from pathlib import Path
 
 # The same order as the entry point: the environment before any library.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from pyvolis import paths  # noqa: E402
+from volis import paths  # noqa: E402
 
 root = paths.app_root()
 paths.apply_offline_environment(root)
 
-from pyvolis.translate.llamacpp import load_cuda_runtime  # noqa: E402
+from volis.translate.llamacpp import load_cuda_runtime  # noqa: E402
 
 load_cuda_runtime()  # a GPU build of llama.cpp needs it before the import
 
@@ -32,7 +32,7 @@ import soxr  # noqa: E402, F401
 import torch  # noqa: E402
 import transformers  # noqa: E402
 
-from pyvolis import cli, models  # noqa: E402
+from volis import cli, models  # noqa: E402
 
 print(f"torch {torch.__version__}, cuda {torch.cuda.is_available()}")
 
@@ -52,7 +52,7 @@ for entry in models.discover(paths.asr_dir(root), models.Role.ASR):
 # One recognizer of each backend, loaded and run: the smallest of each kind.
 import numpy as np  # noqa: E402
 
-from pyvolis import asr  # noqa: E402
+from volis import asr  # noqa: E402
 
 engines = [e for e in models.discover(paths.asr_dir(root), models.Role.ASR) if isinstance(e, models.Engine) and e.enabled()]
 for backend_is_sherpa in (True, False):
@@ -65,15 +65,15 @@ for backend_is_sherpa in (True, False):
         print(f"loaded and ran {smallest.dir_name} ({smallest.backend})")
 
 # The translator (llama.cpp): one sentence.
-from pyvolis import translate as tr  # noqa: E402
-from pyvolis.translate import prompts  # noqa: E402
+from volis import translate as tr  # noqa: E402
+from volis.translate import prompts  # noqa: E402
 
 translator = tr.load(tr.choose(root, ""), prompts.load(paths.prompts_dir(root)))
 print("translated:", translator.translate(tr.TranslationRequest("¿Dónde está la estación?", "es", "en")).text)
 translator.close()
 
 # The Arabic vowel-marking model (onnxruntime), when it is installed.
-from pyvolis import tashkeel  # noqa: E402
+from volis import tashkeel  # noqa: E402
 
 if paths.tashkeel_model_file(root).is_file():
     print("vowel marks:", len(tashkeel.Tashkeel(paths.tashkeel_model_file(root)).run("مرحبا")), "characters")

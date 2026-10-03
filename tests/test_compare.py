@@ -2,10 +2,10 @@
 
 import numpy as np
 
-from pyvolis import compare
-from pyvolis.asr import AsrError, AsrResult, Memory
-from pyvolis.audio import SAMPLE_RATE
-from pyvolis.ring import UtteranceRing
+from volis import compare
+from volis.asr import AsrError, AsrResult, Memory
+from volis.audio import SAMPLE_RATE
+from volis.ring import UtteranceRing
 
 
 def test_the_ring_keeps_the_newest_and_drops_the_oldest():
@@ -79,7 +79,7 @@ def test_one_failing_engine_does_not_lose_the_others():
 
 
 def test_the_table_is_rusts_line_for_line():
-    """parity/asr.py parses Rust's table; pyvolis's must read the same way."""
+    """parity/asr.py parses Rust's table; volis's must read the same way."""
     c = compare.run_all(FakeEngines([Fake("parakeet", "hola")]), utterance(), "es")
     assert compare.format_table(c, "parakeet").splitlines() == [
         "utterance 1 at 0 ms - 1000 ms of audio",

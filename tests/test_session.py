@@ -1,11 +1,11 @@
 """Port of the tests of Rust `gui::Session` that apply before turns, pairing
-and sharing, plus pyvolis's rows per sentence. No Qt is imported here."""
+and sharing, plus volis's rows per sentence. No Qt is imported here."""
 
 import sys
 
-from pyvolis import events as ev
-from pyvolis.gui import session as ses
-from pyvolis.gui.session import ComparisonLine, DroppedLine, Nothing, Row, Session
+from volis import events as ev
+from volis.gui import session as ses
+from volis.gui.session import ComparisonLine, DroppedLine, Nothing, Row, Session
 
 
 def heard(s: Session, utterance: int, text: str, lang: str = "es", sentence: str | None = None) -> str:
@@ -18,7 +18,7 @@ def heard(s: Session, utterance: int, text: str, lang: str = "es", sentence: str
 
 def test_the_session_imports_no_qt():
     assert not any(name.startswith("PySide6") for name in sys.modules if "session" in name)
-    import pyvolis.gui.session as module
+    import volis.gui.session as module
 
     assert "PySide6" not in open(module.__file__, encoding="utf-8").read().replace('"PySide6"', "")
 
@@ -119,7 +119,7 @@ def test_comparing_never_speaks():
     assert s.state == ses.STARTING
 
 
-# ---------------------------------------------------------------- pyvolis
+# ---------------------------------------------------------------- volis
 
 
 def test_an_utterance_of_two_sentences_is_two_rows_with_their_own_translations():

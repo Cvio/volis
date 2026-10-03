@@ -1,24 +1,24 @@
-"""Recognition parity: pyvolis's sherpa backend gives Rust volis's text.
+"""Recognition parity: volis's sherpa backend gives volis-rust's text.
 
     .venv\\Scripts\\python.exe parity\\asr.py [es_419 ar_eg en_us ...]
 
-Needs machine.yaml (volis_exe) and the VB-Audio Virtual Cable. Rust volis
+Needs machine.yaml (volis_rust_exe) and the VB-Audio Virtual Cable. volis-rust
 reads audio only from a device, so:
 
-  1. A parity copy of Rust volis (parity\\.rust\\, as parity\\report.py makes)
+  1. A parity copy of volis-rust (parity\\.rust\\, as parity\\report.py makes)
      runs `--listen --wav --compare`, listening to "CABLE Output", with voice
      output off.
   2. Each FLEURS fixture clip is played into "CABLE Input", one at a time,
      waiting for Rust's comparison table before the next (Rust's pipeline
      drops audio if it falls behind).
   3. Rust writes every utterance it heard to a WAV and logs every engine's
-     transcript of it. pyvolis's sherpa backend transcribes those same WAVs
+     transcript of it. volis's sherpa backend transcribes those same WAVs
      with the same engines, and the texts are compared.
 
 What this can and can't prove. The WAVs are 16-bit, and the audio also
 passes through Windows and the cable driver, which scale it (measured gain
 0.9896) and resample it internally even with both ends set to 16 kHz, so
-pyvolis hears Rust's audio only to within about half a 16-bit step. That is
+volis hears Rust's audio only to within about half a 16-bit step. That is
 enough for Parakeet (identical on every Spanish utterance, 2026-09-30) and
 not for int8 Whisper, whose text changes for differences smaller than one
 16-bit step (shown by transcribing the same WAV with and without a sub-step
@@ -45,16 +45,16 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "parity"))
 
-from pyvolis import paths  # noqa: E402
+from volis import paths  # noqa: E402
 
 paths.apply_offline_environment(paths.app_root())
 
 from link_models import mirror  # noqa: E402
-from report import volis_exe  # noqa: E402
+from report import volis_rust_exe  # noqa: E402
 
-from pyvolis import asr, audio, models  # noqa: E402
-from pyvolis.config import Config  # noqa: E402
-from pyvolis.filesource import read_16k_mono  # noqa: E402
+from volis import asr, audio, models  # noqa: E402
+from volis.config import Config  # noqa: E402
+from volis.filesource import read_16k_mono  # noqa: E402
 
 WORK = REPO / "parity" / ".rust"
 CABLE_IN = "CABLE Input (VB-Audio Virtual Cable)"
@@ -63,19 +63,19 @@ LANGUAGE = {"es_419": ("es", "en"), "ar_eg": ("ar", "en"), "en_us": ("en", "es")
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 TABLE = re.compile(r"^utterance (\d+) at (\d+) ms - (\d+) ms of audio$")
 ROW = re.compile(r"^  [* ] (\S+)\s+(\d+) ms")
-HEARD = re.compile(r"volis::pipeline: utterance (\d+): \d+ ms \.\.")
-TRANSCRIPT = re.compile(r"volis::pipeline:   \[([A-Za-z-]+)\] (.*)$")
-TRANSLATED = re.compile(r"volis::pipeline: utterance (\d+)$")
+HEARD = re.compile(r"volis(?:_rust)?::pipeline: utterance (\d+): \d+ ms \.\.")
+TRANSCRIPT = re.compile(r"volis(?:_rust)?::pipeline:   \[([A-Za-z-]+)\] (.*)$")
+TRANSLATED = re.compile(r"volis(?:_rust)?::pipeline: utterance (\d+)$")
 BRACKETED = re.compile(r"^  \[([A-Za-z-]+)\] (.*)$")
 REFUSED = re.compile(r"utterance (\d+): translation failed: (.*)$")
 WROTE = re.compile(r"wrote (.*utterance-(\d{4})-at-\d+ms-for-\d+ms\.wav)")
 
 
 class Rust:
-    """The parity copy of volis.exe, running --listen, its output parsed."""
+    """The parity copy of volis-rust.exe, running --listen, its output parsed."""
 
     def __init__(self, source: str, target: str, compare: bool = True) -> None:
-        exe = volis_exe()
+        exe = volis_rust_exe()
         if WORK.exists():
             shutil.rmtree(WORK)
         WORK.mkdir(parents=True)
@@ -88,7 +88,7 @@ class Rust:
         config.audio.input_device = CABLE_OUT
         config.tts.enabled = False
         if not (REPO / "models" / "asr" / config.asr.engine / "engine.toml").is_file():
-            # The user's recognizer is one only pyvolis runs; Rust gets one it has.
+            # The user's recognizer is one only volis runs; Rust gets one it has.
             config.asr.engine = "parakeet-tdt-0.6b-v3-onnx-int8"
         config.save_selections(WORK / "volis.toml")
         self.selected = config.asr.engine
@@ -172,7 +172,7 @@ class Rust:
 
 def play(clip: np.ndarray, device: int, rate: int = 16_000) -> None:
     """Play a 16 kHz clip into the cable at the cable's rate, then 1.5 s of silence."""
-    from pyvolis import audio
+    from volis import audio
 
     if rate != 16_000:
         import soxr
@@ -215,7 +215,7 @@ def main(argv: list[str]) -> int:
         rust = Rust(source, target)
         try:
             if not rust.listening.wait(180):
-                raise SystemExit("STOP: Rust volis never started listening:\n" + "\n".join(rust.lines[-30:]))
+                raise SystemExit("STOP: volis-rust never started listening:\n" + "\n".join(rust.lines[-30:]))
             for i, ref in enumerate(refs):
                 before = len(rust.tables)
                 rate = int(devices[CABLE_IN].default_config.split(", ")[1].split()[0])
@@ -230,7 +230,7 @@ def main(argv: list[str]) -> int:
                 print(f"  clip {i + 1}: Rust has {len(rust.tables)} utterance(s) so far")
         finally:
             rust.stop()
-        print(f"  pyvolis transcribing Rust's {len(rust.wavs)} utterances with {len(engines)} engines")
+        print(f"  volis transcribing Rust's {len(rust.wavs)} utterances with {len(engines)} engines")
         for engine in engines:
             recognizer = asr.load(engine)
             for index in sorted(rust.tables):
@@ -242,7 +242,7 @@ def main(argv: list[str]) -> int:
                 if ours == theirs:
                     same += 1
                 else:
-                    diffs.append(f"{name} utterance {index}, {engine.dir_name}:\n    Rust:    {theirs}\n    pyvolis: {ours}")
+                    diffs.append(f"{name} utterance {index}, {engine.dir_name}:\n    Rust:    {theirs}\n    volis: {ours}")
             recognizer.close()
             print(f"    {engine.dir_name}: done")
     print(f"\n{same} of {total} transcripts identical")

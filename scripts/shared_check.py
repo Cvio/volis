@@ -8,7 +8,7 @@ each person (the fixtures), fed in as a microphone would deliver it; the
 recognizers, the translator and the voices are the real ones, and what is
 spoken goes to the VB-Audio cable rather than the speakers.
 
-Run once with the recognizers Rust volis has (Parakeet on the left, the
+Run once with the recognizers volis-rust has (Parakeet on the left, the
 Spanish-tuned Whisper on the right: Rust's M7.6 check), then with a model
 downloaded from Hugging Face on the right, then on the left.
 
@@ -30,7 +30,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
-from pyvolis import paths  # noqa: E402
+from volis import paths  # noqa: E402
 
 paths.apply_offline_environment(paths.app_root())
 for stream in (sys.stdout, sys.stderr):
@@ -46,18 +46,18 @@ class Keep(logging.Handler):
         LOG_LINES.append(record.getMessage())
 
 
-logging.getLogger("pyvolis").addHandler(Keep())
-logging.getLogger("pyvolis").setLevel(logging.INFO)
+logging.getLogger("volis").addHandler(Keep())
+logging.getLogger("volis").setLevel(logging.INFO)
 
-from pyvolis import events as ev, models, scoring  # noqa: E402
-from pyvolis import shared as sh  # noqa: E402
-from pyvolis.config import Config, PyvolisConfig  # noqa: E402
-from pyvolis.filesource import read_16k_mono  # noqa: E402
-from pyvolis.pipeline import Options, Pipeline  # noqa: E402
+from volis import events as ev, models, scoring  # noqa: E402
+from volis import shared as sh  # noqa: E402
+from volis.config import Config, PythonConfig  # noqa: E402
+from volis.filesource import read_16k_mono  # noqa: E402
+from volis.pipeline import Options, Pipeline  # noqa: E402
 
 CABLE_IN = "CABLE Input (VB-Audio Virtual Cable)"
 RUNS = [
-    ("Rust volis's models: Parakeet left, Spanish-tuned Whisper right",
+    ("volis-rust's models: Parakeet left, Spanish-tuned Whisper right",
      "parakeet-tdt-0.6b-v3-onnx-int8", "whisper-large-v3-turbo-es-adriszmar-onnx-int8"),
     ("a downloaded model on the right", "parakeet-tdt-0.6b-v3-onnx-int8", "whisper-large-v3-turbo-es"),
     ("downloaded models on both sides", "whisper-small", "whisper-large-v3-turbo-es"),
@@ -114,7 +114,7 @@ def run(root: Path, title: str, left_asr: str, right_asr: str, turns: int) -> bo
         f'[asr]\nengine = "{left_asr}"\n[mode]\nkind = "shared"\n[tts]\nenabled = true\nhalf_duplex = true\n'
         f'[audio]\noutput_device = "{CABLE_IN}"\n'
         f'[shared]\nleft_language = "en"\nright_language = "es-MX"\nleft_asr = "{left_asr}"\nright_asr = "{right_asr}"\n')
-    pyconfig, _ = PyvolisConfig.load(paths.pyvolis_config_file(root))
+    pyconfig, _ = PythonConfig.load(paths.python_config_file(root))
     events: queue.Queue = queue.Queue()
     mic = Clips()
     pipeline = Pipeline(root, config, Options(), events, mic, pyconfig).start()

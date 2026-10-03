@@ -29,7 +29,7 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "scripts"))
 
-from pyvolis import paths  # noqa: E402
+from volis import paths  # noqa: E402
 
 paths.apply_offline_environment(paths.app_root())
 for stream in (sys.stdout, sys.stderr):
@@ -42,12 +42,12 @@ logging.disable(logging.WARNING)
 from obey_check import CASES, EARLIER, verdict  # noqa: E402
 from p8_check import DIALOGUES  # noqa: E402
 
-from pyvolis import models, scoring  # noqa: E402
-from pyvolis import translate as tr  # noqa: E402
-from pyvolis.config import PyvolisConfig  # noqa: E402
-from pyvolis.translate import context as ctx  # noqa: E402
-from pyvolis.translate import prompts  # noqa: E402
-from pyvolis.translate.revision import Done, Reviser  # noqa: E402
+from volis import models, scoring  # noqa: E402
+from volis import translate as tr  # noqa: E402
+from volis.config import PythonConfig  # noqa: E402
+from volis.translate import context as ctx  # noqa: E402
+from volis.translate import prompts  # noqa: E402
+from volis.translate.revision import Done, Reviser  # noqa: E402
 
 SETS = [("es_419", "es", "en"), ("ar_eg", "ar", "en"), ("fa_ir", "fa", "en"), ("en_us", "en", "es")]
 
@@ -119,7 +119,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--mt", nargs="*", default=[])
     args = parser.parse_args()
-    pyconfig, _ = PyvolisConfig.load(paths.pyvolis_config_file(root))
+    pyconfig, _ = PythonConfig.load(paths.python_config_file(root))
     found = [t for t in models.discover_translators(paths.mt_dir(root)) if isinstance(t, models.Translator)]
     entries = [tr.choose(root, m) for m in args.mt] or [t for t in found if t.enabled()]
     prompt = prompts.load(paths.prompts_dir(root))

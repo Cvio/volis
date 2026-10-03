@@ -3,8 +3,8 @@ changes.
 
     python parity/link_models.py <from models dir> <to models dir> [subpath ...]
 
-Used to give pyvolis's development `models\\` the same files Rust volis uses,
-and to give the parity copy of volis.exe the same `models\\` as pyvolis.
+Used to give volis's development `models\\` the same files volis-rust uses,
+and to give the parity copy of volis-rust.exe the same `models\\` as volis.
 Hard links rather than junctions: deleting a hard link, even with a recursive
 delete, never touches the other copy. Both folders must be on one drive.
 Files that already exist are left alone.

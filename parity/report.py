@@ -1,22 +1,22 @@
-"""Discovery parity: Rust volis and pyvolis report the same Rust-format models,
-and a volis.toml saved by pyvolis loads in Rust volis.
+"""Discovery parity: volis-rust and volis report the same Rust-format models,
+and a volis.toml saved by volis loads in volis-rust.
 
     .venv\\Scripts\\python.exe parity\\report.py
 
-Needs machine.yaml (copy machine.example.yaml) naming the Rust volis.exe.
-Rust volis finds models beside its own executable, so this makes
-`parity\\.rust\\` holding a hard link to volis.exe, a hard-linked mirror of
-pyvolis's models\\ and a copy of pyvolis's volis.toml, and runs both there.
+Needs machine.yaml (copy machine.example.yaml) naming the volis-rust.exe.
+volis-rust finds models beside its own executable, so this makes
+`parity\\.rust\\` holding a hard link to volis-rust.exe, a hard-linked mirror of
+volis's models\\ and a copy of volis's volis.toml, and runs both there.
 Nothing in the Rust repository is written to.
 
 Compared:
   * every ASR and TTS folder Rust lists: its block of lines, with the app root
     replaced by <root>, must be identical in both reports;
   * the VAD section, identical;
-  * every translation file Rust lists (`[+] name`) must be in pyvolis's list;
+  * every translation file Rust lists (`[+] name`) must be in volis's list;
   * the `[asr].engine` line, when the selected engine is a Rust-format folder;
-  * pyvolis-only folders are listed, not compared.
-Then a volis.toml with every selection changed by pyvolis is given to Rust.
+  * volis-only folders are listed, not compared.
+Then a volis.toml with every selection changed by volis is given to Rust.
 Exit code 0 when everything agrees.
 """
 
@@ -37,20 +37,21 @@ sys.path.insert(0, str(REPO / "parity"))
 
 from link_models import mirror  # noqa: E402
 
-from pyvolis.config import Config  # noqa: E402
+from volis.config import Config  # noqa: E402
 
 WORK = REPO / "parity" / ".rust"
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 LOG_LINE = re.compile(r"^\s*\d{4}-\d{2}-\d{2}T\S+\s+(TRACE|DEBUG|INFO|WARN|ERROR)\b")
 
 
-def volis_exe() -> Path:
+def volis_rust_exe() -> Path:
     machine = REPO / "machine.yaml"
     if not machine.is_file():
-        raise SystemExit(f"STOP: {machine} does not exist. Copy machine.example.yaml and set volis_exe.")
-    exe = Path((yaml.safe_load(machine.read_text(encoding="utf-8")) or {}).get("volis_exe", ""))
+        raise SystemExit(f"STOP: {machine} does not exist. Copy machine.example.yaml and set volis_rust_exe.")
+    data = yaml.safe_load(machine.read_text(encoding="utf-8")) or {}
+    exe = Path(data.get("volis_rust_exe") or data.get("volis_exe") or "")  # the old key is still read
     if not exe.is_file():
-        raise SystemExit(f"STOP: volis_exe in {machine} is {str(exe)!r}, which is not a file")
+        raise SystemExit(f"STOP: volis_rust_exe in {machine} is {str(exe)!r}, which is not a file")
     return exe
 
 
@@ -96,7 +97,7 @@ def blocks(section: list[str]) -> dict[str, list[str]]:
 
 
 def main() -> int:
-    exe = volis_exe()
+    exe = volis_rust_exe()
     if WORK.exists():
         shutil.rmtree(WORK)  # hard links only: the originals are untouched
     WORK.mkdir(parents=True)
@@ -106,11 +107,11 @@ def main() -> int:
 
     problems: list[str] = []
     code_r, rust = run([str(WORK / exe.name), "--report"], WORK)
-    code_p, py = run([sys.executable, "-m", "pyvolis", "--report"], REPO)
+    code_p, py = run([sys.executable, "-m", "volis", "--report"], REPO)
     if code_r != 0:
         problems.append(f"Rust --report exited {code_r}:\n" + "\n".join(rust[-20:]))
     if code_p != 0:
-        problems.append(f"pyvolis --report exited {code_p}:\n" + "\n".join(py[-20:]))
+        problems.append(f"volis --report exited {code_p}:\n" + "\n".join(py[-20:]))
     rs, ps = sections(rust, WORK), sections(py, REPO)
 
     print("Discovery")
@@ -121,28 +122,28 @@ def main() -> int:
                 print(f"  same   {title}: {name}")
             else:
                 problems.append(f"{title}: {name} differs\n  Rust:\n    " + "\n    ".join(lines)
-                                + "\n  pyvolis:\n    " + "\n    ".join(pb.get(name, ["(missing)"])))
+                                + "\n  volis:\n    " + "\n    ".join(pb.get(name, ["(missing)"])))
                 print(f"  DIFF   {title}: {name}")
         for name in pb.keys() - rb.keys():
-            print(f"  pyvolis only   {title}: {name}  ({pb[name][0].split()[2]})")
+            print(f"  volis only   {title}: {name}  ({pb[name][0].split()[2]})")
     if rs.get("VAD") == ps.get("VAD"):
         print("  same   VAD")
     else:
-        problems.append(f"VAD differs: Rust {rs.get('VAD')} pyvolis {ps.get('VAD')}")
+        problems.append(f"VAD differs: Rust {rs.get('VAD')} volis {ps.get('VAD')}")
     for line in rs.get("Translation", []):
         if line in ps.get("Translation", []):
             print(f"  same   Translation: {line.strip()}")
         else:
-            problems.append(f"Translation: Rust lists {line.strip()!r}, pyvolis doesn't")
+            problems.append(f"Translation: Rust lists {line.strip()!r}, volis doesn't")
     rust_sel = [line for line in rs.get("summary:", []) if "[asr].engine" in line]
     py_sel = [line for line in ps.get("summary:", []) if "[asr].engine" in line]
     if rust_sel and "not found" not in rust_sel[0]:
         if rust_sel == py_sel:
             print(f"  same   selection: {rust_sel[0].strip()}")
         else:
-            problems.append(f"selection differs: Rust {rust_sel} pyvolis {py_sel}")
+            problems.append(f"selection differs: Rust {rust_sel} volis {py_sel}")
 
-    print("\nA volis.toml saved by pyvolis, loaded by Rust volis")
+    print("\nA volis.toml saved by volis, loaded by volis-rust")
     config, _ = Config.load(WORK / "volis.toml")
     config.asr.engine = "parakeet-tdt-0.6b-v3-onnx-int8"
     config.languages.source, config.languages.target = "es-MX", "en-US"
@@ -157,17 +158,17 @@ def main() -> int:
     code, out = run([str(WORK / exe.name), "--report"], WORK)
     loaded = any("config:" in line and "volis.toml" in line for line in out)
     if code == 0 and loaded and any('"parakeet-tdt-0.6b-v3-onnx-int8"' in line for line in out):
-        print("  Rust loaded it, and reads [asr].engine as pyvolis wrote it")
+        print("  Rust loaded it, and reads [asr].engine as volis wrote it")
     else:
-        problems.append(f"Rust volis did not accept pyvolis's volis.toml (exit {code}):\n" + "\n".join(out[-15:]))
-    # And from an empty file: every section added by pyvolis.
+        problems.append(f"volis-rust did not accept volis's volis.toml (exit {code}):\n" + "\n".join(out[-15:]))
+    # And from an empty file: every section added by volis.
     (WORK / "volis.toml").write_text("", encoding="utf-8")
     Config().save_selections(WORK / "volis.toml")
     code, out = run([str(WORK / exe.name), "--report"], WORK)
     if code == 0:
-        print("  Rust loaded one pyvolis wrote from nothing")
+        print("  Rust loaded one volis wrote from nothing")
     else:
-        problems.append(f"Rust volis refused a volis.toml pyvolis created (exit {code}):\n" + "\n".join(out[-15:]))
+        problems.append(f"volis-rust refused a volis.toml volis created (exit {code}):\n" + "\n".join(out[-15:]))
 
     if problems:
         print("\nPROBLEMS:")

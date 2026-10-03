@@ -1,6 +1,6 @@
 # Downloads a model from Hugging Face into models\asr\, models\mt\ or models\tts\, in a
 # folder named after the model. This, like setup.ps1, uses the internet;
-# pyvolis itself never runs it and never goes online.
+# volis itself never runs it and never goes online.
 #
 #     .\fetch-model.ps1 openai/whisper-large-v3-turbo -Role asr
 #     .\fetch-model.ps1 unsloth/gemma-3-4b-it-GGUF -Role mt -Include "*Q4_K_M.gguf"

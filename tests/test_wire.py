@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from pyvolis import discovery, floor, wire
-from pyvolis.floor import ASKING, FREE, ME, THEM, BeginTurn, EndTurn, Floor, Holder, Refused, Send
+from volis import discovery, floor, wire
+from volis.floor import ASKING, FREE, ME, THEM, BeginTurn, EndTurn, Floor, Holder, Refused, Send
 
 # ---------------------------------------------------------------- wire.rs
 

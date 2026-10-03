@@ -1,5 +1,5 @@
 """Download the models in MODELS.md into models/, each in its right folder with
-the files pyvolis needs to find, load and run it. Run through
+the files volis needs to find, load and run it. Run through
 fetch-models.ps1. A development tool: it uses the internet, and the app never
 calls it.
 
@@ -14,7 +14,7 @@ in a group:
             backend): never downloaded unless asked for
 
 What is already in place (every file there, at the published size) is left
-alone. A settings file (engine.toml, pyvolis.toml) that exists is never
+alone. A settings file (engine.toml, volis-python.toml) that exists is never
 overwritten.
 """
 
@@ -76,20 +76,20 @@ class Model:
         return MODELS / self.role / self.folder if self.folder else MODELS / self.role
 
 
-GGUF_SPEECH = ("# Settings for this model in pyvolis. No engine.toml here: that file is for\n"
+GGUF_SPEECH = ("# Settings for this model in volis. No engine.toml here: that file is for\n"
                "# sherpa-onnx models, and would send this one to the wrong loader. The two\n"
                "# .gguf files (the model and its audio encoder, mmproj-*) are found by name.\n")
 # Only English, Spanish and Arabic were measured; the rest is from the model cards.
 SPEECH_LANGUAGES = 'languages = ["en", "es", "ar", "fa", "de", "fr", "it", "pt", "ru", "nl", "pl"]\n'
 
 LIST = [
-    # ------------------------------------------------------------ what Rust volis runs on
+    # ------------------------------------------------------------ what volis-rust runs on
     Model("vad", "", "use", "Silero VAD, the voice activity detector (required)",
           url=f"{SHERPA_ASR}/silero_vad.onnx", expect=("silero_vad.onnx",)),
     Model("tashkeel", "", "use", "libtashkeel, the Arabic vowel-marking model Piper uses ([tts] diacritize)",
           url="https://raw.githubusercontent.com/rhasspy/piper-phonemize/master/etc/libtashkeel_model.ort",
           expect=("libtashkeel_model.ort",)),
-    Model("mt", "", "use", "Qwen3 1.7B Q4_K_M, the translator Rust volis uses (the one .gguf at the top of mt)",
+    Model("mt", "", "use", "Qwen3 1.7B Q4_K_M, the translator volis-rust uses (the one .gguf at the top of mt)",
           repo="unsloth/Qwen3-1.7B-GGUF", file="Qwen3-1.7B-Q4_K_M.gguf", save_as="qwen3-1.7b-q4_k_m.gguf"),
     Model("asr", "parakeet-tdt-0.6b-v3-onnx-int8", "use", "Parakeet TDT 0.6B v3, ONNX int8 (sherpa-onnx, CPU)",
           url=f"{SHERPA_ASR}/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2",
@@ -120,7 +120,7 @@ LIST = [
           expect=("es_MX-claude-high.onnx", "tokens.txt", "espeak-ng-data/phontab"),
           write={"engine.toml": piper_engine("Piper es_MX claude (high)", "es", "es_MX-claude-high.onnx", "es-MX")}),
 
-    # ------------------------------------------------------------ recognizers, pyvolis only
+    # ------------------------------------------------------------ recognizers, volis only
     Model("asr", "whisper-large-v3-turbo", "use", "Whisper large-v3-turbo as published, all languages (transformers, GPU)",
           repo="openai/whisper-large-v3-turbo"),
     Model("asr", "whisper-large-v3-turbo-es", "use", "Whisper large-v3-turbo tuned for Spanish (transformers, GPU)",
@@ -137,20 +137,20 @@ LIST = [
                    "adapter.fas.safetensors", "adapter.spa.safetensors")),
     Model("asr", "Qwen3-ASR-0.6B-GGUF", "use", "Qwen3-ASR 0.6B Q8 and its audio encoder (llama.cpp audio)",
           repo="ggml-org/Qwen3-ASR-0.6B-GGUF", include=("*Q8_0.gguf",),
-          write={"pyvolis.toml": GGUF_SPEECH + 'name = "Qwen3-ASR 0.6B (Q8)"\n' + SPEECH_LANGUAGES}),
+          write={"volis-python.toml": GGUF_SPEECH + 'name = "Qwen3-ASR 0.6B (Q8)"\n' + SPEECH_LANGUAGES}),
     Model("asr", "gemma-4-E4B-it-GGUF", "use",
           "Gemma 4 E4B as a recognizer: its audio encoder, and a hard link to the translator's file",
           repo="unsloth/gemma-4-E4B-it-GGUF", include=("mmproj-F16.gguf",),
           link="mt/gemma-4-E4B-it-GGUF/gemma-4-E4B-it-Q4_K_M.gguf",
-          write={"pyvolis.toml": GGUF_SPEECH + 'name = "Gemma 4 E4B (Q4_K_M, audio)"\n' + SPEECH_LANGUAGES + (
-              "\n# No prompt line: pyvolis's own wording is used (\"Transcribe this audio exactly\n"
+          write={"volis-python.toml": GGUF_SPEECH + 'name = "Gemma 4 E4B (Q4_K_M, audio)"\n' + SPEECH_LANGUAGES + (
+              "\n# No prompt line: volis's own wording is used (\"Transcribe this audio exactly\n"
               "# as spoken, in {language}. Output only the transcript, ...\"). The wording on\n"
               "# Google's model card was tried and scored worse on the test recordings\n"
               "# (Arabic CER 3.4% against 1.5%, Spanish 1.7% against 1.1%). To try another:\n"
               '# prompt = "Transcribe the following speech segment in {language} into {language} text."\n')}),
     Model("asr", "Qwen3-ASR-1.7B-GGUF", "tested", "Qwen3-ASR 1.7B (Q8)",
           repo="ggml-org/Qwen3-ASR-1.7B-GGUF", include=("*Q8_0.gguf",),
-          write={"pyvolis.toml": GGUF_SPEECH + 'name = "Qwen3-ASR 1.7B (Q8)"\n' + SPEECH_LANGUAGES}),
+          write={"volis-python.toml": GGUF_SPEECH + 'name = "Qwen3-ASR 1.7B (Q8)"\n' + SPEECH_LANGUAGES}),
     Model("asr", "whisper-small", "tested", "Whisper small (transformers); the base of the LoRA adapter below",
           repo="openai/whisper-small"),
     Model("asr", "whisper-algerian-darja-small", "tested",
@@ -158,7 +158,7 @@ LIST = [
           repo="touati-kamel/whisper-algerian-darja-small",
           include=("adapter_config.json", "adapter_model.safetensors")),
 
-    # ------------------------------------------------------------ translators, pyvolis only
+    # ------------------------------------------------------------ translators, volis only
     Model("mt", "gemma-3-4b-it-GGUF", "use", "Gemma 3 4B Q4_K_M",
           repo="unsloth/gemma-3-4b-it-GGUF", include=("*Q4_K_M.gguf",)),
     Model("mt", "gemma-4-E4B-it-GGUF", "use", "Gemma 4 E4B Q4_K_M",
@@ -201,7 +201,7 @@ class Skip(Exception):
 
 
 def http_size(url: str) -> int:
-    request = urllib.request.Request(url, method="HEAD", headers={"User-Agent": "pyvolis-fetch-models"})
+    request = urllib.request.Request(url, method="HEAD", headers={"User-Agent": "volis-fetch-models"})
     with urllib.request.urlopen(request, timeout=30) as response:
         return int(response.headers.get("Content-Length") or 0)
 
@@ -239,7 +239,7 @@ def plan(api: HfApi, m: Model) -> tuple[int, dict[str, int]]:
             return 0, {}
         others = [p.name for p in m.target.glob("*.gguf")] if m.target.is_dir() else []
         if others:
-            raise Skip(f"{m.target} already has {others[0]} at its top level, and Rust volis refuses two. "
+            raise Skip(f"{m.target} already has {others[0]} at its top level, and volis-rust refuses two. "
                        "Move it into a folder of its own, or leave this one out.")
         return files[m.file], files
     missing = {f: size for f, size in files.items()
@@ -253,7 +253,7 @@ def plan(api: HfApi, m: Model) -> tuple[int, dict[str, int]]:
 def download(url: str, to: Path) -> None:
     to.parent.mkdir(parents=True, exist_ok=True)
     part = to.with_name(to.name + ".part")
-    request = urllib.request.Request(url, headers={"User-Agent": "pyvolis-fetch-models"})
+    request = urllib.request.Request(url, headers={"User-Agent": "volis-fetch-models"})
     with urllib.request.urlopen(request, timeout=60) as response, open(part, "wb") as out:
         total, done, shown = int(response.headers.get("Content-Length") or 0), 0, -1
         while chunk := response.read(1 << 20):
@@ -408,7 +408,7 @@ def main() -> int:
             print(f"  {m.id}: {why}")
         print("Run this again to retry just those.")
         return 1
-    print("\ndone. Check them with: .\\.venv\\Scripts\\python.exe -m pyvolis --report")
+    print("\ndone. Check them with: .\\.venv\\Scripts\\python.exe -m volis --report")
     return 0
 
 

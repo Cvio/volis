@@ -6,7 +6,7 @@ punctuation at all (whether it can mark questions), and the real-time factor.
     .venv\\Scripts\\python.exe scripts\\transcribe.py [es_419 ar_eg fa_ir en_us] [--model NAME] [--show]
 
 GPU models are loaded one at a time and released after. Scores use
-model-bench's cleaning (pyvolis/textclean.py), over the whole set. A quick
+model-bench's cleaning (volis/textclean.py), over the whole set. A quick
 look; model-bench is the proof.
 """
 
@@ -21,16 +21,16 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
-from pyvolis import paths  # noqa: E402
+from volis import paths  # noqa: E402
 
 paths.apply_offline_environment(paths.app_root())
 for stream in (sys.stdout, sys.stderr):
     stream.reconfigure(encoding="utf-8", errors="replace")
 
-from pyvolis import asr, models  # noqa: E402
-from pyvolis.asr.guards import Guards, SpeechScorer, load_phrases  # noqa: E402
-from pyvolis.scoring import cer as score_cer, wer as score_wer  # noqa: E402
-from pyvolis.filesource import read_16k_mono  # noqa: E402
+from volis import asr, models  # noqa: E402
+from volis.asr.guards import Guards, SpeechScorer, load_phrases  # noqa: E402
+from volis.scoring import cer as score_cer, wer as score_wer  # noqa: E402
+from volis.filesource import read_16k_mono  # noqa: E402
 
 LANG = {"es_419": "es", "ar_eg": "ar", "fa_ir": "fa", "en_us": "en"}
 PUNCTUATION = set(".,;:!?¿¡،؛؟…\"'«»()-")

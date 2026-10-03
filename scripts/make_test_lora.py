@@ -2,7 +2,7 @@
 
     .venv\\Scripts\\python.exe scripts\\make_test_lora.py <base.gguf> <out.gguf> [--strength 0.05]
 
-For testing that pyvolis loads an adapter onto its base, without training
+For testing that volis loads an adapter onto its base, without training
 one: the adapter changes the first block's attention query weights by a
 random low-rank amount. With --strength 0 it changes nothing, so the output
 must equal the base model's; with a strength above 0 it must differ. A real
@@ -23,7 +23,7 @@ import numpy as np
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
-from pyvolis import gguf  # noqa: E402
+from volis import gguf  # noqa: E402
 
 ALIGN = 32
 UINT32, FLOAT32, STRING = 4, 6, 8

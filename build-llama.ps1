@@ -1,4 +1,4 @@
-# Builds the llama-cpp-python wheel pyvolis uses, into wheels\. Run it only to
+# Builds the llama-cpp-python wheel volis uses, into wheels\. Run it only to
 # change the version or the build options; setup.ps1 installs the wheel that
 # is already in wheels\ and needs no compiler.
 #
@@ -12,7 +12,7 @@
 #
 # Needs Visual Studio Build Tools (C++), which include CMake, and the internet
 # to fetch the source from PyPI. GGML_NATIVE=OFF keeps the build portable to
-# other CPUs (copy-to-run); OpenMP and curl are off, as in Rust volis's build.
+# other CPUs (copy-to-run); OpenMP and curl are off, as in volis-rust's build.
 
 param([switch]$Cuda)
 $ErrorActionPreference = "Stop"

@@ -1,4 +1,4 @@
-# Sets up pyvolis for development on this machine. Run it once after cloning,
+# Sets up volis for development on this machine. Run it once after cloning,
 # and again whenever the lock file changes or a reinstall is needed:
 #
 #     .\setup.ps1              install (or bring up to date)
@@ -9,7 +9,7 @@
 # download cache, the Python interpreter and the environment all inside this
 # folder, so every native file lives under one path, the one to give security
 # software as an exclusion. Nothing is changed outside this folder.
-# This is the only part of setup that uses the internet; pyvolis itself never does.
+# This is the only part of setup that uses the internet; volis itself never does.
 
 param([switch]$Reinstall)
 $ErrorActionPreference = "Stop"
@@ -75,5 +75,5 @@ Write-Host "`n== Checking the environment (doctor)"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 if (-not (Test-Path (Join-Path $repo "machine.yaml"))) {
-    Write-Host "`nFor the parity checks: copy machine.example.yaml to machine.yaml and set volis_exe." -ForegroundColor Yellow
+    Write-Host "`nFor the parity checks: copy machine.example.yaml to machine.yaml and set volis_rust_exe." -ForegroundColor Yellow
 }

@@ -5,8 +5,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pyvolis import audio, filesource
-from pyvolis.audio import SAMPLE_RATE
+from volis import audio, filesource
+from volis.audio import SAMPLE_RATE
 
 
 def test_downmix_averages_the_channels():

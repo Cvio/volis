@@ -1,15 +1,15 @@
 # Models: what has been tested, how it scored, how to get it
 
-Every model pyvolis has been run with, including the ones that weren't worth keeping. What a
+Every model volis has been run with, including the ones that weren't worth keeping. What a
 recognizer, translator and voice *are*, and how a folder describes itself with `engine.toml`,
-is in [Rust volis's MODELS.md](../volis/MODELS.md); this page doesn't repeat it. How pyvolis
+is in [volis-rust's MODELS.md](../volis-rust/MODELS.md); this page doesn't repeat it. How volis
 finds a model you drop in yourself is in [README.md](README.md#models).
 
 ## Getting them
 
 `fetch-models.ps1` downloads the list on this page into the right folders and writes the
-settings file each one needs (`engine.toml` for sherpa-onnx models and voices, `pyvolis.toml`
-for GGUF speech models). It uses the internet; pyvolis itself never does.
+settings file each one needs (`engine.toml` for sherpa-onnx models and voices, `volis-python.toml`
+for GGUF speech models). It uses the internet; volis itself never does.
 
 Before you run it:
 
@@ -26,7 +26,7 @@ Before you run it:
 .\fetch-models.ps1 -Group use         # only what is worth having on an 8 GB GPU
 .\fetch-models.ps1 -Group all         # everything on this page
 .\fetch-models.ps1 -Only Qwen3-ASR    # only entries whose name contains this
-.\.venv\Scripts\python.exe -m pyvolis --report    # afterwards: every model should say ok
+.\.venv\Scripts\python.exe -m volis --report    # afterwards: every model should say ok
 ```
 
 It asks once before downloading. What is already in place (every file, at its published size)
@@ -67,7 +67,7 @@ them as "clearly better", "about the same" or "clearly worse", not to the decima
 ## Recognizers (`models\asr\`)
 
 Folders ending in `-onnx-int8` are sherpa-onnx conversions, compressed to 8-bit and run on the
-CPU (as Rust volis runs them); the same model without that ending is the original, on the GPU.
+CPU (as volis-rust runs them); the same model without that ending is the original, on the GPU.
 Only the folders were renamed: the files inside keep their published names.
 
 | Model | Group | Runs on | Disk | Spanish CER / WER | Arabic CER / WER | RTF | Notes |
@@ -78,8 +78,8 @@ Only the folders were renamed: the files inside keep their published names.
 | whisper-large-v3-turbo-es (adriszmar) | use | transformers, GPU, 1.6 GB | 3.2 GB | **0.9% / 3.0%** (file) | Spanish only | 0.34 | The Spanish recognizer every check uses. |
 | whisper-large-v3-turbo-arabic-dialectal (oddadmix), safetensors | use | transformers, GPU, 1.6 GB | 3.2 GB | Arabic only | 3.7% (clips) | not recorded | Tuned on dialects; the clips are Standard Arabic, so this test undersells it. Not yet tested on dialect speech. |
 | MMS 1B (adapters: ar, en, fa, es) | use | transformers, GPU, 1.9 GB | 3.9 GB | 1.3% / 6.0% (file) | 5.8% (clips) | 0.04 | Never writes punctuation or capitals, so sentences are cut by pauses alone. The only one here with a Persian adapter besides Whisper. |
-| `parakeet-tdt-0.6b-v3-onnx-int8` | use | sherpa-onnx, CPU | 0.7 GB | 0.5 to 1.9% (clips) | no Arabic | not recorded | Rust volis's. Detects the language itself; spells numbers out. Identical output to Rust. |
-| `whisper-large-v3-turbo-onnx-int8` | use | sherpa-onnx, CPU | 1.0 GB | 0.6% / 2.1% (file) | 5.2% / 13.4% (file); no punctuation on any Arabic output | 0.41 (es), 0.52 (ar) | Rust volis's general recognizer, compressed to int8 ONNX. |
+| `parakeet-tdt-0.6b-v3-onnx-int8` | use | sherpa-onnx, CPU | 0.7 GB | 0.5 to 1.9% (clips) | no Arabic | not recorded | volis-rust's. Detects the language itself; spells numbers out. Identical output to Rust. |
+| `whisper-large-v3-turbo-onnx-int8` | use | sherpa-onnx, CPU | 1.0 GB | 0.6% / 2.1% (file) | 5.2% / 13.4% (file); no punctuation on any Arabic output | 0.41 (es), 0.52 (ar) | volis-rust's general recognizer, compressed to int8 ONNX. |
 | `whisper-large-v3-turbo` (OpenAI, as published) | use | transformers, GPU, about 1.6 GB | 1.6 GB | **0.5% / 2.1%** (file) | 3.3% / 12.0% (file) | 0.33 (es), 0.22 (ar) | The same model as the line above, uncompressed, on the GPU: the general recognizer to use, and the one for English. English not yet scored. |
 | Qwen3-ASR 1.7B (Q8) | tested | llama.cpp audio | 2.5 GB | | | | Tried by the user on another machine (2026-10-02): not good so far. No figures recorded. Kept on the list for more testing. |
 | Voxtral Mini 3B (Q4_K_M) | removed | llama.cpp audio | 3.2 GB | | | | The same: tried by the user, not good, no figures. Taken off the download list; `.\fetch-model.ps1 ggml-org/Voxtral-Mini-3B-2507-GGUF -Role asr -Include "*Q4_K_M.gguf","mmproj-*.gguf"` fetches it. |
@@ -89,13 +89,13 @@ Only the folders were renamed: the files inside keep their published names.
 Two more recognizers are in `models\asr\` on the development machine and are **not
 downloadable**: `whisper-large-v3-turbo-es-adriszmar-onnx-int8` and
 `whisper-large-v3-turbo-arabic-dialectal-onnx-int8` are the two fine-tunes above converted to int8 ONNX
-for Rust volis by [model-converter](../model-converter/README.md). pyvolis runs the originals
+for volis-rust by [model-converter](../model-converter/README.md). volis runs the originals
 instead, which score better (Arabic clips: 3.7% as published, 8.4% as int8 ONNX, which cuts
 sentences short). To make them, follow model-converter's README.
 
 **To use one:** pick it under **Recognizer** in the window, or `--asr <folder name>` on the
-command line, or `[asr] engine = "<folder name>"` in `volis.toml` (Rust volis can only load the
-two sherpa-onnx ones, so set a pyvolis-only one in the window instead if you also run Rust).
+command line, or `[asr] engine = "<folder name>"` in `volis.toml` (volis-rust can only load the
+two sherpa-onnx ones, so set a volis-only one in the window instead if you also run Rust).
 
 What each kind of folder needs, which the script takes care of:
 
@@ -103,7 +103,7 @@ What each kind of folder needs, which the script takes care of:
 - **transformers** (Whisper, MMS, Cohere): the folder exactly as Hugging Face publishes it. No
   settings file.
 - **GGUF speech model** (Qwen3-ASR, Gemma 4, Voxtral): the model `.gguf` and its audio encoder
-  `mmproj-*.gguf` in one folder, and optionally a `pyvolis.toml` with a display name and the
+  `mmproj-*.gguf` in one folder, and optionally a `volis-python.toml` with a display name and the
   languages. **Never an `engine.toml`**: that sends the folder to the sherpa-onnx loader and
   the model shows as broken.
 - **Gemma 4 as a recognizer** uses the translator's own `.gguf`. The script hard-links it from
@@ -111,17 +111,17 @@ What each kind of folder needs, which the script takes care of:
 - **LoRA adapter**: `adapter_config.json` and `adapter_model.safetensors`, with the base
   model's folder beside it.
 
-The language lists in the two GGUF `pyvolis.toml` files are from the model cards. Only
+The language lists in the two GGUF `volis-python.toml` files are from the model cards. Only
 English, Spanish and Arabic have been run.
 
 ## Translators (`models\mt\`)
 
-Text only, FLEURS transcripts against FLORES+ references, pyvolis's default prompt with
+Text only, FLEURS transcripts against FLORES+ references, volis's default prompt with
 carry-forward context, 2026-10-01. All are Q4_K_M GGUF files run by llama.cpp on the GPU.
 
 | Model | Group | Disk | es>en | ar>en | fa>en | en>es | mean chrF | obey | ms / sentence | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Qwen3 1.7B | use | 1.1 GB | 59.2 | 64.3 | 58.8 | 58.3 | 60.2 | 24 / 24 | **261** | Rust volis's translator: the one `.gguf` at the top of `models\mt\`. The smallest and fastest, 3 to 6 chrF below the rest. |
+| Qwen3 1.7B | use | 1.1 GB | 59.2 | 64.3 | 58.8 | 58.3 | 60.2 | 24 / 24 | **261** | volis-rust's translator: the one `.gguf` at the top of `models\mt\`. The smallest and fastest, 3 to 6 chrF below the rest. |
 | Gemma 3 4B | use | 2.5 GB | **65.9** | 67.7 | 65.5 | 60.0 | 64.8 | 24 / 24 | 444 | The best all-rounder that fits 8 GB with a recognizer loaded. |
 | Gemma 4 E4B | use | 5.0 GB | 64.3 | 71.3 | 63.8 | 60.9 | 65.1 | 24 / 23 | 586 | Clearly better Arabic than the other small ones. Also a recognizer (above). |
 | TranslateGemma 4B | use | 2.5 GB | 64.2 | 66.9 | 65.9 | 60.0 | 64.3 | 23 / 24 | 511 | Trained only to translate. Its own prompt format: the prompt file and the glossary are not used. The one revision mode helps most. |
@@ -140,10 +140,10 @@ What holds across the table: every model from 4B up is 3 to 6 chrF above Qwen3 1
 
 **To use one:** pick it under **Translator** in the window, or `--mt <id>` (as `--report`
 lists it, for example `gemma-3-4b-it-GGUF/gemma-3-4b-it-Q4_K_M.gguf`), or `[translate] model =
-"<id>"` in `pyvolis.toml`. `""` means the `.gguf` at the top of `models\mt\`.
+"<id>"` in `volis-python.toml`. `""` means the `.gguf` at the top of `models\mt\`.
 
 What the folder needs: the `.gguf` alone, in a folder of its own. **Only one `.gguf` may sit at
-the top level of `models\mt\`** (Rust volis refuses to start with two); the script puts Qwen3
+the top level of `models\mt\`** (volis-rust refuses to start with two); the script puts Qwen3
 1.7B there, under the name Rust expects, and every other translator in a folder.
 
 **LoRA adapters for a GGUF translator** work (an adapter of strength 0 translates exactly as
@@ -157,9 +157,9 @@ Voices have no score here. Each was listened to, and each speaks through the pip
 
 | Voice | Group | Language | Disk | Notes |
 |---|---|---|---|---|
-| vits-piper-en_US-lessac-medium | use | English (US) | 64 MB | Rust volis's. |
-| vits-piper-es_MX-claude-high | use | Spanish (Mexico) | 67 MB | Rust volis's. Chosen first for Spanish (Mexico). |
-| vits-piper-es_ES-carlfm-x_low | use | Spanish (Spain) | 25 MB | Rust volis's. |
+| vits-piper-en_US-lessac-medium | use | English (US) | 64 MB | volis-rust's. |
+| vits-piper-es_MX-claude-high | use | Spanish (Mexico) | 67 MB | volis-rust's. Chosen first for Spanish (Mexico). |
+| vits-piper-es_ES-carlfm-x_low | use | Spanish (Spain) | 25 MB | volis-rust's. |
 | vits-piper-ar_JO-kareem-medium | use | Arabic, male | 64 MB | Mispronounces some words written without vowel marks, as every Arabic Piper voice here does. |
 | arabic-emirati-female-model | use | Arabic (Emirati), female | 127 MB | Published as a raw Piper model, which sherpa-onnx can't load. The script converts it (below). MIT licence. |
 | vits-piper-ar_JO-SA_dii-high | tested | Arabic, male | 64 MB | Works. **Its licence is non-commercial**; read its README before using it, which is why it isn't downloaded by default. |
@@ -193,7 +193,7 @@ releases. The script fetches it. It must keep that name.
 [rhasspy/piper-phonemize](https://github.com/rhasspy/piper-phonemize/tree/master/etc): the
 model Piper itself runs on Arabic text before pronouncing it, and that its Arabic voices were
 trained with. The script fetches it (group `use`). It is used only when "Add vowel marks to
-Arabic before it is spoken" is on (`[tts] diacritize` in `pyvolis.toml`). It adds about 0.3 s
+Arabic before it is spoken" is on (`[tts] diacritize` in `volis-python.toml`). It adds about 0.3 s
 a sentence on the CPU. Its marks are good, not perfect ("مُحَطَّة" for "مَحَطَّة" in the test
 sentence): whether the voices sound better with it is for a listener to say.
 `logs\voices\*-plain.wav` and `*-vowel-marks.wav` are the same sentence both ways.
@@ -204,7 +204,7 @@ sentence): whether the voices sound better with it is for a listener to say.
 |---|---|
 | silero_vad.onnx, Parakeet, Whisper int8 | [sherpa-onnx ASR releases](https://github.com/k2-fsa/sherpa-onnx/releases/tag/asr-models) |
 | English and Spanish voices | [sherpa-onnx TTS releases](https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models) |
-| Qwen3 1.7B | [unsloth/Qwen3-1.7B-GGUF](https://huggingface.co/unsloth/Qwen3-1.7B-GGUF), saved as `qwen3-1.7b-q4_k_m.gguf` as Rust volis does |
+| Qwen3 1.7B | [unsloth/Qwen3-1.7B-GGUF](https://huggingface.co/unsloth/Qwen3-1.7B-GGUF), saved as `qwen3-1.7b-q4_k_m.gguf` as volis-rust does |
 | whisper-large-v3-turbo-es | [adriszmar/whisper-large-v3-turbo-es](https://huggingface.co/adriszmar/whisper-large-v3-turbo-es) |
 | whisper-large-v3-turbo-arabic-dialectal-hf | [oddadmix/whisper-large-v3-turbo-arabic-dialectal](https://huggingface.co/oddadmix/whisper-large-v3-turbo-arabic-dialectal) |
 | cohere-transcribe-arabic-07-2026 | [CohereLabs/cohere-transcribe-arabic-07-2026](https://huggingface.co/CohereLabs/cohere-transcribe-arabic-07-2026) (gated) |

@@ -9,9 +9,9 @@ import time
 
 import pytest
 
-from pyvolis import events as ev
-from pyvolis import peer
-from pyvolis.config import Config
+from volis import events as ev
+from volis import peer
+from volis.config import Config
 
 
 class End:

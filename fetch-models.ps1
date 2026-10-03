@@ -1,6 +1,6 @@
 # Downloads the models listed in MODELS.md into models\, each in its right
-# folder with the settings files pyvolis needs. This, like setup.ps1, uses the
-# internet; pyvolis itself never runs it and never goes online.
+# folder with the settings files volis needs. This, like setup.ps1, uses the
+# internet; volis itself never runs it and never goes online.
 #
 #     .\fetch-models.ps1 -List             what is in place and what would be downloaded; downloads nothing
 #     .\fetch-models.ps1                   the models worth having, and the ones to measure on a larger GPU
@@ -8,7 +8,7 @@
 #     .\fetch-models.ps1 -Only Qwen3-ASR   only the entries whose name contains this
 #     .\fetch-models.ps1 -Yes              don't ask before downloading
 #
-# What is already in place is left alone, and an engine.toml or pyvolis.toml
+# What is already in place is left alone, and an engine.toml or volis-python.toml
 # that exists is never overwritten. Gated models (Cohere Transcribe) need
 # their terms accepted on huggingface.co and .\fetch-model.ps1 -Login first.
 # The list itself, with every source, is at the top of scripts\fetch_models.py.

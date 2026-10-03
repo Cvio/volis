@@ -1,7 +1,7 @@
 """Port of the tests in Rust `playback.rs` and `tts.rs`. The ones that need a
 sound card use the VB-Audio cable when it is installed (silent), and are
 skipped otherwise. `scripts/gate_check.py` is the end-to-end check that
-pyvolis doesn't hear itself."""
+volis doesn't hear itself."""
 
 import threading
 import time
@@ -10,9 +10,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pyvolis import audio, models, paths, playback, tts
-from pyvolis.models import Engine
-from pyvolis.playback import TAIL_SECONDS, Gate
+from volis import audio, models, paths, playback, tts
+from volis.models import Engine
+from volis.playback import TAIL_SECONDS, Gate
 
 ROOT = paths.app_root()
 CABLE = "CABLE Input (VB-Audio Virtual Cable)"

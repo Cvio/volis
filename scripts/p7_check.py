@@ -23,7 +23,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
-from pyvolis import paths  # noqa: E402
+from volis import paths  # noqa: E402
 
 paths.apply_offline_environment(paths.app_root())
 for stream in (sys.stdout, sys.stderr):
@@ -33,12 +33,12 @@ import logging  # noqa: E402
 
 logging.disable(logging.WARNING)
 
-from pyvolis import events as ev, scoring  # noqa: E402
-from pyvolis import translate as tr  # noqa: E402
-from pyvolis.config import Config, PyvolisConfig  # noqa: E402
-from pyvolis.filesource import read_16k_mono  # noqa: E402
-from pyvolis.pipeline import ArraySource, Options, Pipeline, run_to_end  # noqa: E402
-from pyvolis.translate import prompts  # noqa: E402
+from volis import events as ev, scoring  # noqa: E402
+from volis import translate as tr  # noqa: E402
+from volis.config import Config, PythonConfig  # noqa: E402
+from volis.filesource import read_16k_mono  # noqa: E402
+from volis.pipeline import ArraySource, Options, Pipeline, run_to_end  # noqa: E402
+from volis.translate import prompts  # noqa: E402
 
 CONFIGURATIONS = [
     ("segment, no context, no holding", dict(streaming=False, context="off", hold=False)),
@@ -61,7 +61,7 @@ def run(root, audio, reference, source, target, asr, mt, name, options, realtime
     events: queue.Queue = queue.Queue()
     ev.restart_clock()
     pipeline = Pipeline(root, config, Options(mt=mt, **options), events, ArraySource(audio, realtime=realtime),
-                        PyvolisConfig())
+                        PythonConfig())
     out = run_to_end(pipeline, events)
     stats = out.of(ev.Summary)[-1].stats
     sentences = out.of(ev.SentenceMsg)

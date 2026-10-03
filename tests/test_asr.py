@@ -8,10 +8,10 @@ import queue
 import numpy as np
 import pytest
 
-from pyvolis import asr, models, paths
-from pyvolis.config import Config, PyvolisConfig
-from pyvolis.filesource import read_16k_mono
-from pyvolis.pipeline import ArraySource, Options, Pipeline, run_to_end
+from volis import asr, models, paths
+from volis.config import Config, PythonConfig
+from volis.filesource import read_16k_mono
+from volis.pipeline import ArraySource, Options, Pipeline, run_to_end
 
 ROOT = paths.app_root()
 ENGINES = {e.dir_name: e for e in models.discover(paths.asr_dir(ROOT), models.Role.ASR) if isinstance(e, models.Engine)}
@@ -94,7 +94,7 @@ def test_the_pipeline_turns_a_file_into_final_transcripts():
     events: queue.Queue = queue.Queue()
     gap = np.zeros(16000, np.float32)
     source = ArraySource(np.concatenate([gap, audio, gap]))
-    out = run_to_end(Pipeline(ROOT, config, Options(translate=False), events, source, PyvolisConfig()), events)
+    out = run_to_end(Pipeline(ROOT, config, Options(translate=False), events, source, PythonConfig()), events)
     assert not out.errors, out.errors
     assert out.finals and "viajeros" in " ".join(f.text for f in out.finals)
 
@@ -113,7 +113,7 @@ def test_silence_and_noise_produce_no_text():
     config = Config.parse(f'[asr]\nengine = "{name}"\n[languages]\nsource = "es"\n')
     events: queue.Queue = queue.Queue()
     out = run_to_end(Pipeline(ROOT, config, Options(translate=False), events, ArraySource(np.concatenate(parts)),
-                              PyvolisConfig()), events)
+                              PythonConfig()), events)
     assert not out.errors, out.errors
     assert out.finals == [], [f.text for f in out.finals]
 
@@ -146,7 +146,7 @@ def test_a_hallucination_is_dropped_and_reported_with_its_reason(monkeypatch, ca
     gap = np.zeros(16000, np.float32)
     with caplog.at_level("INFO"):
         out = run_to_end(Pipeline(ROOT, config, Options(translate=False), events, ArraySource(np.concatenate([gap, audio, gap])),
-                                  PyvolisConfig()), events)
+                                  PythonConfig()), events)
     assert out.finals == []
     assert out.dropped and out.dropped[0].text == "Gracias por ver el video." and out.dropped[0].reasons
     assert "dropped: the whole text is a stock phrase" in caplog.text

@@ -1,14 +1,14 @@
-# CLAUDE.md - pyvolis
+# CLAUDE.md - volis
 
-`pyvolis-build.md` is the build specification. Read it before changing anything. For every
-feature pyvolis shares with Rust volis (`D:\AI_Data\projects\volis`), **the Rust code is the
+`volis-build.md` is the build specification. Read it before changing anything. For every
+feature volis shares with volis-rust (`D:\AI_Data\projects\volis-rust`), **the Rust code is the
 specification**; read the matching Rust module. The Rust repo and `model-converter` are for
 reading only: never change anything in them unless the user explicitly approves a specific
 change.
 
 Which document holds what: `README.md` (setup, adding a model, file mode), `MODELS.md` (every
 model tested, its scores, and `fetch-models.ps1`, whose list is in `scripts/fetch_models.py`), `HANDOFF.md`
-(status, and every difference from Rust volis with its reason), this file (constraints and
+(status, and every difference from volis-rust with its reason), this file (constraints and
 working rules). Rust's documents cover the wire protocol, varieties and dialects; link to
 them, don't copy them.
 
@@ -41,7 +41,7 @@ function; no settings no milestone needs.
 
 ## Working rules
 
-- Build in the milestone order of `pyvolis-build.md` (P0 to P12). Each milestone ends with a
+- Build in the milestone order of `volis-build.md` (P0 to P12). Each milestone ends with a
   check. **Stop after each milestone, show its check passing, and wait for the user to say go
   on.** Don't work ahead.
 - **Verify before you rely.** Where the spec says "verify" (llama.cpp audio, `transformers`
@@ -50,14 +50,14 @@ function; no settings no milestone needs.
 - If a Rust behaviour seems wrong, port it as it is and note it in `HANDOFF.md`. Changing it is
   the user's call, for both apps.
 - One Python module per Rust module, with the same name. Port the Rust tests to pytest.
-- `volis.toml` is shared with Rust volis and must stay loadable by it: Rust rejects unknown
-  sections (`deny_unknown_fields`), so pyvolis-only settings go in `pyvolis.toml`, never in
+- `volis.toml` is shared with volis-rust and must stay loadable by it: Rust rejects unknown
+  sections (`deny_unknown_fields`), so volis-only settings go in `volis-python.toml`, never in
   `volis.toml`.
 - `models\mt\`: Rust uses exactly one `.gguf` at the top level and refuses to start with two.
   Extra translators go one folder per model inside it, which Rust never looks at.
 - Open, start, stop and close every audio stream through `audio.on_audio_thread`, and get
   sounddevice through `audio._sd()`: PortAudio only works from the thread that initialised it.
-- `paths.app_root()` is the only path-derivation function. `pyvolis/__main__.py` sets the
+- `paths.app_root()` is the only path-derivation function. `volis/__main__.py` sets the
   offline environment before importing anything else; keep it that way.
 - Commit after each milestone. Tests pass at every commit (`.venv\Scripts\python.exe -m pytest`).
 - When the user **asks a question, answer it and wait.** Don't run commands or change their

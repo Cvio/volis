@@ -7,9 +7,9 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from pyvolis import paths, tashkeel
-from pyvolis.config import PyvolisConfig
-from pyvolis.pipeline import SpeakThread
+from volis import paths, tashkeel
+from volis.config import PythonConfig
+from volis.pipeline import SpeakThread
 
 MODEL = paths.tashkeel_model_file(paths.app_root())
 needs_model = pytest.mark.skipif(not MODEL.is_file(), reason=f"no {MODEL} (.\\fetch-models.ps1 -Only tashkeel)")
@@ -78,7 +78,7 @@ class Marker:
 
 
 def speaker(monkeypatch, tmp_path, diacritize: bool, marker=Marker()):
-    py = PyvolisConfig()
+    py = PythonConfig()
     py.tts.diacritize = diacritize
     seen: queue.Queue = queue.Queue()
     pipeline = SimpleNamespace(root=tmp_path, pyconfig=py, emit=seen.put, generation=0)
@@ -117,4 +117,4 @@ def test_without_the_model_arabic_is_still_spoken_and_the_reason_is_given_once(m
 
 
 def test_off_by_default():
-    assert PyvolisConfig().tts.diacritize is False
+    assert PythonConfig().tts.diacritize is False

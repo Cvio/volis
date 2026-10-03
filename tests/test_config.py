@@ -2,7 +2,7 @@
 
 import pytest
 
-from pyvolis.config import Config, ConfigError, Shared
+from volis.config import Config, ConfigError, Shared
 
 # The exact file from SPEC §7 must round-trip.
 SPEC_EXAMPLE = """
@@ -159,13 +159,13 @@ def test_unknown_keys_are_rejected_rather_than_ignored():
         Config.parse("[nonsense]\nx = 1\n")
 
 
-# pyvolis-specific
+# volis-specific
 
 
-def test_a_pyvolis_section_is_refused_like_rust_refuses_it():
-    """Rust's top-level deny_unknown_fields: pyvolis must never write one."""
+def test_a_volis_section_is_refused_like_rust_refuses_it():
+    """Rust's top-level deny_unknown_fields: volis must never write one."""
     with pytest.raises(ConfigError):
-        Config.parse("[pyvolis.asr]\nstreaming = true\n")
+        Config.parse("[volis.asr]\nstreaming = true\n")
 
 
 def test_wrong_types_and_enum_values_are_errors():

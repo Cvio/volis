@@ -9,11 +9,11 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import numpy as np
 import pytest
 
-from pyvolis import events as ev
-from pyvolis.gui import session as ses
-from pyvolis.gui.session import KeyEdges, Session, TurnKey, turn_key_action
-from pyvolis.pipeline import MAX_PART, transcribe_parts, trim_and_split
-from pyvolis.vad import Segment
+from volis import events as ev
+from volis.gui import session as ses
+from volis.gui.session import KeyEdges, Session, TurnKey, turn_key_action
+from volis.pipeline import MAX_PART, transcribe_parts, trim_and_split
+from volis.vad import Segment
 
 
 def turn_session(speaks: bool = True) -> Session:
@@ -81,7 +81,7 @@ def test_without_speech_a_translation_ends_the_turn():
 
 
 def test_a_turn_of_several_sentences_ends_after_the_last_is_spoken():
-    """pyvolis: a turn can hold several sentences. The voice going quiet
+    """volis: a turn can hold several sentences. The voice going quiet
     between two of them must not end the turn."""
     s = turn_session()
     s.apply(ev.TurnStarted())
@@ -207,7 +207,7 @@ def test_a_segment_running_past_the_turn_is_clipped_to_it():
 
 
 def test_a_split_turn_is_transcribed_part_by_part_and_joined():
-    from pyvolis.asr import AsrResult, Word
+    from volis.asr import AsrResult, Word
 
     class Counts:
         def transcribe(self, pcm, language, timestamps=True):
@@ -230,12 +230,12 @@ def test_the_turn_key_never_reaches_a_focused_widget():
     from PySide6.QtTest import QTest
     from PySide6.QtWidgets import QApplication
 
-    from pyvolis import paths
-    from pyvolis.config import Config, PyvolisConfig
-    from pyvolis.gui.window import MainWindow
+    from volis import paths
+    from volis.config import Config, PythonConfig
+    from volis.gui.window import MainWindow
 
     app = QApplication.instance() or QApplication([])
-    window = MainWindow(paths.app_root(), Config(), PyvolisConfig())
+    window = MainWindow(paths.app_root(), Config(), PythonConfig())
     window.save = lambda: None
     window.show()
     window.activateWindow()
@@ -257,7 +257,7 @@ def test_the_turn_key_never_reaches_a_focused_widget():
         QTest.keyClick(window.start_button, Qt.Key.Key_Space)
         assert clicks == [1], "outside a turn-mode run the key belongs to the widgets"
 
-        # A live run, taking turns: the key is pyvolis's.
+        # A live run, taking turns: the key is volis's.
         window.pipeline, window.source = FakePipeline(), None
         window.isActiveWindow = lambda: True  # offscreen windows are never "active"
         window.session.apply(ev.Listening())

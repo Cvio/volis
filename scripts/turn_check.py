@@ -24,7 +24,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
-from pyvolis import paths  # noqa: E402
+from volis import paths  # noqa: E402
 
 paths.apply_offline_environment(paths.app_root())
 for stream in (sys.stdout, sys.stderr):
@@ -32,10 +32,10 @@ for stream in (sys.stdout, sys.stderr):
 
 import numpy as np  # noqa: E402
 
-from pyvolis import events as ev, playback  # noqa: E402
-from pyvolis.config import Config, PyvolisConfig  # noqa: E402
-from pyvolis.filesource import read_16k_mono  # noqa: E402
-from pyvolis.pipeline import Options, Pipeline  # noqa: E402
+from volis import events as ev, playback  # noqa: E402
+from volis.config import Config, PythonConfig  # noqa: E402
+from volis.filesource import read_16k_mono  # noqa: E402
+from volis.pipeline import Options, Pipeline  # noqa: E402
 
 CABLE_IN, CABLE_OUT = "CABLE Input (VB-Audio Virtual Cable)", "CABLE Output (VB-Audio Virtual Cable)"
 
@@ -49,7 +49,7 @@ class Run:
             "[tts]\nenabled = true\nhalf_duplex = true\n"
         )
         self.events: queue.Queue = queue.Queue()
-        self.pipeline = Pipeline(paths.app_root(), config, Options(), self.events, None, PyvolisConfig()).start()
+        self.pipeline = Pipeline(paths.app_root(), config, Options(), self.events, None, PythonConfig()).start()
         self.seen: list = []
         self.talker = playback.Player(CABLE_IN, playback.Gate(False))
 

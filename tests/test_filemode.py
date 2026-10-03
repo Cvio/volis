@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from pyvolis import export, paths, scoring, sentences
-from pyvolis.asr import Word
-from pyvolis.events import Configuration, Final, NotTranslated, SentenceMsg, Summary, Translated
+from volis import export, paths, scoring, sentences
+from volis.asr import Word
+from volis.events import Configuration, Final, NotTranslated, SentenceMsg, Summary, Translated
 
 ROOT = paths.app_root()
 
@@ -84,7 +84,7 @@ def test_the_export_writes_every_file(tmp_path):
         NotTranslated("2.1", "echo", "echo"),
         Summary({"sentences": 2}),
     ]
-    written = export.write(tmp_path, events, Configuration({"pyvolis": "test"}))
+    written = export.write(tmp_path, events, Configuration({"volis": "test"}))
     assert set(written) == {"transcript.txt", "translation.txt", "source.srt", "translation.srt", "events.jsonl"}
     assert (tmp_path / "translation.txt").read_text(encoding="utf-8") == "Where is it?\n\n"
     srt = (tmp_path / "source.srt").read_text(encoding="utf-8")
@@ -116,7 +116,7 @@ def test_a_fixture_file_runs_end_to_end(tmp_path):
                     "--out", str(audio)], check=True, capture_output=True)
     out = tmp_path / "out"
     done = subprocess.run(
-        [sys.executable, "-m", "pyvolis", "--file", str(audio), "--from", "es", "--to", "en",
+        [sys.executable, "-m", "volis", "--file", str(audio), "--from", "es", "--to", "en",
          "--asr", "parakeet-tdt-0.6b-v3-onnx-int8", "--fast", "--export", str(out)],
         cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900,
     )

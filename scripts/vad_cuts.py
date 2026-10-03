@@ -27,14 +27,14 @@ import numpy as np
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
-from pyvolis import paths  # noqa: E402
+from volis import paths  # noqa: E402
 
 paths.apply_offline_environment(paths.app_root())
 
-from pyvolis.audio import SAMPLE_RATE  # noqa: E402
-from pyvolis.config import Config, PyvolisConfig  # noqa: E402
-from pyvolis.filesource import chunks, read_16k_mono  # noqa: E402
-from pyvolis.vad import Segmenter, VadSettings  # noqa: E402
+from volis.audio import SAMPLE_RATE  # noqa: E402
+from volis.config import Config, PythonConfig  # noqa: E402
+from volis.filesource import chunks, read_16k_mono  # noqa: E402
+from volis.vad import Segmenter, VadSettings  # noqa: E402
 
 GAP_SECONDS = 1.2
 
@@ -63,7 +63,7 @@ def record(seconds: float, root: Path) -> np.ndarray:
     import queue
     import time
 
-    from pyvolis.audio import spawn_capture
+    from volis.audio import spawn_capture
 
     config, _ = Config.load(paths.config_file(root))
     q: queue.Queue = queue.Queue()
@@ -114,7 +114,7 @@ def main() -> int:
     parser.add_argument("--mic", type=float, metavar="SECONDS", help="record from [audio].input_device")
     args = parser.parse_args()
     root = paths.app_root()
-    pre_roll_ms = PyvolisConfig.load(paths.pyvolis_config_file(root))[0].vad.pre_roll_ms or 600
+    pre_roll_ms = PythonConfig.load(paths.python_config_file(root))[0].vad.pre_roll_ms or 600
 
     if args.mic:
         audio, clips = record(args.mic, root), []

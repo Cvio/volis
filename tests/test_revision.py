@@ -2,9 +2,9 @@
 translation is shared back out, and what is never touched. No models here;
 tests/test_translate.py runs it through the real translator."""
 
-from pyvolis import translate as tr
-from pyvolis.translate import context as ctx
-from pyvolis.translate.revision import Done, Reviser, align
+from volis import translate as tr
+from volis.translate import context as ctx
+from volis.translate.revision import Done, Reviser, align
 
 
 class Scripted:
