@@ -91,22 +91,22 @@ LIST = [
           expect=("libtashkeel_model.ort",)),
     Model("mt", "", "use", "Qwen3 1.7B Q4_K_M, the translator volis-rust uses (the one .gguf at the top of mt)",
           repo="unsloth/Qwen3-1.7B-GGUF", file="Qwen3-1.7B-Q4_K_M.gguf", save_as="qwen3-1.7b-q4_k_m.gguf"),
-    Model("asr", "parakeet-tdt-0.6b-v3-onnx-int8", "use", "Parakeet TDT 0.6B v3, ONNX int8 (sherpa-onnx, CPU)",
-          url=f"{SHERPA_ASR}/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2",
-          members=("encoder.int8.onnx", "decoder.int8.onnx", "joiner.int8.onnx", "tokens.txt"),
-          expect=("encoder.int8.onnx", "decoder.int8.onnx", "joiner.int8.onnx", "tokens.txt"),
-          write={"engine.toml": 'name = "Parakeet TDT 0.6B v3 (ONNX int8, CPU)"\nkind = "segment"\nbackend = "nemo_transducer"\n'
-                                'languages = ["es", "en", "de", "fr", "it", "pt", "nl", "pl", "ru"]\n\n[files]\n'
-                                'encoder = "encoder.int8.onnx"\ndecoder = "decoder.int8.onnx"\n'
-                                'joiner  = "joiner.int8.onnx"\ntokens  = "tokens.txt"\n'}),
-    Model("asr", "whisper-large-v3-turbo-onnx-int8", "use", "Whisper large-v3-turbo, ONNX int8 (sherpa-onnx, CPU)",
-          url=f"{SHERPA_ASR}/sherpa-onnx-whisper-turbo.tar.bz2",
-          members=("turbo-encoder.int8.onnx", "turbo-decoder.int8.onnx", "turbo-tokens.txt"),
-          expect=("turbo-encoder.int8.onnx", "turbo-decoder.int8.onnx", "turbo-tokens.txt"),
-          write={"engine.toml": 'name = "Whisper large-v3-turbo (ONNX int8, CPU)"\nkind = "segment"\nbackend = "whisper"\n'
-                                'languages = ["es", "en", "de", "fr", "it", "pt", "nl", "pl", "ru", "ar", "fa"]\n\n'
-                                '[files]\nencoder = "turbo-encoder.int8.onnx"\ndecoder = "turbo-decoder.int8.onnx"\n'
-                                'tokens  = "turbo-tokens.txt"\n'}),
+    # Model("asr", "parakeet-tdt-0.6b-v3-onnx-int8", "use", "Parakeet TDT 0.6B v3, ONNX int8 (sherpa-onnx, CPU)",
+    #       url=f"{SHERPA_ASR}/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2",
+    #       members=("encoder.int8.onnx", "decoder.int8.onnx", "joiner.int8.onnx", "tokens.txt"),
+    #       expect=("encoder.int8.onnx", "decoder.int8.onnx", "joiner.int8.onnx", "tokens.txt"),
+    #       write={"engine.toml": 'name = "Parakeet TDT 0.6B v3 (ONNX int8, CPU)"\nkind = "segment"\nbackend = "nemo_transducer"\n'
+    #                             'languages = ["es", "en", "de", "fr", "it", "pt", "nl", "pl", "ru"]\n\n[files]\n'
+    #                             'encoder = "encoder.int8.onnx"\ndecoder = "decoder.int8.onnx"\n'
+    #                             'joiner  = "joiner.int8.onnx"\ntokens  = "tokens.txt"\n'}),
+    # Model("asr", "whisper-large-v3-turbo-onnx-int8", "use", "Whisper large-v3-turbo, ONNX int8 (sherpa-onnx, CPU)",
+    #       url=f"{SHERPA_ASR}/sherpa-onnx-whisper-turbo.tar.bz2",
+    #       members=("turbo-encoder.int8.onnx", "turbo-decoder.int8.onnx", "turbo-tokens.txt"),
+    #       expect=("turbo-encoder.int8.onnx", "turbo-decoder.int8.onnx", "turbo-tokens.txt"),
+    #       write={"engine.toml": 'name = "Whisper large-v3-turbo (ONNX int8, CPU)"\nkind = "segment"\nbackend = "whisper"\n'
+    #                             'languages = ["es", "en", "de", "fr", "it", "pt", "nl", "pl", "ru", "ar", "fa"]\n\n'
+    #                             '[files]\nencoder = "turbo-encoder.int8.onnx"\ndecoder = "turbo-decoder.int8.onnx"\n'
+    #                             'tokens  = "turbo-tokens.txt"\n'}),
     Model("tts", "vits-piper-en_US-lessac-medium", "use", "Piper voice, English (US)",
           url=f"{SHERPA_TTS}/vits-piper-en_US-lessac-medium.tar.bz2",
           expect=("en_US-lessac-medium.onnx", "tokens.txt", "espeak-ng-data/phontab"),
@@ -123,11 +123,11 @@ LIST = [
     # ------------------------------------------------------------ recognizers, volis only
     Model("asr", "whisper-large-v3-turbo", "use", "Whisper large-v3-turbo as published, all languages (transformers, GPU)",
           repo="openai/whisper-large-v3-turbo"),
-    Model("asr", "whisper-large-v3-turbo-es", "use", "Whisper large-v3-turbo tuned for Spanish (transformers, GPU)",
-          repo="adriszmar/whisper-large-v3-turbo-es"),
-    Model("asr", "whisper-large-v3-turbo-arabic-dialectal-hf", "use",
-          "Whisper large-v3-turbo tuned for dialectal Arabic (transformers, GPU)",
-          repo="oddadmix/whisper-large-v3-turbo-arabic-dialectal"),
+    # Model("asr", "whisper-large-v3-turbo-es", "use", "Whisper large-v3-turbo tuned for Spanish (transformers, GPU)",
+    #       repo="adriszmar/whisper-large-v3-turbo-es"),
+    # Model("asr", "whisper-large-v3-turbo-arabic-dialectal-hf", "use",
+    #       "Whisper large-v3-turbo tuned for dialectal Arabic (transformers, GPU)",
+    #       repo="oddadmix/whisper-large-v3-turbo-arabic-dialectal"),
     Model("asr", "cohere-transcribe-arabic-07-2026", "use",
           "Cohere Transcribe Arabic (transformers, GPU; gated: accept its terms, then fetch-model.ps1 -Login)",
           repo="CohereLabs/cohere-transcribe-arabic-07-2026", gated=True),
@@ -153,10 +153,10 @@ LIST = [
           write={"volis-python.toml": GGUF_SPEECH + 'name = "Qwen3-ASR 1.7B (Q8)"\n' + SPEECH_LANGUAGES}),
     Model("asr", "whisper-small", "tested", "Whisper small (transformers); the base of the LoRA adapter below",
           repo="openai/whisper-small"),
-    Model("asr", "whisper-algerian-darja-small", "tested",
-          "a LoRA adapter on whisper-small (Algerian Darja); needs whisper-small beside it",
-          repo="touati-kamel/whisper-algerian-darja-small",
-          include=("adapter_config.json", "adapter_model.safetensors")),
+    # Model("asr", "whisper-algerian-darja-small", "tested",
+    #       "a LoRA adapter on whisper-small (Algerian Darja); needs whisper-small beside it",
+    #       repo="touati-kamel/whisper-algerian-darja-small",
+    #       include=("adapter_config.json", "adapter_model.safetensors")),
 
     # ------------------------------------------------------------ translators, volis only
     Model("mt", "gemma-3-4b-it-GGUF", "use", "Gemma 3 4B Q4_K_M",
@@ -167,14 +167,14 @@ LIST = [
           repo="mradermacher/translategemma-4b-it-GGUF", include=("*.Q4_K_M.gguf",)),
     Model("mt", "gemma-4-12b-it-GGUF", "bigger", "Gemma 4 12B Q4_K_M (best Arabic measured; needs more than 8 GB of GPU memory)",
           repo="unsloth/gemma-4-12b-it-GGUF", include=("gemma-4-12b-it-Q4_K_M.gguf",)),
-    Model("mt", "gemma-3-12b-it-GGUF", "bigger", "Gemma 3 12B Q4_K_M (needs more than 8 GB of GPU memory)",
-          repo="unsloth/gemma-3-12b-it-GGUF", include=("gemma-3-12b-it-Q4_K_M.gguf",)),
+    # Model("mt", "gemma-3-12b-it-GGUF", "bigger", "Gemma 3 12B Q4_K_M (needs more than 8 GB of GPU memory)",
+    #       repo="unsloth/gemma-3-12b-it-GGUF", include=("gemma-3-12b-it-Q4_K_M.gguf",)),
     Model("mt", "translategemma-12b-it-GGUF", "bigger", "TranslateGemma 12B Q4_K_M (needs more than 8 GB of GPU memory)",
           repo="mradermacher/translategemma-12b-it-GGUF", include=("*.Q4_K_M.gguf",)),
-    Model("mt", "Qwen3-8B-GGUF", "tested", "Qwen3 8B Q4_K_M (no better than the 4B models, and slower)",
-          repo="Qwen/Qwen3-8B-GGUF", include=("Qwen3-8B-Q4_K_M.gguf",)),
-    Model("mt", "Qwen3-0.6B", "tested", "Qwen3 0.6B safetensors (only there to prove the transformers translator)",
-          repo="Qwen/Qwen3-0.6B"),
+    # Model("mt", "Qwen3-8B-GGUF", "tested", "Qwen3 8B Q4_K_M (no better than the 4B models, and slower)",
+    #       repo="Qwen/Qwen3-8B-GGUF", include=("Qwen3-8B-Q4_K_M.gguf",)),
+    # Model("mt", "Qwen3-0.6B", "tested", "Qwen3 0.6B safetensors (only there to prove the transformers translator)",
+    #       repo="Qwen/Qwen3-0.6B"),
 
     # ------------------------------------------------------------ Arabic voices
     Model("tts", "vits-piper-ar_JO-kareem-medium", "use", "Piper voice, Arabic, male",
