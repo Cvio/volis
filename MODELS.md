@@ -1,10 +1,14 @@
 # Models
 
-Volis does its work with three kinds of model, and you choose which ones:
+Volis does its work with four kinds of model:
 
+- a **speech detector** notices when someone starts and stops talking, so the rest get whole
+  sentences. There is one (Silero VAD, 2 MB), it is required, and you never choose it;
 - a **recognizer** turns speech into text;
 - a **translator** turns that text into the other language;
 - a **voice** says the translation aloud.
+
+The last three are yours to choose.
 
 Models are files in the `models` folder. Whatever is there is what Volis offers in its lists;
 there is nothing to register. This page says which to start with, how to choose your own, and
@@ -25,6 +29,7 @@ general models: none is tuned for a region or dialect.
 | **Recognizer** | `whisper-large-v3-turbo` | `whisper-large-v3-turbo` |
 | **Translator** | Gemma 3 4B | Gemma 4 12B |
 | **Voice** | one Piper voice for each language you translate into | the same |
+| **Speech detector** | Silero VAD (required with any set) | the same |
 | **Graphics memory used** | about 4.5 GB | about 9.8 GB |
 | **Left for other programs** | about 3.5 GB | about 6 GB |
 

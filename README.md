@@ -47,15 +47,21 @@ If someone gave you a ready-made Volis folder, skip to
 
    ✅ It should end with `All checks passed.`
 
-3. **Get the models.** Volis uses three kinds: one that turns speech into text (a
-   *recognizer*), one that translates the text (a *translator*), and one that speaks the
-   result (a *voice*). This gets a set that works for English and Spanish on an 8 GB card,
-   about 4.5 GB in all:
+3. **Get the models.** Volis uses four kinds:
+
+   | Model | What it does | Do you choose it? |
+   |---|---|---|
+   | **Speech detector** | Notices when someone starts and stops talking | No: there is one, and it is required |
+   | **Recognizer** | Turns the speech into text | Yes |
+   | **Translator** | Translates the text | Yes |
+   | **Voice** | Says the translation aloud | One for each language you translate into |
+
+   This gets a set that works for English and Spanish on an 8 GB card, about 4.5 GB in all:
 
    ```powershell
-   .\fetch-models.ps1 -Only silero_vad,lessac,es_MX-claude
-   .\fetch-model.ps1 openai/whisper-large-v3-turbo -Role asr
-   .\fetch-model.ps1 unsloth/gemma-3-4b-it-GGUF -Role mt -Include "*Q4_K_M.gguf"
+   .\fetch-models.ps1 -Only silero_vad,lessac,es_MX-claude                          # the speech detector, an English voice, a Spanish voice
+   .\fetch-model.ps1 openai/whisper-large-v3-turbo -Role asr                        # the recognizer
+   .\fetch-model.ps1 unsloth/gemma-3-4b-it-GGUF -Role mt -Include "*Q4_K_M.gguf"    # the translator
    ```
 
    For other languages, a larger graphics card, or to choose your own models, see
