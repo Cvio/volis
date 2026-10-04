@@ -37,7 +37,7 @@ Type these in PowerShell.
 2. **Get Volis** and go into its folder:
 
    ```powershell
-   git clone https://github.com/Cvio/pyvolis.git volis
+   git clone https://github.com/Cvio/volis.git
    cd volis
    ```
 
