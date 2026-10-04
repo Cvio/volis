@@ -83,14 +83,14 @@ GGUF_SPEECH = ("# Settings for this model in volis. No engine.toml here: that fi
 SPEECH_LANGUAGES = 'languages = ["en", "es", "ar", "fa", "de", "fr", "it", "pt", "ru", "nl", "pl"]\n'
 
 LIST = [
-    # ------------------------------------------------------------ what volis-rust runs on
+    # ------------------------------------------------------------ 
     Model("vad", "", "use", "Silero VAD, the voice activity detector (required)",
           url=f"{SHERPA_ASR}/silero_vad.onnx", expect=("silero_vad.onnx",)),
     Model("tashkeel", "", "use", "libtashkeel, the Arabic vowel-marking model Piper uses ([tts] diacritize)",
           url="https://raw.githubusercontent.com/rhasspy/piper-phonemize/master/etc/libtashkeel_model.ort",
           expect=("libtashkeel_model.ort",)),
-    Model("mt", "", "use", "Qwen3 1.7B Q4_K_M, the translator volis-rust uses (the one .gguf at the top of mt)",
-          repo="unsloth/Qwen3-1.7B-GGUF", file="Qwen3-1.7B-Q4_K_M.gguf", save_as="qwen3-1.7b-q4_k_m.gguf"),
+    # Model("mt", "", "use", "Qwen3 1.7B Q4_K_M, the translator volis-rust uses (the one .gguf at the top of mt)",
+    #       repo="unsloth/Qwen3-1.7B-GGUF", file="Qwen3-1.7B-Q4_K_M.gguf", save_as="qwen3-1.7b-q4_k_m.gguf"),
     # Model("asr", "parakeet-tdt-0.6b-v3-onnx-int8", "use", "Parakeet TDT 0.6B v3, ONNX int8 (sherpa-onnx, CPU)",
     #       url=f"{SHERPA_ASR}/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2",
     #       members=("encoder.int8.onnx", "decoder.int8.onnx", "joiner.int8.onnx", "tokens.txt"),
@@ -107,18 +107,7 @@ LIST = [
     #                             'languages = ["es", "en", "de", "fr", "it", "pt", "nl", "pl", "ru", "ar", "fa"]\n\n'
     #                             '[files]\nencoder = "turbo-encoder.int8.onnx"\ndecoder = "turbo-decoder.int8.onnx"\n'
     #                             'tokens  = "turbo-tokens.txt"\n'}),
-    Model("tts", "vits-piper-en_US-lessac-medium", "use", "Piper voice, English (US)",
-          url=f"{SHERPA_TTS}/vits-piper-en_US-lessac-medium.tar.bz2",
-          expect=("en_US-lessac-medium.onnx", "tokens.txt", "espeak-ng-data/phontab"),
-          write={"engine.toml": piper_engine("Piper en_US lessac (medium)", "en", "en_US-lessac-medium.onnx", "en-US")}),
-    Model("tts", "vits-piper-es_ES-carlfm-x_low", "use", "Piper voice, Spanish (Spain)",
-          url=f"{SHERPA_TTS}/vits-piper-es_ES-carlfm-x_low.tar.bz2",
-          expect=("es_ES-carlfm-x_low.onnx", "tokens.txt", "espeak-ng-data/phontab"),
-          write={"engine.toml": piper_engine("Piper es_ES carlfm (x_low)", "es", "es_ES-carlfm-x_low.onnx", "es-ES")}),
-    Model("tts", "vits-piper-es_MX-claude-high", "use", "Piper voice, Spanish (Mexico)",
-          url=f"{SHERPA_TTS}/vits-piper-es_MX-claude-high.tar.bz2",
-          expect=("es_MX-claude-high.onnx", "tokens.txt", "espeak-ng-data/phontab"),
-          write={"engine.toml": piper_engine("Piper es_MX claude (high)", "es", "es_MX-claude-high.onnx", "es-MX")}),
+
 
     # ------------------------------------------------------------ recognizers, volis only
     Model("asr", "whisper-large-v3-turbo", "use", "Whisper large-v3-turbo as published, all languages (transformers, GPU)",
@@ -151,8 +140,9 @@ LIST = [
     Model("asr", "Qwen3-ASR-1.7B-GGUF", "tested", "Qwen3-ASR 1.7B (Q8)",
           repo="ggml-org/Qwen3-ASR-1.7B-GGUF", include=("*Q8_0.gguf",),
           write={"volis-python.toml": GGUF_SPEECH + 'name = "Qwen3-ASR 1.7B (Q8)"\n' + SPEECH_LANGUAGES}),
-    Model("asr", "whisper-small", "tested", "Whisper small (transformers); the base of the LoRA adapter below",
-          repo="openai/whisper-small"),
+  
+    # Model("asr", "whisper-small", "tested", "Whisper small (transformers); the base of the LoRA adapter below",
+    #       repo="openai/whisper-small"),
     # Model("asr", "whisper-algerian-darja-small", "tested",
     #       "a LoRA adapter on whisper-small (Algerian Darja); needs whisper-small beside it",
     #       repo="touati-kamel/whisper-algerian-darja-small",
@@ -176,7 +166,7 @@ LIST = [
     # Model("mt", "Qwen3-0.6B", "tested", "Qwen3 0.6B safetensors (only there to prove the transformers translator)",
     #       repo="Qwen/Qwen3-0.6B"),
 
-    # ------------------------------------------------------------ Arabic voices
+    # ------------------------------------------------------------ voices
     Model("tts", "vits-piper-ar_JO-kareem-medium", "use", "Piper voice, Arabic, male",
           repo="csukuangfj/vits-piper-ar_JO-kareem-medium",
           write={"engine.toml": piper_engine("Piper ar_JO kareem (medium)", "ar", "ar_JO-kareem-medium.onnx")}),
@@ -190,6 +180,18 @@ LIST = [
           "Piper voice, Arabic, male. Works, but its licence is non-commercial: read its README before using it",
           repo="csukuangfj/vits-piper-ar_JO-SA_dii-high",
           write={"engine.toml": piper_engine("Piper ar dii (high)", "ar", "ar_JO-SA_dii-high.onnx")}),
+    Model("tts", "vits-piper-en_US-lessac-medium", "use", "Piper voice, English (US)",
+          url=f"{SHERPA_TTS}/vits-piper-en_US-lessac-medium.tar.bz2",
+          expect=("en_US-lessac-medium.onnx", "tokens.txt", "espeak-ng-data/phontab"),
+          write={"engine.toml": piper_engine("Piper en_US lessac (medium)", "en", "en_US-lessac-medium.onnx", "en-US")}),
+    # Model("tts", "vits-piper-es_ES-carlfm-x_low", "use", "Piper voice, Spanish (Spain)",
+    #       url=f"{SHERPA_TTS}/vits-piper-es_ES-carlfm-x_low.tar.bz2",
+    #       expect=("es_ES-carlfm-x_low.onnx", "tokens.txt", "espeak-ng-data/phontab"),
+    #       write={"engine.toml": piper_engine("Piper es_ES carlfm (x_low)", "es", "es_ES-carlfm-x_low.onnx", "es-ES")}),
+    # Model("tts", "vits-piper-es_MX-claude-high", "use", "Piper voice, Spanish (Mexico)",
+    #       url=f"{SHERPA_TTS}/vits-piper-es_MX-claude-high.tar.bz2",
+    #       expect=("es_MX-claude-high.onnx", "tokens.txt", "espeak-ng-data/phontab"),
+    #       write={"engine.toml": piper_engine("Piper es_MX claude (high)", "es", "es_MX-claude-high.onnx", "es-MX")}),
 ]
 
 
