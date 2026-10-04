@@ -180,12 +180,12 @@ LIST = [
     Model("tts", "vits-piper-ar_JO-kareem-medium", "use", "Piper voice, Arabic, male",
           repo="csukuangfj/vits-piper-ar_JO-kareem-medium",
           write={"engine.toml": piper_engine("Piper ar_JO kareem (medium)", "ar", "ar_JO-kareem-medium.onnx")}),
-    Model("tts", "arabic-emirati-female-model", "use", "Piper voice, Arabic (Emirati), female; a raw Piper model, converted here",
-          repo="vadimbelsky/arabic-emirati-female-piper", piper_language="Arabic",
-          write={"engine.toml": piper_engine(
-              "Piper ar_AE Emirati female", "ar", "arabic-emirati-female-model.sherpa.onnx",
-              note="# The download is a raw Piper model. sherpa-onnx needs a few fields inside the model file,\n"
-                   "# so this is a copy with them added; arabic-emirati-female-model.onnx is the original, untouched.\n")}),
+    # Model("tts", "arabic-emirati-female-model", "use", "Piper voice, Arabic (Emirati), female; a raw Piper model, converted here",
+    #       repo="vadimbelsky/arabic-emirati-female-piper", piper_language="Arabic",
+    #       write={"engine.toml": piper_engine(
+    #           "Piper ar_AE Emirati female", "ar", "arabic-emirati-female-model.sherpa.onnx",
+    #           note="# The download is a raw Piper model. sherpa-onnx needs a few fields inside the model file,\n"
+    #                "# so this is a copy with them added; arabic-emirati-female-model.onnx is the original, untouched.\n")}),
     Model("tts", "vits-piper-ar_JO-SA_dii-high", "tested",
           "Piper voice, Arabic, male. Works, but its licence is non-commercial: read its README before using it",
           repo="csukuangfj/vits-piper-ar_JO-SA_dii-high",
