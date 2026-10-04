@@ -17,31 +17,25 @@ nothing you say leaves the machine.
 - **A microphone and speakers.** A headset is best: with speakers, Volis mutes the microphone
   while it talks so it doesn't hear itself.
 - **An internet connection for the setup below only.**
+- **[Git](https://git-scm.com/)**, to get the code.
+- **[uv](https://docs.astral.sh/uv/)**, which installs everything else:
+  `winget install astral-sh.uv` (then open a new PowerShell window).
+
+Every command on this page is for **PowerShell**.
 
 If someone gave you a ready-made Volis folder, skip to
 [If you were given a ready-made folder](#if-you-were-given-a-ready-made-folder).
 
 ## Set it up
 
-Type these in PowerShell.
-
-1. **Install the two tools the setup uses**, if you don't have them:
-
-   ```powershell
-   winget install Git.Git
-   winget install astral-sh.uv
-   ```
-
-   Close PowerShell and open it again afterwards, so it can find them.
-
-2. **Get Volis** and go into its folder:
+1. **Get Volis** and go into its folder:
 
    ```powershell
    git clone https://github.com/Cvio/volis.git
    cd volis
    ```
 
-3. **Install it:**
+2. **Install it:**
 
    ```powershell
    .\setup.ps1
@@ -53,7 +47,7 @@ Type these in PowerShell.
 
    ✅ It should end with `All checks passed.`
 
-4. **Get the models.** Volis uses three kinds: one that turns speech into text (a
+3. **Get the models.** Volis uses three kinds: one that turns speech into text (a
    *recognizer*), one that translates the text (a *translator*), and one that speaks the
    result (a *voice*). This gets a set that works for English and Spanish on an 8 GB card,
    about 4.5 GB in all:
@@ -68,7 +62,7 @@ Type these in PowerShell.
    **[MODELS.md](MODELS.md)**. It says what to pick for 8 GB and 16 GB cards and how to
    find and try models yourself.
 
-5. **Check that Volis sees them:**
+4. **Check that Volis sees them:**
 
    ```powershell
    .\.venv\Scripts\python.exe -m volis --report
@@ -76,7 +70,7 @@ Type these in PowerShell.
 
    ✅ Every model listed should say `ok`.
 
-6. **Optional, but worth it: translate on the graphics card.** As installed, the translator
+5. **Optional, but worth it: translate on the graphics card.** As installed, the translator
    runs on the processor, which works but takes a second or more per sentence. Running it on
    the graphics card is several times faster. That needs a one-time build on your machine;
    [DEVELOPMENT.md](DEVELOPMENT.md#the-translator-on-the-graphics-card) has the steps.
@@ -151,7 +145,7 @@ tells you whether a different choice of models would fit before you load them.
 | Nothing happens when you speak | Check the level meter at the top right moves when you talk. If it doesn't, pick another **Microphone**, and check the microphone isn't muted in Windows. |
 | Volis translates its own voice | Tick **Half-duplex**, or use a headset. |
 | Everything is very slow | The models probably don't fit on your graphics card together. Open **View > Performance**; the **What if** tab says whether they fit. Choose a smaller translator. |
-| Translation takes a second or more per sentence | The translator is running on the processor. See step 6 of the setup. |
+| Translation takes a second or more per sentence | The translator is running on the processor. See step 5 of the setup. |
 | It starts, then says a model "is not in" the models folder | The model named in your settings isn't installed. Pick one from the list in the window. |
 | Pairing won't connect | Both computers must be on the same network, and Windows Firewall must allow Volis. The message in the window says which of the two it is. |
 
