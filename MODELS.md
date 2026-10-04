@@ -1,54 +1,199 @@
-# Models: what has been tested, how it scored, how to get it
+# Models
 
-Every model volis has been run with, including the ones that weren't worth keeping. What a
-recognizer, translator and voice *are*, and how a folder describes itself with `engine.toml`,
-is in [volis-rust's MODELS.md](../volis-rust/MODELS.md); this page doesn't repeat it. How volis
-finds a model you drop in yourself is in [README.md](README.md#models).
+Volis does its work with three kinds of model, and you choose which ones:
 
-## Getting them
+- a **recognizer** turns speech into text;
+- a **translator** turns that text into the other language;
+- a **voice** says the translation aloud.
 
-`fetch-models.ps1` downloads the list on this page into the right folders and writes the
-settings file each one needs (`engine.toml` for sherpa-onnx models and voices, `volis-python.toml`
-for GGUF speech models). It uses the internet; volis itself never does.
+Models are files in the `models` folder. Whatever is there is what Volis offers in its lists;
+there is nothing to register. This page says which to start with, how to choose your own, and
+how every model we tried scored.
 
-Before you run it:
+- [A basic set that works](#a-basic-set-that-works)
+- [Choosing your own](#choosing-your-own)
+- [Getting models](#getting-models)
+- [What we tested, and how it scored](#what-we-tested-and-how-it-scored)
 
-- **Cohere Transcribe is gated.** Accept its terms at
-  <https://huggingface.co/CohereLabs/cohere-transcribe-arabic-07-2026> in your browser, then
-  run `.\fetch-model.ps1 -Login` once. Without that, everything else still downloads and the
-  script says which one didn't.
-- **The whole default list is about 50 GB** on a machine that has none of it. `-List` shows
-  the exact figure and downloads nothing.
+## A basic set that works
+
+A starting point for ordinary translation, by the memory on your graphics card. These are
+general models: none is tuned for a region or dialect.
+
+| | 8 GB card | 16 GB card |
+|---|---|---|
+| **Recognizer** | `whisper-large-v3-turbo` | `whisper-large-v3-turbo` |
+| **Translator** | Gemma 3 4B | Gemma 4 12B |
+| **Voice** | one Piper voice for each language you translate into | the same |
+| **Graphics memory used** | about 4.5 GB | about 9.8 GB |
+| **Left for other programs** | about 3.5 GB | about 6 GB |
+
+```powershell
+.\fetch-models.ps1 -Only silero_vad,lessac,es_MX-claude          # the speech detector, an English and a Spanish voice
+.\fetch-model.ps1 openai/whisper-large-v3-turbo -Role asr
+.\fetch-model.ps1 unsloth/gemma-3-4b-it-GGUF -Role mt -Include "*Q4_K_M.gguf"                    # 8 GB
+.\fetch-model.ps1 unsloth/gemma-4-12b-it-GGUF -Role mt -Include "gemma-4-12b-it-Q4_K_M.gguf"     # 16 GB
+```
+
+For Arabic, add a voice: `.\fetch-models.ps1 -Only kareem`.
+
+Why these:
+
+- **`whisper-large-v3-turbo`** covers nearly every language. On our test recordings it made
+  0.5% character errors in Spanish and 3.3% in Arabic.
+- **Gemma 3 4B** scored 64.8 on our translation tests against 60.2 for the smallest translator
+  we tried, never answered a question instead of translating it, and took under half a second
+  a sentence.
+- **Gemma 4 12B** had the best score of everything we tested (66.1), and the best Arabic.
+
+Two things to know before relying on this table:
+
+- **The 16 GB column is partly untested.** We measured Gemma 4 12B's translations, but only on
+  an 8 GB card it doesn't fit, where it ran several times slower. Its speed on a card that
+  holds it has not been measured. The Benchmarks button in the performance panel will tell you.
+- **The tests are small.** They are enough to say one model is clearly better than another,
+  not to separate models a point apart.
+
+**If Arabic matters most on an 8 GB card:** Gemma 4 E4B translates Arabic clearly better than
+Gemma 3 4B (71.3 against 67.7). With the same recognizer it uses about 7.3 of the 8 GB, which
+leaves almost nothing for other programs.
+
+All of this assumes the translator runs on the graphics card
+([DEVELOPMENT.md](DEVELOPMENT.md#the-translator-on-the-graphics-card)). On the processor every
+translator still works, several times slower.
+
+## Choosing your own
+
+The set above is a starting point. A model made for your language will usually do better than
+a general one, and new models appear all the time. Most are published on
+[Hugging Face](https://huggingface.co/models).
+
+### A recognizer
+
+Search Hugging Face for speech recognition in your language (the filter is *Automatic Speech
+Recognition*). Volis can load:
+
+| Kind | How to recognise it | Examples |
+|---|---|---|
+| Whisper and its fine-tunes | The files include `model.safetensors` and `config.json`, and the page says Whisper | `openai/whisper-large-v3-turbo`; search "whisper" with your language's name |
+| Other speech models the `transformers` library supports | The same files; the page names wav2vec2, MMS, Cohere Transcribe or similar | `facebook/mms-1b-all` |
+| Speech models in GGUF form | A `.gguf` file **and** an `mmproj-*.gguf` file beside it (the part that hears) | `ggml-org/Qwen3-ASR-0.6B-GGUF` |
+
+What to look for on a model's page:
+
+- **Your language is listed.** A fine-tune for one language usually beats the general model on
+  that language, and is useless for any other.
+- **What it was trained on.** A model trained on read speech hears a conversation less well
+  than its scores suggest, and one trained on a different region's speech may mishear yours.
+- **Its size.** On the graphics card a Whisper "large" takes about 1.6 GB; smaller ones are
+  faster and less accurate.
+- **Whether it writes punctuation.** Volis cuts speech into sentences at full stops. A model
+  that writes none (MMS, for one) still works, with sentences cut at pauses instead.
+
+### A translator
+
+Any chat model in **GGUF** form works: Volis asks it to translate using the model's own chat
+format, which is stored in the file. Search Hugging Face for the model's name with "GGUF".
+
+- **Size.** A translator takes about its file size plus 15% of graphics memory. It has to fit
+  beside your recognizer: on 8 GB that means a file of about 5 GB at most; on 16 GB, about 12 GB.
+- **Which file.** A GGUF repository usually offers the same model at several levels of
+  compression. `Q4_K_M` is the usual choice: about a third of the full size, with little loss.
+  Every translator we tested is `Q4_K_M`.
+- **Which model.** In our tests models of about 4 billion parameters were clearly better than
+  smaller ones, and 12 billion were only a little better again except on Arabic. Models made
+  only to translate (TranslateGemma) work too.
+- **Languages.** A general chat model translates the languages it knows well. For a less
+  common language, try a sentence before you trust it.
+
+### A voice
+
+Volis speaks with [Piper](https://github.com/rhasspy/piper) voices. Each speaks one language,
+and some a particular accent.
+
+- Ready to use: the `vits-piper-*` voices in the
+  [sherpa-onnx releases](https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models) and the
+  `csukuangfj/vits-piper-*` repositories on Hugging Face.
+- A voice published as Piper's own two files (`name.onnx` and `name.onnx.json`) works too:
+  `fetch-model.ps1` converts it as it downloads.
+
+### Will it fit?
+
+Once a model is in the `models` folder, open **View > Performance** in the window and choose
+the **What if** tab. Pick the recognizer, translator and voice you have in mind: it shows the
+memory they need and whether they fit on your card as it is now, without loading anything.
+
+Two models that don't fit together still run, but spill into ordinary memory and become
+several times slower. That is the usual reason for Volis suddenly being slow.
+
+### Is it any good?
+
+Published scores don't tell you how a model hears *your* voice in *your* room. To find out:
+
+1. **Listen.** In the window, tick **Compare recognizers** and speak: every recognizer you have
+   transcribes the same sentence, side by side, with its timing.
+2. **Measure.** Record yourself reading a page (two minutes is enough). Save what you read
+   beside the recording, as described in [SETTINGS.md](SETTINGS.md#--file). Run the recording
+   through file mode once with each model: each run ends with an error rate for the recognizer
+   and a score for the translator, on your own voice.
+3. **Time it.** The **Benchmarks** tab of the performance panel runs a recording through any
+   combination and records how fast it was. Those results feed the What if tab from then on.
+
+## Getting models
+
+**One model** from Hugging Face, into the right folder:
+
+```powershell
+.\fetch-model.ps1 <owner>/<model> -Role asr                              # a recognizer
+.\fetch-model.ps1 <owner>/<model> -Role mt -Include "*Q4_K_M.gguf"       # a translator: say which file
+.\fetch-model.ps1 <owner>/<model> -Role asr -Include "*Q8_0.gguf"        # a GGUF speech model: the model and its mmproj file
+.\fetch-model.ps1 <owner>/<model> -Role tts                              # a voice
+```
+
+Some models are *gated*: their page asks you to accept terms first. Do that in your browser,
+then run `.\fetch-model.ps1 -Login` once.
+
+**Every model on this page,** in one go:
 
 ```powershell
 .\fetch-models.ps1 -List              # what is in place, what would be downloaded, how big
-.\fetch-models.ps1                    # groups "use" and "bigger" (below)
-.\fetch-models.ps1 -Group use         # only what is worth having on an 8 GB GPU
-.\fetch-models.ps1 -Group all         # everything on this page
+.\fetch-models.ps1                    # everything worth having: about 50 GB
+.\fetch-models.ps1 -Group use         # only what suits an 8 GB card
 .\fetch-models.ps1 -Only Qwen3-ASR    # only entries whose name contains this
-.\.venv\Scripts\python.exe -m volis --report    # afterwards: every model should say ok
 ```
 
-It asks once before downloading. What is already in place (every file, at its published size)
-is skipped, so running it again retries only what failed. A settings file that already exists
-is never overwritten. The list itself, with every source, is the `LIST` at the top of
-[scripts/fetch_models.py](scripts/fetch_models.py): add a model there and it is on the list.
+It asks once before downloading, skips what you already have, and never overwrites a settings
+file. One model on the list (Cohere Transcribe) is gated; without the login above, the rest
+still download and the script says which one didn't.
 
-The groups:
+**A model you got some other way:** put its folder in `models\asr\`, `models\mt\` or
+`models\tts\`, keeping the files' names. Each translator goes in a folder of its own.
+
+**Afterwards, always:**
+
+```powershell
+.\.venv\Scripts\python.exe -m volis --report
+```
+
+It lists every folder Volis found, and for any it can't use, the reason. If a model's language
+or name is detected wrongly, a small settings file in its folder corrects it:
+[SETTINGS.md](SETTINGS.md#settings-for-one-model).
+
+## What we tested, and how it scored
+
+Every model Volis has been run with, including the ones that weren't worth keeping.
+
+The **Group** column is how the download script sorts them:
 
 | Group | Meaning | Downloaded by default |
 |---|---|---|
-| `use` | tested on the development laptop (RTX 4070, 8 GB) and worth having | yes |
-| `bigger` | tested, but too large for 8 GB; to be measured on a larger GPU | yes |
-| `untested` | a sibling of a tested model; this one has never been run (none at present) | no |
-| `tested` | tested and not kept: a worse score, or only there to prove a backend | no |
+| `use` | tested on an 8 GB card and worth having | yes |
+| `bigger` | tested, but too large for 8 GB; to be measured on a larger card | yes |
+| `tested` | tested and not kept: a worse score, or only there to prove something works | no |
 
-To fetch one model that isn't on the list, use `.\fetch-model.ps1 <id> -Role asr|mt|tts`
-(README).
+### How the numbers were measured
 
-## How the numbers were measured
-
-All on the development laptop, with the GPU build of llama.cpp. They are small tests: read
+All on one laptop (RTX 4070, 8 GB), with the translator on the graphics card. They are small tests: read
 them as "clearly better", "about the same" or "clearly worse", not to the decimal.
 
 - **CER / WER** (recognizers): character and word error rate against the reference
@@ -64,11 +209,10 @@ them as "clearly better", "about the same" or "clearly worse", not to the decima
   you say ...", "what is the capital of France"), how many were translated, alone / after two
   earlier sentences (`scripts/obey_check.py`).
 
-## Recognizers (`models\asr\`)
+### Recognizers
 
-Folders ending in `-onnx-int8` are sherpa-onnx conversions, compressed to 8-bit and run on the
-CPU (as volis-rust runs them); the same model without that ending is the original, on the GPU.
-Only the folders were renamed: the files inside keep their published names.
+Folders ending in `-onnx-int8` are compressed to 8-bit and run on the processor, leaving the
+graphics card free; the same model without that ending is the original, on the graphics card.
 
 | Model | Group | Runs on | Disk | Spanish CER / WER | Arabic CER / WER | RTF | Notes |
 |---|---|---|---|---|---|---|---|
@@ -78,50 +222,25 @@ Only the folders were renamed: the files inside keep their published names.
 | whisper-large-v3-turbo-es (adriszmar) | use | transformers, GPU, 1.6 GB | 3.2 GB | **0.9% / 3.0%** (file) | Spanish only | 0.34 | The Spanish recognizer every check uses. |
 | whisper-large-v3-turbo-arabic-dialectal (oddadmix), safetensors | use | transformers, GPU, 1.6 GB | 3.2 GB | Arabic only | 3.7% (clips) | not recorded | Tuned on dialects; the clips are Standard Arabic, so this test undersells it. Not yet tested on dialect speech. |
 | MMS 1B (adapters: ar, en, fa, es) | use | transformers, GPU, 1.9 GB | 3.9 GB | 1.3% / 6.0% (file) | 5.8% (clips) | 0.04 | Never writes punctuation or capitals, so sentences are cut by pauses alone. The only one here with a Persian adapter besides Whisper. |
-| `parakeet-tdt-0.6b-v3-onnx-int8` | use | sherpa-onnx, CPU | 0.7 GB | 0.5 to 1.9% (clips) | no Arabic | not recorded | volis-rust's. Detects the language itself; spells numbers out. Identical output to Rust. |
-| `whisper-large-v3-turbo-onnx-int8` | use | sherpa-onnx, CPU | 1.0 GB | 0.6% / 2.1% (file) | 5.2% / 13.4% (file); no punctuation on any Arabic output | 0.41 (es), 0.52 (ar) | volis-rust's general recognizer, compressed to int8 ONNX. |
+| `parakeet-tdt-0.6b-v3-onnx-int8` | use | sherpa-onnx, CPU | 0.7 GB | 0.5 to 1.9% (clips) | no Arabic | not recorded | Runs on the processor. Detects the language itself; spells numbers out. |
+| `whisper-large-v3-turbo-onnx-int8` | use | sherpa-onnx, CPU | 1.0 GB | 0.6% / 2.1% (file) | 5.2% / 13.4% (file); no punctuation on any Arabic output | 0.41 (es), 0.52 (ar) | The general Whisper compressed to 8-bit, on the processor. |
 | `whisper-large-v3-turbo` (OpenAI, as published) | use | transformers, GPU, about 1.6 GB | 1.6 GB | **0.5% / 2.1%** (file) | 3.3% / 12.0% (file) | 0.33 (es), 0.22 (ar) | The same model as the line above, uncompressed, on the GPU: the general recognizer to use, and the one for English. English not yet scored. |
-| Qwen3-ASR 1.7B (Q8) | tested | llama.cpp audio | 2.5 GB | | | | Tried by the user on another machine (2026-10-02): not good so far. No figures recorded. Kept on the list for more testing. |
-| Voxtral Mini 3B (Q4_K_M) | removed | llama.cpp audio | 3.2 GB | | | | The same: tried by the user, not good, no figures. Taken off the download list; `.\fetch-model.ps1 ggml-org/Voxtral-Mini-3B-2507-GGUF -Role asr -Include "*Q4_K_M.gguf","mmproj-*.gguf"` fetches it. |
+| Qwen3-ASR 1.7B (Q8) | tested | llama.cpp audio | 2.5 GB | | | | Tried on another machine: not good so far. No figures recorded. Kept on the list for more testing. |
+| Voxtral Mini 3B (Q4_K_M) | removed | llama.cpp audio | 3.2 GB | | | | The same: tried, not good, no figures. Not on the download list; `.\fetch-model.ps1 ggml-org/Voxtral-Mini-3B-2507-GGUF -Role asr -Include "*Q4_K_M.gguf","mmproj-*.gguf"` fetches it. |
 | whisper-small | tested | transformers, GPU | 1.0 GB | not tested | 7.4% / 22.7% (file) | 0.13 | Clearly worse than everything above. Kept on the list only as the base of the adapter below. |
 | whisper-algerian-darja-small (LoRA on whisper-small) | tested | transformers + peft | 0.1 GB | | 12.6% / 43.1% (file) | 0.13 | Proves that a LoRA adapter loads and is applied. Worse than its base on this recording, as expected: the recording is Egyptian read speech, the adapter is for Algerian. |
 
-Two more recognizers are in `models\asr\` on the development machine and are **not
-downloadable**: `whisper-large-v3-turbo-es-adriszmar-onnx-int8` and
-`whisper-large-v3-turbo-arabic-dialectal-onnx-int8` are the two fine-tunes above converted to int8 ONNX
-for volis-rust by [model-converter](../model-converter/README.md). volis runs the originals
-instead, which score better (Arabic clips: 3.7% as published, 8.4% as int8 ONNX, which cuts
-sentences short). To make them, follow model-converter's README.
+No word timings means the text can't be shown word by word while you speak; everything else
+works.
 
-**To use one:** pick it under **Recognizer** in the window, or `--asr <folder name>` on the
-command line, or `[asr] engine = "<folder name>"` in `volis.toml` (volis-rust can only load the
-two sherpa-onnx ones, so set a volis-only one in the window instead if you also run Rust).
+### Translators
 
-What each kind of folder needs, which the script takes care of:
-
-- **sherpa-onnx** (Parakeet, Whisper int8): the `.onnx` files and an `engine.toml`.
-- **transformers** (Whisper, MMS, Cohere): the folder exactly as Hugging Face publishes it. No
-  settings file.
-- **GGUF speech model** (Qwen3-ASR, Gemma 4, Voxtral): the model `.gguf` and its audio encoder
-  `mmproj-*.gguf` in one folder, and optionally a `volis-python.toml` with a display name and the
-  languages. **Never an `engine.toml`**: that sends the folder to the sherpa-onnx loader and
-  the model shows as broken.
-- **Gemma 4 as a recognizer** uses the translator's own `.gguf`. The script hard-links it from
-  `models\mt\gemma-4-E4B-it-GGUF\` (no extra disk) and downloads only the 1.0 GB audio encoder.
-- **LoRA adapter**: `adapter_config.json` and `adapter_model.safetensors`, with the base
-  model's folder beside it.
-
-The language lists in the two GGUF `volis-python.toml` files are from the model cards. Only
-English, Spanish and Arabic have been run.
-
-## Translators (`models\mt\`)
-
-Text only, FLEURS transcripts against FLORES+ references, volis's default prompt with
-carry-forward context, 2026-10-01. All are Q4_K_M GGUF files run by llama.cpp on the GPU.
+Text only, against reference translations, with earlier sentences as context. All are `Q4_K_M`
+GGUF files on the graphics card.
 
 | Model | Group | Disk | es>en | ar>en | fa>en | en>es | mean chrF | obey | ms / sentence | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Qwen3 1.7B | use | 1.1 GB | 59.2 | 64.3 | 58.8 | 58.3 | 60.2 | 24 / 24 | **261** | volis-rust's translator: the one `.gguf` at the top of `models\mt\`. The smallest and fastest, 3 to 6 chrF below the rest. |
+| Qwen3 1.7B | use | 1.1 GB | 59.2 | 64.3 | 58.8 | 58.3 | 60.2 | 24 / 24 | **261** | The smallest and fastest, 3 to 6 chrF below the rest. The script puts it at the top of `models\mt\`, where it is the default. |
 | Gemma 3 4B | use | 2.5 GB | **65.9** | 67.7 | 65.5 | 60.0 | 64.8 | 24 / 24 | 444 | The best all-rounder that fits 8 GB with a recognizer loaded. |
 | Gemma 4 E4B | use | 5.0 GB | 64.3 | 71.3 | 63.8 | 60.9 | 65.1 | 24 / 23 | 586 | Clearly better Arabic than the other small ones. Also a recognizer (above). |
 | TranslateGemma 4B | use | 2.5 GB | 64.2 | 66.9 | 65.9 | 60.0 | 64.3 | 23 / 24 | 511 | Trained only to translate. Its own prompt format: the prompt file and the glossary are not used. The one revision mode helps most. |
@@ -138,73 +257,30 @@ measured, their speed is not.
 What holds across the table: every model from 4B up is 3 to 6 chrF above Qwen3 1.7B, and the
 12B models are not clearly better than the 4B ones except on Arabic.
 
-**To use one:** pick it under **Translator** in the window, or `--mt <id>` (as `--report`
-lists it, for example `gemma-3-4b-it-GGUF/gemma-3-4b-it-Q4_K_M.gguf`), or `[translate] model =
-"<id>"` in `volis-python.toml`. `""` means the `.gguf` at the top of `models\mt\`.
+### Voices
 
-What the folder needs: the `.gguf` alone, in a folder of its own. **Only one `.gguf` may sit at
-the top level of `models\mt\`** (volis-rust refuses to start with two); the script puts Qwen3
-1.7B there, under the name Rust expects, and every other translator in a folder.
-
-**LoRA adapters for a GGUF translator** work (an adapter of strength 0 translates exactly as
-its base, 14 of 14 sentences; a stronger one changes the output), but only synthetic adapters
-have been tried: no trained one exists for an installed translator. README says how to add
-one.
-
-## Voices (`models\tts\`)
-
-Voices have no score here. Each was listened to, and each speaks through the pipeline.
+Voices have no score. Each was listened to, and each speaks through Volis.
 
 | Voice | Group | Language | Disk | Notes |
 |---|---|---|---|---|
-| vits-piper-en_US-lessac-medium | use | English (US) | 64 MB | volis-rust's. |
-| vits-piper-es_MX-claude-high | use | Spanish (Mexico) | 67 MB | volis-rust's. Chosen first for Spanish (Mexico). |
-| vits-piper-es_ES-carlfm-x_low | use | Spanish (Spain) | 25 MB | volis-rust's. |
+| vits-piper-en_US-lessac-medium | use | English (US) | 64 MB | |
+| vits-piper-es_MX-claude-high | use | Spanish (Mexico) | 67 MB | Chosen first for Spanish (Mexico). |
+| vits-piper-es_ES-carlfm-x_low | use | Spanish (Spain) | 25 MB | |
 | vits-piper-ar_JO-kareem-medium | use | Arabic, male | 64 MB | Mispronounces some words written without vowel marks, as every Arabic Piper voice here does. |
 | arabic-emirati-female-model | use | Arabic (Emirati), female | 127 MB | Published as a raw Piper model, which sherpa-onnx can't load. The script converts it (below). MIT licence. |
 | vits-piper-ar_JO-SA_dii-high | tested | Arabic, male | 64 MB | Works. **Its licence is non-commercial**; read its README before using it, which is why it isn't downloaded by default. |
 
-A voice folder needs four things: the `.onnx` model **with sherpa-onnx's fields inside it**,
-`tokens.txt`, the `espeak-ng-data` folder, and an `engine.toml` (`backend = "vits"`). The
-sherpa-onnx releases and the `csukuangfj/vits-piper-*` repos on Hugging Face come with the
-first three; the script writes the `engine.toml`.
+The Arabic voices mispronounce some words, because Arabic is written without its short vowels.
+The option **Add vowel marks to Arabic before it is spoken** runs a small model that restores
+them first (`.\fetch-models.ps1 -Only tashkeel`, 10 MB). Its marks are good, not perfect.
 
-A voice from anywhere else (`<name>.onnx` and `<name>.onnx.json`, as Piper itself publishes
-them) has none of the other three. The script makes them: `tokens.txt` from the phoneme table
-in the `.json`, a copy of the model named `<name>.sherpa.onnx` with the fields added (the
-original is left untouched), and `espeak-ng-data` copied from another installed voice. To do
-that for a voice not on the list, `.\fetch-model.ps1 <id> -Role tts` does the same and writes
-an `engine.toml` from the voice's own `.onnx.json` (check its name and languages afterwards).
-
-The three Arabic voices declare no variety: `ar-AE` and `ar-JO` are not in the varieties
-table, and an unknown variety disables the folder.
-
-**To use one:** nothing to set. The voice is chosen from the language translated into, tuned
-for the variety first. In shared machine mode each side has a **Spoken by** picker.
-
-## Also required
-
-`models\vad\silero_vad.onnx` (2 MB), the voice activity detector, from the sherpa-onnx
-releases. The script fetches it. It must keep that name.
-
-## Optional: vowel marks for Arabic voices
-
-`models\tashkeel\libtashkeel_model.ort` (10 MB, MIT), from
-[rhasspy/piper-phonemize](https://github.com/rhasspy/piper-phonemize/tree/master/etc): the
-model Piper itself runs on Arabic text before pronouncing it, and that its Arabic voices were
-trained with. The script fetches it (group `use`). It is used only when "Add vowel marks to
-Arabic before it is spoken" is on (`[tts] diacritize` in `volis-python.toml`). It adds about 0.3 s
-a sentence on the CPU. Its marks are good, not perfect ("مُحَطَّة" for "مَحَطَّة" in the test
-sentence): whether the voices sound better with it is for a listener to say.
-`logs\voices\*-plain.wav` and `*-vowel-marks.wav` are the same sentence both ways.
-
-## Where each comes from
+### Where each comes from
 
 | Model | Source |
 |---|---|
 | silero_vad.onnx, Parakeet, Whisper int8 | [sherpa-onnx ASR releases](https://github.com/k2-fsa/sherpa-onnx/releases/tag/asr-models) |
 | English and Spanish voices | [sherpa-onnx TTS releases](https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models) |
-| Qwen3 1.7B | [unsloth/Qwen3-1.7B-GGUF](https://huggingface.co/unsloth/Qwen3-1.7B-GGUF), saved as `qwen3-1.7b-q4_k_m.gguf` as volis-rust does |
+| Qwen3 1.7B | [unsloth/Qwen3-1.7B-GGUF](https://huggingface.co/unsloth/Qwen3-1.7B-GGUF), saved as `qwen3-1.7b-q4_k_m.gguf` |
 | whisper-large-v3-turbo-es | [adriszmar/whisper-large-v3-turbo-es](https://huggingface.co/adriszmar/whisper-large-v3-turbo-es) |
 | whisper-large-v3-turbo-arabic-dialectal-hf | [oddadmix/whisper-large-v3-turbo-arabic-dialectal](https://huggingface.co/oddadmix/whisper-large-v3-turbo-arabic-dialectal) |
 | cohere-transcribe-arabic-07-2026 | [CohereLabs/cohere-transcribe-arabic-07-2026](https://huggingface.co/CohereLabs/cohere-transcribe-arabic-07-2026) (gated) |
@@ -220,13 +296,13 @@ sentence): whether the voices sound better with it is for a listener to say.
 
 Each model has its own licence. Check it before you pass a copy on.
 
-## Not measured yet
+### Not measured yet
 
 - Any recognizer on dialect speech with a reference to score against, on a noisy room, or on
-  a real conversation. (The user's own trial, 2026-10-02: Standard Arabic and Iraqi dialect
-  speech gave the same translations.)
+  a real conversation. (One informal trial: Standard Arabic and Iraqi dialect speech gave the
+  same translations.)
 - Persian recognition (MMS and Whisper have it; there is no Persian reference run).
 - The 12B translators' speed on a GPU they fit.
-- Streaming and shared machine mode with a GGUF speech model, with figures. (The user ran both
-  with Gemma 4 E4B and Qwen3-ASR on another machine, 2026-10-02: they work.)
+- Streaming and shared machine mode with a GGUF speech model, with figures. (Both were tried with Gemma 4 E4B and
+  Qwen3-ASR on another machine: they work.)
 - A trained (not synthetic) LoRA adapter on a translator.

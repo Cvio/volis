@@ -1,327 +1,182 @@
-# volis
+# Volis
 
-Offline speech-to-speech translation, in Python: the same app as
-[volis-rust](../volis-rust/README.md), plus models you can drop in straight from Hugging Face
-without converting them. It never uses the internet. Everything it needs lives in this folder.
+Volis is a live interpreter that runs entirely on your own computer. One person speaks; Volis
+writes down what they said, translates it, shows both, and says the translation aloud in the
+other language. Two people who don't share a language can hold a conversation through it.
 
-Status: milestone P12 of `volis-build.md`, the last. volis has its window: live translation from the
-microphone, taking turns or listening continuously, with voice output; file mode with a
-timeline and export; text shown while you speak, and translation that knows what was said
-before; two PCs can pair, with volis or volis-rust at either end; and two people can share
-one machine, a key each.
+**It never uses the internet.** You need a connection once, to install it and download the
+speech and translation models. After that it works with the network cable unplugged, and
+nothing you say leaves the machine.
 
-## Setup (development)
+## What you need
 
-Needs 64-bit Windows, [uv](https://docs.astral.sh/uv/) 0.11.x (`winget install astral-sh.uv`),
-and an internet connection **for setup only**.
+- **Windows 10 or 11**, 64-bit.
+- **An NVIDIA graphics card with 8 GB of memory or more**, with a current driver.
+- **About 15 GB of free disk space** for the program and a basic set of models. More models
+  need more space.
+- **A microphone and speakers.** A headset is best: with speakers, Volis mutes the microphone
+  while it talks so it doesn't hear itself.
+- **An internet connection for the setup below only.**
 
-```powershell
-.\setup.ps1
-```
+If someone gave you a ready-made Volis folder, skip to
+[If you were given a ready-made folder](#if-you-were-given-a-ready-made-folder).
 
-This puts Python 3.12, every package (PyTorch with CUDA 12.8 is several GB) and uv's cache
-inside this folder (`.uv\`, `.venv\`), then runs `.\doctor.ps1`. Nothing is installed anywhere
-else. If security software is removing DLLs, give it an exclusion for this folder and run
-`.\setup.ps1 -Reinstall`.
+## Set it up
 
-Then:
+Type these in PowerShell.
 
-```powershell
-.\.venv\Scripts\python.exe -m volis --report
-```
+1. **Install the two tools the setup uses**, if you don't have them:
 
-## The copy-to-run folder
+   ```powershell
+   winget install Git.Git
+   winget install astral-sh.uv
+   ```
 
-To run volis on another Windows PC, which needs no Python, no setup and no internet:
+   Close PowerShell and open it again afterwards, so it can find them.
 
-```powershell
-.\build.ps1
-```
+2. **Get Volis** and go into its folder:
 
-This makes `dist\volis\`: `volis.exe`, the libraries it needs in `_internal\`, and
-`models\`, `config\`, `prompts\` and this machine's `volis.toml` and `volis-python.toml` beside
-it. Copy or zip that whole folder; on the other PC, unzip it anywhere and double-click
-`volis.exe`. The window opens, with a console window behind it, as volis-rust does: the same
-exe takes `--report`, `--doctor`, `--file` and the rest from a terminal.
+   ```powershell
+   git clone https://github.com/Cvio/pyvolis.git volis
+   cd volis
+   ```
 
-- **Size:** about 5.6 GB for the program (PyTorch with CUDA is most of it) plus the models
-  (47 GB here, with everything in `MODELS.md` installed). `.\build.ps1 -NoModels` builds the
-  program alone; put a `models\` folder beside it afterwards. On the same drive as the
-  repository, models are hard-linked into `dist\`, so they take no more disk until copied.
-- **The other PC needs an NVIDIA GPU** and its driver, when the GPU build of the translator is
-  installed here (`wheels\cuda\`). The CUDA libraries themselves are in the folder.
-- **First thing on a new PC:** `volis.exe --doctor` (in a terminal, in the folder). It checks
-  every library is present, the right version, and loaded from the folder itself.
-- **Security software** that removes DLLs breaks the folder in the same way as the
-  environment; `--doctor` names what is missing. Ask for an exclusion for the folder.
-- `scripts\p12_check.py` runs the built program on the fixture recordings and watches it for
-  network connections.
+3. **Install it:**
 
-## Models
+   ```powershell
+   .\setup.ps1
+   ```
 
-`models\` beside the app, the same layout as volis-rust:
+   This downloads Python and everything Volis needs into this folder (several GB, so it
+   takes a while the first time) and then checks the result. Nothing is installed anywhere
+   else on your computer.
 
-| Folder | What goes there |
-|---|---|
-| `models\vad\silero_vad.onnx` | the voice activity detector |
-| `models\asr\<name>\` | a recognizer: a volis-rust folder with `engine.toml`; a Hugging Face download (Whisper, wav2vec2/MMS, Cohere Transcribe and other speech models `transformers` supports); a GGUF speech model with its audio encoder (`mmproj-*.gguf`: Qwen3-ASR, Gemma 4, Voxtral); or a LoRA adapter folder (`adapter_config.json`) beside its base |
-| `models\tts\<name>\` | a Piper voice with `engine.toml`, as in volis-rust |
-| `models\mt\` | translators: one `.gguf` at the top (the one volis-rust uses too), and any others **one folder per model** (volis-rust refuses two `.gguf` files at the top): a `.gguf`, a safetensors language model, or a LoRA adapter `.gguf` with a `volis-python.toml` naming its base |
+   ✅ It should end with `All checks passed.`
 
-To add a model from Hugging Face:
+4. **Get the models.** Volis uses three kinds: one that turns speech into text (a
+   *recognizer*), one that translates the text (a *translator*), and one that speaks the
+   result (a *voice*). This gets a set that works for English and Spanish on an 8 GB card,
+   about 4.5 GB in all:
 
-```powershell
-.\fetch-model.ps1 openai/whisper-large-v3-turbo -Role asr
-.\fetch-model.ps1 unsloth/gemma-3-4b-it-GGUF -Role mt -Include "*Q4_K_M.gguf"
-.\fetch-model.ps1 ggml-org/Qwen3-ASR-0.6B-GGUF -Role asr -Include "*Q8_0.gguf"   # the model and its audio encoder
-.\fetch-model.ps1 Qwen/Qwen3-0.6B -Role mt                                       # a safetensors translator
-.\fetch-model.ps1 csukuangfj/vits-piper-ar_JO-kareem-medium -Role tts            # a Piper voice
-```
+   ```powershell
+   .\fetch-models.ps1 -Only silero_vad,lessac,es_MX-claude
+   .\fetch-model.ps1 openai/whisper-large-v3-turbo -Role asr
+   .\fetch-model.ps1 unsloth/gemma-3-4b-it-GGUF -Role mt -Include "*Q4_K_M.gguf"
+   ```
 
-**To get every model that has been tested and is worth having,** in the right folders with
-their settings files, run `.\fetch-models.ps1` (`-List` first, to see what it would download
-and how big it is). [MODELS.md](MODELS.md) has the list, each model's scores, and what each
-kind of folder needs.
+   For other languages, a larger graphics card, or to choose your own models, see
+   **[MODELS.md](MODELS.md)**. It says what to pick for 8 GB and 16 GB cards and how to
+   find and try models yourself.
 
-It downloads into a folder named after the model and never needs `engine.toml`. For a gated
-model, accept its terms on the model's page first, then run `.\fetch-model.ps1 -Login` once.
+5. **Check that Volis sees them:**
 
-A downloaded folder may hold an optional `volis-python.toml` to override what was detected:
+   ```powershell
+   .\.venv\Scripts\python.exe -m volis --report
+   ```
 
-```toml
-name = "Whisper large-v3-turbo Spanish (fine-tune)"
-languages = ["es"]
-varieties = ["es-MX"]
-device = "cuda"          # "cuda" or "cpu"
-dtype = "float16"        # transformers only
-trust_remote_code = false
-```
+   ✅ Every model listed should say `ok`.
 
-Languages come from the model card's `language:` when there is one. Otherwise the model is
-listed as "languages unknown" and offered for every language.
+6. **Optional, but worth it: translate on the graphics card.** As installed, the translator
+   runs on the processor, which works but takes a second or more per sentence. Running it on
+   the graphics card is several times faster. That needs a one-time build on your machine;
+   [DEVELOPMENT.md](DEVELOPMENT.md#the-translator-on-the-graphics-card) has the steps.
 
-**LoRA adapters,** to try a tune without merging or converting it:
-
-- *For a recognizer:* put the adapter folder (`adapter_config.json`, `adapter_model.safetensors`)
-  in `models\asr\` beside its base model's folder. It appears as its own recognizer. The base
-  is found by name (`openai/whisper-small` means the folder `whisper-small`); if yours is
-  named differently, say `base = "<folder>"` in the adapter folder's `volis-python.toml`.
-- *For a GGUF translator:* put the adapter `.gguf` (from llama.cpp's `convert_lora_to_gguf.py`)
-  in its own folder in `models\mt\` with a `volis-python.toml`:
-
-  ```toml
-  base = "qwen3-1.7b-q4_k_m.gguf"   # the translator it is for, as --report lists it
-  scale = 1.0                        # how strongly it is applied
-  ```
-
-**A GGUF speech model** needs both its `.gguf` and its `mmproj-*.gguf` in one folder. A model
-that only transcribes (Qwen3-ASR) is given the audio alone; a general model that also hears
-(Gemma 4, Voxtral) is asked to transcribe. To change the wording, or to say which kind a
-model is, put `prompt = "..."` in the folder's `volis-python.toml` (`""` = the audio alone,
-`{language}` = the language's name).
-
-## The window
+## Start it
 
 ```powershell
 .\.venv\Scripts\python.exe -m volis
 ```
 
-Pick what is spoken and what to translate into; the recognizer list is ordered for that
-language (tuned for the variety, general, other varieties, then models that don't say which
-languages they know). **Start** then waits for you, in one of three modes, which you can switch
-while it runs:
+A window opens, with a console window behind it that shows what Volis is doing.
 
-- **Take turns:** the microphone is closed until you press Space; press again to finish (or
-  choose "Hold Space while speaking"). Everything said in the turn is translated and spoken
-  when it ends. Taking a new turn cuts off a reply that is still being spoken. The key works
-  while the window has focus, and never also clicks the button that has focus.
-- **Listen continuously:** hands-free; every pause ends an utterance.
-- **Shared machine:** two people who speak different languages, one PC, a key each (the left
-  and right arrows; `[shared] left_key` / `right_key` in `volis.toml`). Press your key, speak,
-  press it again: your words are spoken in the other person's language. Each side has its own
-  language (or regional variety), its own recognizer ("Heard by": any model that covers the
-  language, a downloaded one included) and the voice its words are spoken in ("Spoken by": a
-  voice in the other person's language). One person at a time: during a turn the other key
-  does nothing, and while a reply is worked on or spoken neither does. **Escape** cancels a
-  turn or silences what it produced. The active side fills with colour and a heavy border, and
-  a side that can't take a turn says why in its column. The arrow keys belong to a text box
-  while one has the focus; click anywhere else to give them back. Not while paired.
+1. Under **Spoken**, choose the language you will speak. Under **Translate into**, choose
+   the other one.
+2. Choose a **Recognizer** and a **Translator** from the lists. Volis remembers your choices.
+3. Choose your **Microphone** and **Speakers**.
+4. Press **Start**. The first time, loading the models takes a few seconds.
+5. Speak. Each sentence appears with its translation, and the translation is spoken.
 
-Each sentence and its translation is shown, and the translation spoken. Half-duplex mutes the
-microphone while volis speaks; turn it off only with headphones. `--listen` on the command
-line always listens continuously.
+## Ways to use it
 
-**Pair with another PC:** two PCs, one conversation. Each translates what its own person says
-and sends only the text; the other PC shows it and speaks it. Tick the box on both, press
-Start on both, then on either one type the address the other shows under "This PC" (or pick it
-from "Found") and press Connect. It works with volis-rust at the other end. Taking turns, a
-press of the turn key asks the other PC for the floor and the microphone opens only when it
-answers; the indicator says when the other person is talking. Listening continuously while
-paired needs headsets, and the window says so in red for as long as it is true. If the link
-drops, both ends say why and the floor is released. Only IP addresses are accepted: a name
-would have to be looked up, and volis never does that. Revision is off while paired.
+Choose one under **Mode**. You can switch while it is running.
 
-**File** mode: open a recording (File > Open, or drop it on the window), choose Real time or
-Fast, and Start. Each row is a sentence; clicking a row plays that stretch of the recording.
-Pause and Stop work at any point, and **Export** writes the folder described below. Arabic and
-Persian are laid out right to left.
-
-Three checkboxes change how it works:
-
-- **Show text while speaking (streaming):** in continuous and file mode, the utterance is
-  transcribed about once a second as it grows. Words that two passes agree on are committed
-  (and whole sentences translated at once); the current guess after them is shown lighter and
-  may change. It roughly doubles the recognition work.
-- **Translate with the earlier sentences as context:** each sentence is translated knowing the
-  last four and their translations, so "her", "it" and the like come out right.
-- **Revise earlier translations when what follows changes them:** after each sentence the last
-  three are translated again together, and a short earlier sentence whose translation changes
-  is replaced ("He fell." becomes "It fell." once "The system isn't responding" is heard). The
-  row is highlighted briefly, marked "revised", and keeps the earlier wording in its tooltip.
-  A sentence that has been spoken aloud is never revised, so on its own this is for captions
-  and files, with "Speak translations" off. It costs one more translation per sentence.
-- **Wait for the next sentence before speaking a short one:** with revision and "Speak
-  translations" both on, a short sentence (8 words or fewer) is not spoken until the next one
-  has been heard, so it is spoken as revised. It waits 2 s at most, and not at all at the end
-  of a turn; a long sentence never waits. Off by default: speech is never delayed.
-- **Add vowel marks to Arabic before it is spoken:** Arabic is written without its short
-  vowels, and the voices mispronounce some words without them. On, a small model predicts the
-  marks first, as Piper itself does; about 0.3 s more per sentence. It needs
-  `models\tashkeel\libtashkeel_model.ort` (`.\fetch-models.ps1 -Only tashkeel`). Only Arabic
-  is affected. Off by default.
-- **Join short fragments to what follows:** a few words with no full stop wait up to 1.5 s
-  for the rest before they are translated.
-
-**Glossary:** names and terms to keep exactly as they are, separated by commas. It applies
-from the next sentence and isn't saved.
-
-`--report --load` loads every model in turn and prints where it runs and the memory it takes.
-
-## The performance panel
-
-**View > Performance** (Ctrl+Shift+P) opens a panel beside the window; drag its title bar to
-pull it out as a window of its own. It is closed each time volis starts.
-
-- **Now:** once a second, the GPU (memory, load, temperature, clock, power), system memory and
-  the CPU, each split into volis, other programs and free, so you can see whether another
-  program (a video call, say) has room. A graph of the last five minutes with a tick for each
-  sentence; the models loaded and what each takes; and for the last sentences, the time to
-  recognise, translate (with how many earlier sentences went with it as context) and reach
-  the speakers. Amber or red when memory is nearly full or speech falls behind.
-- **What if:** choose another recognizer, translator and voice (and a second recognizer for
-  shared machine mode) and see the memory they would need, whether they fit this machine as
-  it is now, and their speed if they have been measured, all without loading anything.
-- **Benchmarks:** every run is measured and kept in `logs\performance.json`; the button runs a
-  recording through the What if choice. Estimates use what was measured here once a model has
-  been loaded, and its file sizes before that.
-
-GPU figures come from `nvidia-smi`, which comes with NVIDIA's driver. Windows doesn't report
-one program's GPU memory, so volis's share is what its models take, and "others" is the rest.
-
-## Translating a file
-
-```powershell
-.\.venv\Scripts\python.exe -m volis --file talk.m4a --from es-MX --to en --fast
-```
-
-WAV, MP3, M4A, FLAC, OGG and Opus open as they are. The file goes through the same pipeline as
-the microphone. `--asr <folder>` and `--mt <id>` pick the models (as `--report` lists them),
-`--fast` runs as fast as the models allow (otherwise at playing speed), and `--export <dir>`
-says where to write; the default is `exports\<file>-<date>\`. `--streaming` /
-`--no-streaming`, `--context off|carry|revision`, `--no-hold` and `--glossary "Name, Term"` override
-the settings for one run. The export holds:
-
-| File | What it holds |
+| Mode | How it works |
 |---|---|
-| `transcript.txt`, `translation.txt` | one sentence per line, side by side |
-| `source.srt`, `translation.srt` | subtitles with timings |
-| `events.jsonl` | every event in order; the first line is the full configuration (models and their file hashes, prompt, settings), the last the summary |
+| **Take turns** | The microphone stays closed until you press Space. Press it, speak, press it again: everything you said is translated and spoken. The easiest mode to start with. |
+| **Listen continuously** | Hands-free. Every pause ends a sentence. |
+| **Shared machine** | Two people, one computer, a key each (the left and right arrow keys). Each side has its own language, and what one says is spoken in the other's. Escape cancels a turn. |
+| **Pair with another PC** | Two computers, one conversation. Each translates what its own person says and sends the text to the other, which shows and speaks it. Tick the box on both, press Start on both, then type the address the other one shows and press Connect. They must be on the same local network. |
 
-If a reference sits beside the file, `talk.m4a.ref.json` with `{"transcript": "...",
-"translation": "..."}` (or `talk.m4a.ref.srt` for the transcript), the run ends with the
-transcript's CER and the translation's chrF, cleaned as model-bench cleans them.
-`scripts\make_fixture_file.py es_419 en` builds such a file from the test clips.
+### Translate a recording
 
-## Settings
+Choose **File** at the top, open a recording (or drop it on the window), and press Start.
+Each sentence becomes a row; click a row to hear that part of the recording. **Export** saves
+the transcript, the translation and subtitles.
 
-`volis.toml` is shared with volis-rust, same keys and meanings. Settings only volis has go in
-`volis-python.toml` beside it (volis-rust refuses sections it doesn't know). All optional:
-
-```toml
-[vad]
-pre_roll_ms = 600   # audio kept from before each utterance; 0 = off
-
-[guards]            # drop text recognizers invent on silence or noise
-vad_probability = true
-min_peak_probability = 0.8
-repeats = true
-stock_phrases = true   # the phrases are in config\hallucinations.toml
-sparse = true          # a word or two for several seconds of "speech"
-min_words_per_second = 0.33
-sparse_min_seconds = 3.0
-
-[asr]
-streaming = false   # show text while speaking (continuous and file mode)
-interval_s = 1.0    # how often the growing utterance is transcribed
-
-[context]
-mode = "carry"      # "off" = each sentence alone, as volis-rust does; "revision" = carry,
-                    # and earlier translations are replaced when later sentences change them
-sentences = 4       # how many earlier sentences, at most
-token_budget = 400  # and never more than this many tokens of them
-revise_sentences = 3     # revision: how many are translated again together
-revise_max_age_s = 30.0  # revision: never a sentence that ended longer ago than this
-revise_max_words = 8     # revision: nor one longer than this
-hold_speech = false      # revision with the voice on: a short sentence waits for the next before it is spoken
-hold_speech_s = 2.0      # ...this long at most
-
-[tts]
-diacritize = false  # Arabic: predict the vowel marks before the voice pronounces the text
-
-[fragments]
-hold = true         # join a short fragment to what follows
-min_words = 4       # shorter than this, with no final punctuation, is a fragment
-hold_ms = 1500
-
-[translate]
-model = ""          # as --report lists it; "" = the .gguf at the top of models\mt\
-prompt = "default"  # a file in prompts\; "rust" = exactly what volis-rust sends
-device = "auto"     # "auto" = the GPU if the GPU build is installed, "cpu", or "cuda"
-```
-
-Pairing is set in `volis.toml`, shared with volis-rust: `[peer] enabled`, `listen_addr`
-(default `0.0.0.0:47800`; two programs on one PC need different ports), `peer_addr` (the last
-address typed), `display_name` (default: the computer's name) and `discovery`.
+From the command line:
 
 ```powershell
-.\.venv\Scripts\python.exe -m volis --devices        # names for [audio] in volis.toml
-.\.venv\Scripts\python.exe -m volis --listen --seconds 30 --compare
-.\.venv\Scripts\python.exe -m volis --translate "¿Dónde está la estación?" --from es --to en
-.\.venv\Scripts\python.exe scripts\transcribe.py es_419 ar_eg   # every model on the fixtures
-.\tests\fetch-fixtures.ps1                               # test clips (development)
-.\.venv\Scripts\python.exe scripts\vad_cuts.py --wav   # cut points with and without pre-roll
-.\.venv\Scripts\python.exe scripts\vad_cuts.py --mic 20 --wav
+.\.venv\Scripts\python.exe -m volis --file talk.m4a --from es --to en --fast
 ```
 
-## The translator build
+WAV, MP3, M4A, FLAC, OGG and Opus all work.
 
-llama-cpp-python is compiled here, once, by `.\build-llama.ps1` (needs Visual Studio Build
-Tools), and the wheel is kept in `wheels\`, so `setup.ps1` needs no compiler. It is a CPU
-build, as volis-rust's translator is.
+### The options in the window
 
-For translation on the GPU (several times faster), build the GPU wheel on the machine:
-install NVIDIA's CUDA Toolkit 12.8 or 12.9 (not 13; Custom install, driver components
-unticked), then `.\build-llama.ps1 -Cuda` and `.\setup.ps1`. The wheel goes in `wheels\cuda\`
-(344 MB, not committed), and running it needs no toolkit: it uses the CUDA files PyTorch ships.
-`.\doctor.ps1` then reports "GPU offload: yes".
+| Option | What it does |
+|---|---|
+| **Speak translations** | Says each translation aloud. Turn it off for captions only. |
+| **Half-duplex** | Mutes the microphone while Volis is speaking. Leave it on unless you wear a headset. |
+| **Show text while speaking** | Shows words as you say them, before the sentence is finished. Costs more work. |
+| **Translate with the earlier sentences as context** | Each sentence is translated knowing the few before it, so "it", "her" and the like come out right. |
+| **Revise earlier translations** | Looks again at a short sentence once the next one is heard, and corrects it on screen if its meaning changed. |
+| **Add vowel marks to Arabic before it is spoken** | Helps the Arabic voices pronounce words correctly. Needs one more small model: `.\fetch-models.ps1 -Only tashkeel`. |
+| **Glossary** | Names and terms to keep exactly as written, separated by commas. |
 
-`scripts\obey_check.py` measures whether a translator and prompt translate questions and
-requests or answer them.
+[SETTINGS.md](SETTINGS.md) lists every setting and every command-line option.
 
-## Checking against volis-rust
+### See what it costs your computer
 
-Copy `machine.example.yaml` to `machine.yaml` and point it at `volis-rust.exe`, then:
+**View > Performance** (Ctrl+Shift+P) opens a panel showing how much of the graphics card,
+memory and processor Volis is using, and how long each sentence takes. Its **What if** tab
+tells you whether a different choice of models would fit before you load them.
+
+## If something goes wrong
+
+| What you see | What to do |
+|---|---|
+| `setup.ps1` stops, or says files are missing | Security software sometimes removes program files. Ask for an exclusion for the Volis folder, then run `.\setup.ps1 -Reinstall`. |
+| `--report` shows a model as `DISABLED` or `broken` | The line under it says which file is missing or what is wrong. Fetch the model again. |
+| A model you downloaded isn't in the lists | Run `--report`: every folder Volis found is listed, with the reason if it can't be used. |
+| Nothing happens when you speak | Check the level meter at the top right moves when you talk. If it doesn't, pick another **Microphone**, and check the microphone isn't muted in Windows. |
+| Volis translates its own voice | Tick **Half-duplex**, or use a headset. |
+| Everything is very slow | The models probably don't fit on your graphics card together. Open **View > Performance**; the **What if** tab says whether they fit. Choose a smaller translator. |
+| Translation takes a second or more per sentence | The translator is running on the processor. See step 6 of the setup. |
+| It starts, then says a model "is not in" the models folder | The model named in your settings isn't installed. Pick one from the list in the window. |
+| Pairing won't connect | Both computers must be on the same network, and Windows Firewall must allow Volis. The message in the window says which of the two it is. |
+
+To check the installation at any time:
 
 ```powershell
-.\.venv\Scripts\python.exe parity\report.py
+.\doctor.ps1
 ```
+
+## If you were given a ready-made folder
+
+Someone can build Volis into a folder that needs no setup. If you have one:
+
+1. Copy the whole folder anywhere on your computer. You need an NVIDIA graphics card and its
+   driver; nothing else has to be installed, and no internet is needed.
+2. Double-click `volis.exe`. Everything under [Start it](#start-it) applies from there.
+
+If it doesn't start, open a terminal in the folder and run `volis.exe --doctor`. It checks that
+every file the program needs is present and names any that isn't. Security software removing
+files is the usual cause.
+
+## More
+
+- **[MODELS.md](MODELS.md):** which models to use, how to find and try your own, and how
+  every model we tested scored.
+- **[SETTINGS.md](SETTINGS.md):** every setting and command-line option.
+- **[DEVELOPMENT.md](DEVELOPMENT.md):** for people changing Volis: the translator build, making
+  the ready-made folder, the tests.

@@ -6,11 +6,14 @@ specification**; read the matching Rust module. The Rust repo and `model-convert
 reading only: never change anything in them unless the user explicitly approves a specific
 change.
 
-Which document holds what: `README.md` (setup, adding a model, file mode), `MODELS.md` (every
-model tested, its scores, and `fetch-models.ps1`, whose list is in `scripts/fetch_models.py`), `HANDOFF.md`
-(status, and every difference from volis-rust with its reason), this file (constraints and
-working rules). Rust's documents cover the wire protocol, varieties and dialects; link to
-them, don't copy them.
+Which document holds what: `README.md` (for a new user: what Volis is, setup, first run, the
+modes, what to do when something goes wrong; **no milestones, no volis-rust, no builder's
+detail**), `MODELS.md` (which models to start with, choosing your own, then every model tested
+and its scores), `SETTINGS.md` (every setting and command-line option), `DEVELOPMENT.md` (the
+translator build, the ready-made folder, the checks, volis-rust compatibility), `HANDOFF.md`
+(status, history, and every difference from volis-rust with its reason), this file
+(constraints and working rules). Rust's documents cover the wire protocol, varieties and
+dialects; link to them, don't copy them.
 
 ## Hard constraints
 

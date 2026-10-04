@@ -73,7 +73,7 @@ def main() -> int:
         counts = tree(models, dist / "models", skip=lambda p: ".cache" in p.parts)
     print(f"  models\\: {counts['linked'] + counts['copied']} files, {counts['bytes'] / 1e9:.1f} GB "
           f"({counts['linked']} hard-linked, {counts['copied']} copied)")
-    for name in ("README.md", "MODELS.md"):
+    for name in ("README.md", "MODELS.md", "SETTINGS.md"):
         shutil.copy2(REPO / name, dist / name)
     return 0
 
