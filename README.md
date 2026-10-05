@@ -4,7 +4,7 @@ Volis is a live interpreter that runs entirely on your own computer. One person 
 writes down what they said, translates it, shows both, and says the translation aloud in the
 other language. Two people who don't share a language can hold a conversation through it.
 
-**It never uses the internet.** You need a connection once, to install it and download the
+**After initial install, no internet is needed.** You need a connection once, to install it and download the
 speech and translation models. After that it works with the network cable unplugged, and
 nothing you say leaves the machine.
 
