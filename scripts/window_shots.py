@@ -35,6 +35,16 @@ CONVERSATION = [
     ("3.1", "es", "¿Trajo una identificación con fotografía?", "en", "Did you bring a photo ID?"),
 ]
 
+COMPARED = {
+    "text": "کجا درد می‌کند؟", "reference": "Where does it hurt?",
+    "results": [
+        {"model": "a", "name": "Gemma 3 4B", "text": "Where does it hurt?", "ms": 410, "device": "cuda",
+         "chrf": 100.0, "problem": ""},
+        {"model": "b", "name": "TranslateGemma 4B", "text": "Where is the pain?", "ms": 380, "device": "cuda",
+         "chrf": 31.4, "problem": ""},
+    ],
+}
+
 
 def running_events(source: str, target: str) -> list:
     """What a short conversation sends the window, without any model."""
@@ -83,6 +93,14 @@ def main() -> int:
         window.advanced_toggle.setChecked(True)
         shot("advanced")
         window.advanced_toggle.setChecked(False)
+    if hasattr(window, "typed_compare"):  # P15: typed text through two translators, with a reference
+        window.typed_compare.setChecked(True)
+        window.typed_text.setPlainText(COMPARED["text"])
+        window.typed_reference.setPlainText(COMPARED["reference"])
+        window._show_comparison(ev.MtComparison("fa", "en", [COMPARED]))
+        shot("compare")
+        window.typed_compare.setChecked(False)
+        window.typed_text.clear()
     # A conversation, as the window would show it while running.
     window.session.begin("es", "en", False, True, False)
     window.pipeline = object()  # "running", without a pipeline: nothing here touches it

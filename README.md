@@ -209,6 +209,24 @@ From the command line:
 
 WAV, MP3, M4A, FLAC, OGG and Opus all work.
 
+### Type a sentence
+
+Under the conversation is a box for typing. Type or paste text and press **Enter** (or
+**Translate**). It is translated with the languages and translator you have chosen, shown in
+the conversation marked "typed", and spoken if "Speak translations" is on. Shift+Enter starts
+a new line; each line is translated on its own.
+
+Use it in a noisy room, or for a name, an address or a number. It works whether or not a
+conversation is running.
+
+**To try translators against each other,** tick **Compare translators**, tick two or three
+in the list, and press **Compare**. Each one's translation is shown side by side, with how
+long it took. If you paste a translation you trust (Google's, or a person's) into the
+reference box, each is given a score from 0 to 100 for how close it comes to that reference.
+A high score means "close to the reference", not "correct": a good translation that uses
+different words scores lower. Comparing only works while no conversation is running, because
+the translators need the memory.
+
 ### The options in the window
 
 **Speak translations** is with the main settings: it says each translation aloud. Turn it off

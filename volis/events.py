@@ -225,6 +225,7 @@ class SentenceMsg(Event):
     start: float
     end: float
     approximate: bool = False  # times shared out by length, not from word timings
+    typed: bool = False  # typed or pasted in (P15), not heard
 
 
 @dataclass
@@ -244,6 +245,17 @@ class Translated(Event):
     device: str  # "cpu" or "cuda"
     model: str
     context_turns: int = 0  # earlier sentences sent with it (carry-forward context)
+
+
+@dataclass
+class MtComparison(Event):
+    """Typed text through two or three translators (P15): one entry per line,
+    each {"text", "reference", "results": [{"model", "name", "text", "ms",
+    "device", "chrf", "problem"}]}."""
+
+    source: str
+    target: str
+    lines: list
 
 
 @dataclass

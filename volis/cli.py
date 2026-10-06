@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import __version__, models, paths, report
@@ -32,6 +32,9 @@ COMMANDS:
                         each loaded from this folder (doctor.ps1 from source)
     --listen            Capture from the microphone and transcribe
     --translate <TEXT>  Translate one sentence and print it
+                        --compare-mt <ID,ID[,ID]> sends it through two or
+                        three translators, each timed; --reference <TEXT>
+                        scores each against a translation you trust
     --print-prompt <TEXT>  Print the exact prompt the translator would get
     --file <PATH>       Transcribe and translate an audio file, write an export
                         folder, and print scores if a reference is beside it
@@ -92,6 +95,8 @@ class Command:
     context: str = ""
     hold: bool | None = None
     glossary: str = ""
+    compare_mt: list = field(default_factory=list)  # --translate --compare-mt a,b[,c] (P15)
+    reference: str = ""  # a reference translation to score against
 
 
 def parse(args: list[str]) -> Command:
@@ -132,7 +137,7 @@ def parse(args: list[str]) -> Command:
     if first in ("--translate", "--print-prompt"):
         if not rest or rest[0].startswith("--"):
             raise UsageError(f"{first} needs the text to translate")
-        values = {"--from": "", "--to": "", "--mt": "", "--prompt": ""}
+        values = {"--from": "", "--to": "", "--mt": "", "--prompt": "", "--compare-mt": "", "--reference": ""}
         options = iter(rest[1:])
         for arg in options:
             if arg not in values:
@@ -141,8 +146,16 @@ def parse(args: list[str]) -> Command:
             if value is None:
                 raise UsageError(f"{arg} needs a value")
             values[arg] = value
+        compared = [x.strip() for x in values["--compare-mt"].split(",") if x.strip()]
+        if first == "--print-prompt" and (compared or values["--reference"]):
+            raise UsageError("--compare-mt and --reference go with --translate")
+        if values["--compare-mt"] and not 2 <= len(compared) <= 3:
+            raise UsageError("--compare-mt needs two or three translator ids, separated by commas")
+        if values["--mt"] and compared:
+            raise UsageError("give --mt (one translator) or --compare-mt (two or three), not both")
         return Command(first[2:], text=rest[0], source=values["--from"], target=values["--to"],
-                       mt=values["--mt"], prompt=values["--prompt"])
+                       mt=values["--mt"], prompt=values["--prompt"], compare_mt=compared,
+                       reference=values["--reference"])
     if first == "--file":
         if not rest or rest[0].startswith("--"):
             raise UsageError("--file needs the path of an audio file")
@@ -235,12 +248,43 @@ def run(args: list[str], root: Path) -> int:
     return run_report(root, config, command.load)
 
 
+def run_compare_mt(root: Path, config: Config, command: Command) -> int:
+    """--translate --compare-mt: the text through two or three translators,
+    one loaded at a time, each timed, each scored against --reference."""
+    from . import translate, typed
+    from .config import PythonConfig
+    from .translate import prompts
+
+    try:
+        pyconfig, _ = PythonConfig.load(paths.python_config_file(root))
+        entries = [translate.choose(root, ident) for ident in command.compare_mt]
+        prompt = prompts.load(paths.prompts_dir(root), command.prompt or pyconfig.translate.prompt)
+    except (ConfigError, translate.TranslateError, prompts.PromptError) as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+    source = command.source or config.languages.source
+    target = command.target or config.languages.target
+    lines = typed.lines_of(command.text)
+    if not lines:
+        print("Error: there is no text to translate", file=sys.stderr)
+        return 1
+    print(f"{source} -> {target}, prompt {prompt.name}")
+    compared = typed.compare(lines, source, target, entries,
+                             lambda entry: translate.load(entry, prompt, pyconfig.translate.device),
+                             command.reference, on_status=lambda text: print(f"  {text}", file=sys.stderr),
+                             name=lambda entry: entry.id)
+    print(typed.table(compared))
+    return 0 if all(not r.problem for row in compared for r in row.results) else 1
+
+
 def run_translate(root: Path, config: Config, command: Command) -> int:
     """--translate and --print-prompt: one sentence, no audio."""
     from . import translate
     from .config import PythonConfig
     from .translate import prompts
 
+    if command.compare_mt:
+        return run_compare_mt(root, config, command)
     try:
         pyconfig, _ = PythonConfig.load(paths.python_config_file(root))
         entry = translate.choose(root, command.mt or pyconfig.translate.model)

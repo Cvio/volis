@@ -83,6 +83,7 @@ class Command:
     mode: str = ""
     direction: object = None  # shared.Direction, for begin_shared_turn
     shared: object = None  # config.Shared, for prepare_shared
+    lines: tuple = ()  # for "typed": the lines typed in (P15)
 
 
 @dataclass(frozen=True)
@@ -334,6 +335,12 @@ class Pipeline:
     def cancel(self) -> None:
         """Throw away the turn in progress, or stop what it is producing."""
         self.send(Command("cancel"))
+
+    def translate_typed(self, lines: list[str]) -> None:
+        """Text typed in (P15): each line goes to the translator as a sentence
+        of its own, behind whatever is already waiting. It is shown, spoken
+        and (when paired) sent exactly as a spoken sentence is."""
+        self._commands.put(Command("typed", lines=tuple(lines)))
 
     def prepare_shared(self, settings) -> None:
         """Shared machine: the sides' settings changed. Load and prepare each
@@ -598,6 +605,7 @@ class Pipeline:
         self.emit(Mode(mode))
         speaking, consumed, reported = False, 0, 0.0
         last_pass = 0  # where the last provisional pass was asked for
+        typed_batches = 0  # how many times text was typed in (P15)
         try:
             while not self._stop.is_set():
                 # Commands first. With the microphone closed there is no audio
@@ -611,6 +619,16 @@ class Pipeline:
                 except queue.Empty:
                     pass
                 for command in pending:
+                    if command.name == "typed":
+                        if translation is not None:
+                            typed_batches += 1
+                            for k, line in enumerate(command.lines, 1):
+                                sentence = sentences.Sentence(f"t{typed_batches}.{k}", 0, line, 0.0, 0.0, False)
+                                self.stats.sentences += 1
+                                self.emit(SentenceMsg(sentence.id, 0, line, language, 0.0, 0.0, False, True))
+                                translation.submit(sentence, language, time.monotonic(),
+                                                   Route(generation=self.generation))
+                        continue
                     if not live:
                         continue  # a file has no turns and one mode
                     if command.name == "set_mode" and command.mode in (CONTINUOUS, TURN, SHARED) \

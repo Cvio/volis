@@ -160,6 +160,7 @@ Everything the window does can be run from a terminal. From the repository:
 | `--devices` | Lists microphones and speakers, with the names `[audio]` takes. |
 | `--listen` | Listens on the microphone and prints what it hears. `--seconds N` stops after N seconds, `--wav` saves each sentence, `--compare` runs every recognizer on each one. |
 | `--translate "text" --from es --to en` | Translates one sentence. `--mt <id>` and `--prompt <name>` choose the translator and the prompt. |
+| `--translate "text" --compare-mt <id>,<id>` | The same text through two or three translators, one loaded at a time, each with its time. Add `--reference "a translation you trust"` to score each against it (chrF, 0 to 100: closeness to that reference, not correctness). |
 | `--print-prompt "text" --from es --to en` | Prints exactly what the translator would be sent. |
 | `--file <path>` | Translates a recording. See below. |
 

@@ -50,6 +50,7 @@ class Row:
     revised_at: float = 0.0  # time.monotonic() of the last revision, for the brief highlight
     history: list[str] = field(default_factory=list)  # earlier translations (P8)
     approximate: bool = False  # times shared out by length
+    typed: bool = False  # typed or pasted in, not heard (P15)
     held: bool = False  # a fragment waiting to be joined to what follows
     sent_to: str | None = None  # paired: the PC its translation reached
     side: str = ""  # shared machine: whose words these are ("left" or "right")
@@ -289,7 +290,8 @@ class Session:
                 self._push(Row(event.id, event.utterance, event.start, event.end, event.lang,
                                # Until the translation says what it is in.
                                self.languages[1], event.text, speech_ms=speech_ms, asr_ms=asr_ms,
-                               approximate=event.approximate, side=self.active_side))
+                               approximate=event.approximate, side="" if event.typed else self.active_side,
+                               typed=event.typed))
         elif isinstance(event, ev.Translated):
             if (row := self.row(event.id)) is not None:
                 row.target, row.target_lang, row.translate_ms = event.text, event.lang, event.translate_ms

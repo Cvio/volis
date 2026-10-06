@@ -167,6 +167,41 @@ Eight milestones for non-technical users. Built in order; stop after each.
      is no speed estimate for one that hasn't.
   - Not done by a person: "a first-time user can choose languages and start a conversation
     without opening Advanced" is the user's own test.
+- **P15 done: type or paste text to translate.** A box under the transcript; Enter or
+  Translate sends it, Shift+Enter is a new line, each line is its own row, marked "typed" where
+  a spoken row shows its time. `volis/typed.py` (no Qt) holds the logic.
+  - **Who translates it.** While a conversation runs, the running pipeline does
+    (`Pipeline.translate_typed`, a "typed" command): the translator is never loaded twice, the
+    line gets the conversation's context, is spoken by its voice, and when paired is sent to
+    the other PC like any sentence. While stopped, `typed.Worker` loads the chosen translator
+    on first use and keeps it until Start (which releases it) or the window closes; "Speak
+    translations" then speaks through the chosen speakers.
+  - **Compare translators:** a tick box; two or three translators ticked in a list; an optional
+    reference box. Each is loaded when its turn comes and closed before the next, so two that
+    don't fit together can still be compared. The table shows, per line and translator: the
+    translation, the time, graphics card or processor, and chrF against the reference
+    (`scoring.chrf`, as file mode). The window and `--compare-mt` both say the score is
+    closeness to that reference, not correctness. Only while stopped (the window says why).
+  - **`--translate "text" --compare-mt a,b[,c] [--reference "..."]`** from a terminal.
+  - Typed rows are `SentenceMsg(typed=True)` events like any other: logged, kept in the run's
+    record, and written by the export. (Export itself still needs a file run: see Later.)
+  - A text box now keeps its keys: a space typed in it is no longer the turn key. That was
+    already wrong for the glossary box.
+  - Check (`scripts/p15_check.py`, the real command, Gemma 3 4B and TranslateGemma 4B on the
+    GPU, each language's first FLEURS sentence against its FLORES+ reference):
+
+    | | Gemma 3 4B | TranslateGemma 4B |
+    |---|---|---|
+    | Persian | chrF 56.3, 646 ms | chrF 55.4, 721 ms |
+    | Arabic | chrF 85.0, 442 ms | chrF 94.7, 358 ms |
+    | Spanish | chrF 55.8, 477 ms | chrF 42.4, 522 ms |
+
+    Both outputs, scores and timings are shown for all three. (One sentence each: this shows
+    the feature, not which translator is better. Both mistranslated the Persian for "leak".)
+  - 19 new tests (`tests/test_typed.py`, `tests/test_window_p15.py`), one of them a typed line
+    through a real pipeline with stand-in models. The picture: `docs/images/p15-compare.png`.
+  - Not decided, noted: while running in shared machine mode a typed line is translated in
+    the main language pair's direction, not a side's.
 
 ### Later (noted in `volis-next-features.md`, deliberately not in this round)
 
