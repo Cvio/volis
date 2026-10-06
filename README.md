@@ -147,6 +147,7 @@ tells you whether a different choice of models would fit before you load them.
 |---|---|
 | `setup.ps1` stops, or says files are missing | Security software sometimes removes program files. Ask for an exclusion for the Volis folder, then run `.\setup.ps1 -Reinstall`. |
 | `--report` shows a model as `DISABLED` or `broken` | The line under it says which file is missing or what is wrong. Fetch the model again. |
+| You added a model, or plugged in a headset, while Volis was open | Press **Rescan models and devices** (or F5). The lists update without restarting, and a line under the button says what changed. |
 | A model you downloaded isn't in the lists | Run `--report`: every folder Volis found is listed, with the reason if it can't be used. |
 | Nothing happens when you speak | Check the level meter at the top right moves when you talk. If it doesn't, pick another **Microphone**, and check the microphone isn't muted in Windows. |
 | Volis translates its own voice | Tick **Half-duplex**, or use a headset. |

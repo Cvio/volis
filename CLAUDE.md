@@ -1,10 +1,11 @@
 # CLAUDE.md - volis
 
-`volis-build.md` is the build specification. Read it before changing anything. For every
-feature volis shares with volis-rust (`D:\AI_Data\projects\volis-rust`), **the Rust code is the
-specification**; read the matching Rust module. The Rust repo and `model-converter` are for
-reading only: never change anything in them unless the user explicitly approves a specific
-change.
+`volis-build.md` is the original build specification (P0 to P12, done) and
+`volis-next-features.md` the current one (P13 to P20). Read the current one before changing
+anything. Volis began as a port of a Rust app, volis-rust, which is no longer on this machine
+and no longer a reference: where these files or the code say "as Rust does", the Python code
+is now the specification. `model-converter` is for reading only: never change anything in it
+unless the user explicitly approves a specific change.
 
 Which document holds what: `README.md` (for a new user: what Volis is, setup, first run, the
 modes, what to do when something goes wrong; **no milestones, no volis-rust, no builder's

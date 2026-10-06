@@ -41,6 +41,7 @@ from ..pipeline import CONTINUOUS, SHARED, TURN, ArraySource, Collected, Options
 from .. import shared as shared_mod
 from ..translate.context import parse_glossary
 from .. import peer as peer_mod
+from . import rescan as rescan_mod
 from . import session as ses
 
 log = logging.getLogger(__name__)
@@ -199,7 +200,12 @@ class MainWindow(QMainWindow):
         perf_action = self.perf_panel.toggleViewAction()
         perf_action.setText("&Performance")
         perf_action.setShortcut("Ctrl+Shift+P")
-        self.menuBar().addMenu("&View").addAction(perf_action)
+        view_menu = self.menuBar().addMenu("&View")
+        view_menu.addAction(perf_action)
+        rescan_action = QAction("&Rescan models and devices", self)
+        rescan_action.setShortcut("F5")
+        rescan_action.triggered.connect(self.rescan)
+        view_menu.addAction(rescan_action)
 
         self.start_button = QPushButton("Start")
         self.start_button.clicked.connect(self.toggle)
@@ -367,6 +373,16 @@ class MainWindow(QMainWindow):
         self.memory = QLabel()
         self.memory.setWordWrap(True)
         form.addRow(self.memory)
+        self.rescan_button = QPushButton("Rescan models and devices (F5)")
+        self.rescan_button.setToolTip("Looks in the models folder and at the microphones and speakers again, "
+                                      "without restarting. Use it after adding or fixing a model, or plugging "
+                                      "in a headset.")
+        self.rescan_button.clicked.connect(self.rescan)
+        form.addRow(self.rescan_button)
+        self.notice = QLabel()  # what the last rescan changed, in plain words
+        self.notice.setWordWrap(True)
+        self.notice.setVisible(False)
+        form.addRow(self.notice)
         settings = QGroupBox("Settings")
         settings.setLayout(form)
         settings.setFixedWidth(400)
@@ -571,39 +587,13 @@ class MainWindow(QMainWindow):
     # -------------------------------------------------------------- settings
 
     def rediscover(self) -> None:
-        """Read models/ and the devices again, and fill the pickers."""
+        """Read models/ and the devices, fill the pickers, and set every box
+        as the settings have it. At start."""
         self._filling = True
-        self.engines = [e for e in models.discover(paths.asr_dir(self.root), models.Role.ASR)
-                        if isinstance(e, models.Engine)]
-        self.voices = [e for e in models.discover(paths.tts_dir(self.root), models.Role.TTS)
-                       if isinstance(e, models.Engine)]
-        self._fill_shared()
-        self.translators = [t for t in models.discover_translators(paths.mt_dir(self.root))
-                            if isinstance(t, models.Translator)]
+        self._discover()
         _select(self.source_lang, self.config.languages.source)
         _select(self.target_lang, self.config.languages.target)
-        self._fill_recognizers()
-        self.translator.clear()
-        for t in self.translators:
-            label = t.name if t.enabled() else f"{t.name} (unusable)"
-            self.translator.addItem(f"{label}  [{t.id}]", t.id)
-            if not t.enabled():
-                self.translator.setItemData(self.translator.count() - 1, t.unusable or ", ".join(t.missing),
-                                            Qt.ItemDataRole.ToolTipRole)
-        wanted = self.pyconfig.translate.model or next((t.id for t in self.translators if t.top_level), "")
-        _select(self.translator, wanted)
-        try:
-            inputs, outputs = audio.list_input_devices(), audio.list_output_devices()
-        except audio.AudioError as e:
-            inputs, outputs = [], []
-            self.session.last_error = str(e)
-        for combo, devices, chosen in ((self.input_device, inputs, self.config.audio.input_device),
-                                       (self.output_device, outputs, self.config.audio.output_device)):
-            combo.clear()
-            combo.addItem("(system default)", "")
-            for device in devices:
-                combo.addItem(device.name + ("  *" if device.is_default else ""), device.name)
-            _select(combo, chosen)
+        self._fill_pickers()
         self.speak.setChecked(self.config.tts.enabled)
         self.half_duplex.setChecked(self.config.tts.half_duplex)
         self.pair.setChecked(self.config.peer.enabled)
@@ -619,6 +609,99 @@ class MainWindow(QMainWindow):
                                                                          self.mode_turn).setChecked(True)
         (self.style_hold if self.config.mode.turn_style == "hold" else self.style_toggle).setChecked(True)
         self._filling = False
+
+    def _discover(self) -> None:
+        """What is in models\\ and which audio devices exist, now. Folders that
+        could not be understood are kept too, so the lists can say why."""
+        found = models.discover(paths.asr_dir(self.root), models.Role.ASR)
+        self.engines = [e for e in found if isinstance(e, models.Engine)]
+        self.broken_engines = [e for e in found if isinstance(e, models.Failed)]
+        found_voices = models.discover(paths.tts_dir(self.root), models.Role.TTS)
+        self.voices = [e for e in found_voices if isinstance(e, models.Engine)]
+        found_mt = models.discover_translators(paths.mt_dir(self.root))
+        self.translators = [t for t in found_mt if isinstance(t, models.Translator)]
+        self.broken_translators = [t for t in found_mt if isinstance(t, models.Failed)]
+        try:
+            self.inputs, self.outputs = audio.list_input_devices(), audio.list_output_devices()
+        except audio.AudioError as e:
+            self.inputs, self.outputs = [], []
+            self.session.last_error = str(e)
+        self.snapshot = {
+            "recognizer": rescan_mod.engine_items(found), "translator": rescan_mod.translator_items(found_mt),
+            "voice": rescan_mod.engine_items(found_voices), "microphone": rescan_mod.device_items(self.inputs),
+            "speakers": rescan_mod.device_items(self.outputs),
+        }
+
+    def _fill_pickers(self) -> None:
+        """Every list of models and devices, from what `_discover` found, with
+        the settings' choices selected where they still exist."""
+        self._fill_shared()
+        self._fill_recognizers()
+        self.translator.clear()
+        for t in self.translators:
+            label = t.name if t.enabled() else f"{t.name} (unusable)"
+            self.translator.addItem(f"{label}  [{t.id}]", t.id)
+            if not t.enabled():
+                self.translator.setItemData(self.translator.count() - 1, t.unusable or ", ".join(t.missing),
+                                            Qt.ItemDataRole.ToolTipRole)
+        for failed in self.broken_translators:
+            self._add_broken(self.translator, failed)
+        top = next((t.id for t in self.translators if t.top_level), "")
+        wanted = self.pyconfig.translate.model or top
+        if not _select(self.translator, wanted):
+            # The chosen one is gone: the file at the top of models\mt\, or else the first that works.
+            _select(self.translator, rescan_mod.first_usable(self.snapshot["translator"], top))
+        for combo, devices, chosen in ((self.input_device, self.inputs, self.config.audio.input_device),
+                                       (self.output_device, self.outputs, self.config.audio.output_device)):
+            combo.clear()
+            combo.addItem("(system default)", "")
+            for device in devices:
+                combo.addItem(device.name + ("  *" if device.is_default else ""), device.name)
+            _select(combo, chosen)
+
+    @staticmethod
+    def _add_broken(combo: QComboBox, failed) -> None:
+        """A folder that could not be understood: listed, greyed out, with
+        the reason --report gives as its tooltip."""
+        combo.addItem(f"{failed.dir_name}  (broken)", failed.dir_name)
+        index = combo.count() - 1
+        combo.setItemData(index, failed.error, Qt.ItemDataRole.ToolTipRole)
+        combo.model().item(index).setEnabled(False)
+
+    def rescan(self) -> None:
+        """Rescan (P13): read models\\ and the devices again without restarting.
+        Lists update; a choice that is gone is replaced by the best one left,
+        and one plain line says so. While running, nothing loaded is touched:
+        a changed choice applies at the next Start."""
+        pickers = {"recognizer": self.recognizer, "translator": self.translator,
+                   "microphone": self.input_device, "speakers": self.output_device}
+        before = self.snapshot
+        names = {kind: {i.id: i.name for i in items} for kind, items in before.items()}
+        chosen = {kind: combo.currentData() or "" for kind, combo in pickers.items()}
+        self.session.last_error = None
+        self._filling = True
+        self._discover()
+        self._fill_pickers()
+        self._filling = False
+        lines = rescan_mod.compare(before, self.snapshot)
+        now_names = {kind: {i.id: i.name for i in items} for kind, items in self.snapshot.items()}
+        for kind, combo in pickers.items():
+            was, now = chosen[kind], combo.currentData() or ""
+            if was == now:
+                continue
+            why = ""
+            if kind == "recognizer" and now:
+                why = "the best match for " + (self.source_lang.currentText() or "this language")
+            elif kind in ("microphone", "speakers"):
+                why = "Windows' default"
+            now_name = now_names[kind].get(now, "") if now else ("the system default" if kind in ("microphone", "speakers") else "")
+            lines.append(rescan_mod.selection_line(kind, names[kind].get(was, was), now_name, why if now_name else "",
+                                                   self.running()))
+        self.notice.setText("\n".join(lines) if lines else "Rescanned: nothing has changed.")
+        self.notice.setVisible(True)
+        log.info("rescan: %s", "; ".join(lines) if lines else "nothing has changed")
+        self.save()
+        self.refresh()
 
     def _fill_recognizers(self) -> None:
         """Ranked for the spoken language: tuned, general, other varieties,
@@ -636,6 +719,8 @@ class MainWindow(QMainWindow):
                 index = self.recognizer.count() - 1
                 self.recognizer.setItemData(index, why, Qt.ItemDataRole.ToolTipRole)
                 self.recognizer.model().item(index).setEnabled(False)
+        for failed in self.broken_engines:
+            self._add_broken(self.recognizer, failed)
         if not _select(self.recognizer, self.config.asr.engine) and self.recognizer.count():
             self.recognizer.setCurrentIndex(0)  # the best fit for this language
 
@@ -797,6 +882,7 @@ class MainWindow(QMainWindow):
             self.start_live()
 
     def _begin(self, source, speak: bool) -> None:
+        self.notice.setVisible(False)  # a rescan's news is old once a conversation starts
         comparing = self.compare.isChecked()
         paired = self.pairing() and source is None
         self.session.begin(self.config.languages.source, self.config.languages.target, comparing, speak, paired)

@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+import installed
 from volis import export, paths, scoring, sentences
 from volis.asr import Word
 from volis.events import Configuration, Final, NotTranslated, SentenceMsg, Summary, Translated
@@ -117,7 +118,7 @@ def test_a_fixture_file_runs_end_to_end(tmp_path):
     out = tmp_path / "out"
     done = subprocess.run(
         [sys.executable, "-m", "volis", "--file", str(audio), "--from", "es", "--to", "en",
-         "--asr", "parakeet-tdt-0.6b-v3-onnx-int8", "--fast", "--export", str(out)],
+         "--asr", installed.recognizer("es", "parakeet-tdt-0.6b-v3-onnx-int8"), "--mt", installed.translator("qwen3-1.7b-q4_k_m.gguf"), "--fast", "--export", str(out)],
         cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900,
     )
     assert done.returncode == 0, done.stdout[-3000:] + done.stderr[-3000:]

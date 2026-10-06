@@ -7,7 +7,8 @@ For people changing Volis or building it for others. To install and use it, see
 |---|---|
 | `CLAUDE.md` | The hard constraints (never online at runtime, everything in one folder) and working rules. |
 | `HANDOFF.md` | Where the work stands, its history, and every difference from volis-rust with the reason. |
-| `volis-build.md` | The original build specification, milestone by milestone. |
+| `volis-build.md` | The original build specification, milestone by milestone (P0 to P12, done). |
+| `volis-next-features.md` | The current specification: P13 to P20. |
 | `MODELS.md` | Models: recommendations, choosing your own, and every test result. |
 | `SETTINGS.md` | Every setting and command-line option. |
 

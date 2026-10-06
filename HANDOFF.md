@@ -92,6 +92,44 @@ Last updated 2026-10-01. Read `CLAUDE.md` first, then `volis-build.md`.
   program. See "P12 findings". **The check on a second machine (no Python, no internet) is the
   user's to do.**
 
+## P13 to P20 (`volis-next-features.md`)
+
+Eight milestones for non-technical users. Built in order; stop after each.
+
+- **Before P13 (2026-10-06):** the repository now lives in `D:\AI_Data\projects\volis`. The Rust
+  app is no longer on this machine and no longer a reference (the user's decision; `CLAUDE.md`
+  says so). One test depended on a model that is no longer installed (the small Qwen3 at the
+  top of `models\mt\`); it now checks the rule (the top-level file, else the first usable
+  translator) whatever is installed. The tests that pin Qwen3's exact prompt text are skipped
+  while that file is absent.
+- **P13 done: Rescan.** A button, F5 and View > Rescan models and devices read `models\` and
+  the audio devices again without restarting (`gui/rescan.py`, no Qt; `MainWindow.rescan`).
+  Every list updates. A line under the button says, in plain words, what is new, what is gone,
+  what stopped working and why, and what works again; and when a chosen model or device is
+  gone, what replaced it: the best-ranked recognizer for the language, the first usable
+  translator, Windows' default device. While a conversation runs the lists still update,
+  nothing loaded is touched, and the line says the change applies at the next Start.
+  - New with it: a folder Volis can't understand is now **listed, greyed out, with the reason**
+    as its tooltip (recognizers and translators). Before, it appeared only in `--report`.
+  - Check (`tests/test_rescan.py`, 10 tests, on a temporary models folder): a folder added
+    appears; renamed, it disappears and the line says the choice changed; a headset appears in
+    both device lists; unplugged while chosen, the choice returns to the system default. Also
+    run against the real app and models folder: nothing changed / folder added / renamed /
+    removed, each reported correctly, the user's choice untouched.
+  - Not done by a person: a real headset plugged in while the app is open.
+  - Found on the way: `models\asr\whisper-model-large-hmong` has no `config.json`, so Volis
+    can't tell what it is. It now shows in the recognizer list as broken, with that reason.
+
+### Later (noted in `volis-next-features.md`, deliberately not in this round)
+
+- Translating the computer's own sound (loopback capture), with an always-on-top caption window.
+- A replay button per row.
+- Speaker labels in file mode (sherpa-onnx speaker diarization).
+- A full-screen "show the other person" view.
+- Saving every live session as a transcript. **Checked: export does not cover live sessions.**
+  File > Export works only after a file run (`MainWindow.export` refuses without a file); a
+  live conversation is kept in the log file only.
+
 ## Open list (2026-10-02)
 
 Waiting on the user:

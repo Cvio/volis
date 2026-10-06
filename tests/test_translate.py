@@ -286,13 +286,17 @@ def test_a_second_family_translates_with_its_own_template():
         gemma.close()
 
 
-def test_several_translators_are_listed_and_the_default_is_rusts_file():
+def test_several_translators_are_listed_and_the_default_is_the_top_file_or_the_first_usable():
     from volis import models
 
     found = [t for t in models.discover_translators(paths.mt_dir(ROOT)) if isinstance(t, models.Translator)]
     if len(found) < 2:
         pytest.skip("needs two translators in models/mt")
-    assert tr.choose(ROOT, "").top_level
+    # Whichever models are installed: the .gguf at the top of models/mt when
+    # there is one, otherwise the first translator that can be used.
+    usable = [t for t in found if t.enabled()]
+    top = [t for t in usable if t.top_level]
+    assert tr.choose(ROOT, "").id == (top or usable)[0].id
     with pytest.raises(tr.TranslateError, match="not in"):
         tr.choose(ROOT, "no-such/model.gguf")
 
