@@ -74,6 +74,14 @@ Write-Host "`n== Checking the environment (doctor)"
 & (Join-Path $repo "doctor.ps1")
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-if (-not (Test-Path (Join-Path $repo "machine.yaml"))) {
-    Write-Host "`nFor the parity checks: copy machine.example.yaml to machine.yaml and set volis_rust_exe." -ForegroundColor Yellow
+# Say plainly where the translator will run: nothing else fails when the GPU
+# build is missing, it is only several times slower. (No stderr redirect: Windows
+# PowerShell 5.1 turns a redirected stderr line into an error.)
+$gpuTranslator = & (Join-Path $repo ".venv\Scripts\python.exe") -c "from volis.translate.llamacpp import gpu_available; print('yes' if gpu_available() else 'no')"
+if ($gpuTranslator -eq "yes") {
+    Write-Host "`nThe translator will run on the graphics card." -ForegroundColor Green
+} else {
+    Write-Host "`nThe translator will run on the PROCESSOR, several times slower than on the graphics card." -ForegroundColor Yellow
+    Write-Host "To put it on the graphics card, do step 3 of 'Set it up' in README.md" -ForegroundColor Yellow
+    Write-Host "(install two tools, then .\build-llama.ps1 -Cuda, then .\setup.ps1 again)." -ForegroundColor Yellow
 }

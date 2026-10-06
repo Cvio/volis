@@ -34,17 +34,19 @@ is published as source only for the version Volis needs, so it is compiled here,
 the result (a wheel) is kept in `wheels\`. `setup.ps1` installs the wheel and needs no compiler.
 
 The wheel in the repository is a **CPU build**. For translation on the graphics card, which is
-several times faster, build the GPU wheel on the machine:
+several times faster, the GPU wheel is built on each machine. **README.md, step 3 of "Set it
+up", has the full instructions,** written for someone who has never done it: Visual Studio
+Build Tools (the C++ workload), NVIDIA's CUDA Toolkit 12.8 or 12.9 (not 13; Custom install,
+only the `CUDA` box ticked, so the driver isn't replaced), then:
 
-1. Install Visual Studio Build Tools (the C++ workload).
-2. Install NVIDIA's CUDA Toolkit **12.8 or 12.9** (not 13). Choose Custom install and untick
-   the driver components.
-3. Run:
+```powershell
+.\build-llama.ps1 -Cuda
+.\setup.ps1
+```
 
-   ```powershell
-   .\build-llama.ps1 -Cuda
-   .\setup.ps1
-   ```
+`setup.ps1` ends by saying where the translator will run. The wheel is not in the repository
+(too large), so **a fresh clone has only the CPU build** until this is done, or until
+`wheels\cuda\` is copied from a machine that has it.
 
 The wheel goes in `wheels\cuda\` (344 MB, not committed). Running it needs no toolkit: it uses
 the CUDA files PyTorch already ships. `.\doctor.ps1` then reports `GPU offload: yes`, and

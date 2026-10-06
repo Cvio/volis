@@ -17,6 +17,8 @@ nothing you say leaves the machine.
 - **A microphone and speakers.** A headset is best: with speakers, Volis mutes the microphone
   while it talks so it doesn't hear itself.
 - **An internet connection for the setup below only.**
+- **About an hour for the setup**, most of it waiting for downloads. One step (step 3) installs
+  two free tools from Microsoft and NVIDIA so that translation runs on the graphics card.
 - **[Git](https://git-scm.com/)**, to get the code.
 - **[uv](https://docs.astral.sh/uv/)**, which installs everything else:
   `winget install astral-sh.uv` (then open a new PowerShell window).
@@ -45,9 +47,87 @@ If someone gave you a ready-made Volis folder, skip to
    takes a while the first time) and then checks the result. Nothing is installed anywhere
    else on your computer.
 
-   ✅ It should end with `All checks passed.`
+   ✅ It should end with `All checks passed.` It will also say, in yellow, that the translator
+   will run on the processor. That's expected at this point: the next step fixes it.
 
-3. **Get the models.** Volis uses four kinds:
+3. **Put the translator on the graphics card.** Don't skip this. Without it Volis still
+   works, but the translator runs on the processor and every sentence takes several seconds
+   instead of about half a second. It is done once per computer and takes 30 to 45 minutes,
+   most of it waiting.
+
+   It needs two free tools installed first. Do the four parts in order.
+
+   **Part A: install Microsoft's build tools** (about 10 minutes, about 7 GB of disk)
+
+   1. Paste this line into PowerShell and press Enter:
+
+      ```powershell
+      winget install Microsoft.VisualStudio.2022.BuildTools --override "--passive --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+      ```
+
+   2. If Windows asks "Do you want to allow this app to make changes to your device?",
+      choose **Yes**.
+   3. A window titled *Visual Studio Installer* opens and shows a progress bar. **Wait.** You
+      don't need to click anything in it. It closes by itself.
+
+   ✅ PowerShell prints `Successfully installed`.
+
+   **Part B: install NVIDIA's CUDA Toolkit, version 12.9** (about 15 minutes, about 3 GB to
+   download)
+
+   Use version **12.9**. Newer versions (13 and up) don't work with Volis.
+
+   1. Open this page in your browser: <https://developer.nvidia.com/cuda-toolkit-archive>
+   2. In the list, click the highest entry that starts with **CUDA Toolkit 12.9**.
+   3. On the next page, click these buttons, in order: **Windows**, **x86_64**, **11** (choose
+      11 on Windows 10 too), **exe (local)**. A **Download** button appears. Click it and wait
+      for the download to finish.
+   4. Open the downloaded file (its name starts with `cuda_12.9`). If Windows asks to allow
+      changes, choose **Yes**. Click **OK** to accept the folder it suggests, and wait while it
+      unpacks.
+   5. Click **Agree and continue**.
+   6. Choose **Custom (Advanced)**, then **Next**.
+   7. You see a list with tick boxes. **Untick everything except the one named `CUDA`.** This
+      matters: the other boxes would replace your graphics driver with an older one.
+   8. Click **Next**, then **Next** again, and wait for it to finish. Then **Close**.
+
+   ✅ This folder now exists: `C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9`
+
+   **Part C: build the translator's engine** (10 to 20 minutes)
+
+   1. In PowerShell, in the Volis folder, run:
+
+      ```powershell
+      .\build-llama.ps1 -Cuda
+      ```
+
+   2. **Wait.** Lines of text scroll past for a long time, and sometimes it looks stuck for a
+      minute or two. That's normal. Don't close the window.
+
+   ✅ The last line begins `Successfully built` and ends in `.whl`.
+
+   If it stops with `STOP: Visual Studio Build Tools (C++) are not installed`, do Part A
+   again. If it stops with `STOP: no CUDA Toolkit 12.x`, do Part B again.
+
+   **Part D: install what you built**
+
+   1. Run the setup again:
+
+      ```powershell
+      .\setup.ps1
+      ```
+
+   ✅ Near the end you should see both of these lines:
+
+   ```
+   ok    llama_cpp 0.3.35, GPU offload: yes
+   The translator will run on the graphics card.
+   ```
+
+   If it says `GPU offload: no`, or `The translator will run on the PROCESSOR`, Part C didn't
+   finish. Run Part C again and read its last lines.
+
+4. **Get the models.** Volis uses four kinds:
 
    | Model | What it does | Do you choose it? |
    |---|---|---|
@@ -68,18 +148,13 @@ If someone gave you a ready-made Volis folder, skip to
    **[MODELS.md](MODELS.md)**. It says what to pick for 8 GB and 16 GB cards and how to
    find and try models yourself.
 
-4. **Check that Volis sees them:**
+5. **Check that Volis sees them:**
 
    ```powershell
    .\.venv\Scripts\python.exe -m volis --report
    ```
 
    ✅ Every model listed should say `ok`.
-
-5. **Optional, but worth it: translate on the graphics card.** As installed, the translator
-   runs on the processor, which works but takes a second or more per sentence. Running it on
-   the graphics card is several times faster. That needs a one-time build on your machine;
-   [DEVELOPMENT.md](DEVELOPMENT.md#the-translator-on-the-graphics-card) has the steps.
 
 ## Start it
 
@@ -152,7 +227,8 @@ tells you whether a different choice of models would fit before you load them.
 | Nothing happens when you speak | Check the level meter at the top right moves when you talk. If it doesn't, pick another **Microphone**, and check the microphone isn't muted in Windows. |
 | Volis translates its own voice | Tick **Half-duplex**, or use a headset. |
 | Everything is very slow | The models probably don't fit on your graphics card together. Open **View > Performance**; the **What if** tab says whether they fit. Choose a smaller translator. |
-| Translation takes a second or more per sentence | The translator is running on the processor. See step 5 of the setup. |
+| Translation takes several seconds per sentence | The translator is running on the processor, not the graphics card. Run `.\doctor.ps1`: if it says `GPU offload: no`, do step 3 of the setup. |
+| Setup finished, but `.\doctor.ps1` says `GPU offload: no` | Step 3 of the setup was skipped or didn't finish. Do it (or do it again); its Part C must end with `Successfully built`. |
 | It starts, then says a model "is not in" the models folder | The model named in your settings isn't installed. Pick one from the list in the window. |
 | Pairing won't connect | Both computers must be on the same network, and Windows Firewall must allow Volis. The message in the window says which of the two it is. |
 
