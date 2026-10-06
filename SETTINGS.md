@@ -93,6 +93,10 @@ hold_speech_s = 2.0      # ...this long at most
 [tts]
 diacritize = false  # Arabic: predict the vowel marks before the voice pronounces the text
 
+[window]             # what the window remembers about itself
+advanced_open = false   # whether the Advanced section is open
+text_size = 12          # the conversation's text size, in points (the A- and A+ buttons)
+
 [fragments]
 hold = true         # join a few words with no full stop to what follows
 min_words = 4       # shorter than this is a fragment
@@ -117,7 +121,7 @@ A model's folder may hold its own `volis-python.toml`, to correct or add to what
 out from the model's files. All optional:
 
 ```toml
-name = "Whisper large-v3-turbo Spanish"   # shown in the window
+name = "Whisper turbo — Spanish"          # the plain name the window's lists show
 languages = ["es"]
 varieties = ["es-MX"]      # the region it is tuned for, if any
 device = "cuda"            # "cuda" or "cpu"
@@ -130,6 +134,17 @@ prompt = "..."             # a GGUF speech model: how it is asked to transcribe
 
 Voices and the `-onnx-int8` recognizers describe themselves in an `engine.toml` instead, which
 the download script writes.
+
+**The name in the lists.** The window shows `name` when a settings file gives one. Otherwise
+it shows the folder's name tidied up (`gemma-3-4b-it-GGUF` becomes "Gemma 3 4b it"). The
+download script writes a plain name for each model it fetches. To give the models you already
+have their plain names, without downloading anything:
+
+```powershell
+.\fetch-models.ps1 -Names -Group all
+```
+
+A settings file that already exists is never changed.
 
 ## Command line
 

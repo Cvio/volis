@@ -82,6 +82,31 @@ GGUF_SPEECH = ("# Settings for this model in volis. No engine.toml here: that fi
 # Only English, Spanish and Arabic were measured; the rest is from the model cards.
 SPEECH_LANGUAGES = 'languages = ["en", "es", "ar", "fa", "de", "fr", "it", "pt", "ru", "nl", "pl"]\n'
 
+# The plain name the window shows for each model (P14), by folder. Written into
+# the folder's volis-python.toml when the model is fetched; a file that is
+# already there is never changed. Voices and the -onnx-int8 recognizers carry
+# their name in engine.toml instead.
+PLAIN_NAMES = {
+    "asr/whisper-large-v3-turbo": "Whisper turbo — many languages",
+    "asr/whisper-large-v3-turbo-es": "Whisper turbo — Spanish",
+    "asr/whisper-large-v3-turbo-arabic-dialectal-hf": "Whisper turbo — Arabic dialects",
+    "asr/cohere-transcribe-arabic-07-2026": "Cohere Transcribe — Arabic and English",
+    "asr/mms-1b-all": "MMS — Arabic, English, Persian, Spanish (no punctuation)",
+    "asr/Qwen3-ASR-0.6B-GGUF": "Qwen3-ASR small — very fast",
+    "asr/Qwen3-ASR-1.7B-GGUF": "Qwen3-ASR large",
+    "asr/gemma-4-E4B-it-GGUF": "Gemma 4 E4B — listens; good for Arabic",
+    "asr/whisper-small": "Whisper small — lighter, less accurate",
+    "asr/whisper-algerian-darja-small": "Whisper small — Algerian Arabic (adapter)",
+    "mt/gemma-3-4b-it-GGUF": "Gemma 3 4B — good all-round",
+    "mt/gemma-4-E4B-it-GGUF": "Gemma 4 E4B — good for Arabic",
+    "mt/translategemma-4b-it-GGUF": "TranslateGemma 4B — translation only",
+    "mt/gemma-4-12b-it-GGUF": "Gemma 4 12B — best; needs a 16 GB card",
+    "mt/gemma-3-12b-it-GGUF": "Gemma 3 12B — needs a 16 GB card",
+    "mt/translategemma-12b-it-GGUF": "TranslateGemma 12B — needs a 16 GB card",
+    "mt/Qwen3-8B-GGUF": "Qwen3 8B",
+    "mt/Qwen3-0.6B": "Qwen3 0.6B — slow; for testing",
+}
+
 LIST = [
     # ------------------------------------------------------------ 
     Model("vad", "", "use", "Silero VAD, the voice activity detector (required)",
@@ -126,12 +151,12 @@ LIST = [
                    "adapter.fas.safetensors", "adapter.spa.safetensors")),
     Model("asr", "Qwen3-ASR-0.6B-GGUF", "use", "Qwen3-ASR 0.6B Q8 and its audio encoder (llama.cpp audio)",
           repo="ggml-org/Qwen3-ASR-0.6B-GGUF", include=("*Q8_0.gguf",),
-          write={"volis-python.toml": GGUF_SPEECH + 'name = "Qwen3-ASR 0.6B (Q8)"\n' + SPEECH_LANGUAGES}),
+          write={"volis-python.toml": GGUF_SPEECH + f'name = "{PLAIN_NAMES["asr/Qwen3-ASR-0.6B-GGUF"]}"\n' + SPEECH_LANGUAGES}),
     Model("asr", "gemma-4-E4B-it-GGUF", "use",
           "Gemma 4 E4B as a recognizer: its audio encoder, and a hard link to the translator's file",
           repo="unsloth/gemma-4-E4B-it-GGUF", include=("mmproj-F16.gguf",),
           link="mt/gemma-4-E4B-it-GGUF/gemma-4-E4B-it-Q4_K_M.gguf",
-          write={"volis-python.toml": GGUF_SPEECH + 'name = "Gemma 4 E4B (Q4_K_M, audio)"\n' + SPEECH_LANGUAGES + (
+          write={"volis-python.toml": GGUF_SPEECH + f'name = "{PLAIN_NAMES["asr/gemma-4-E4B-it-GGUF"]}"\n' + SPEECH_LANGUAGES + (
               "\n# No prompt line: volis's own wording is used (\"Transcribe this audio exactly\n"
               "# as spoken, in {language}. Output only the transcript, ...\"). The wording on\n"
               "# Google's model card was tried and scored worse on the test recordings\n"
@@ -139,7 +164,7 @@ LIST = [
               '# prompt = "Transcribe the following speech segment in {language} into {language} text."\n')}),
     Model("asr", "Qwen3-ASR-1.7B-GGUF", "tested", "Qwen3-ASR 1.7B (Q8)",
           repo="ggml-org/Qwen3-ASR-1.7B-GGUF", include=("*Q8_0.gguf",),
-          write={"volis-python.toml": GGUF_SPEECH + 'name = "Qwen3-ASR 1.7B (Q8)"\n' + SPEECH_LANGUAGES}),
+          write={"volis-python.toml": GGUF_SPEECH + f'name = "{PLAIN_NAMES["asr/Qwen3-ASR-1.7B-GGUF"]}"\n' + SPEECH_LANGUAGES}),
   
     # Model("asr", "whisper-small", "tested", "Whisper small (transformers); the base of the LoRA adapter below",
     #       repo="openai/whisper-small"),
@@ -309,6 +334,17 @@ def fetch_repo(m: Model, missing: dict[str, int]) -> None:
         snapshot_download(m.repo, local_dir=m.target, allow_patterns=wanted)
 
 
+def settings_files(m: Model) -> dict[str, str]:
+    """The settings files a model's folder gets: the ones its entry lists,
+    and a volis-python.toml giving its plain name when nothing else names it."""
+    files = dict(m.write)
+    name = PLAIN_NAMES.get(m.id)
+    if name and m.folder and "engine.toml" not in files and "volis-python.toml" not in files:
+        files["volis-python.toml"] = ("# Settings for this model in volis. The name is what the window's lists show.\n"
+                                      f'name = "{name}"\n')
+    return files
+
+
 def finish(m: Model) -> None:
     """Whatever the download itself doesn't bring: settings, and a raw Piper
     voice made loadable."""
@@ -317,7 +353,7 @@ def finish(m: Model) -> None:
             fetch_model.convert_piper(m.target, m.piper_language)
         except SystemExit as e:
             raise Skip(str(e)) from None
-    for name, text in m.write.items():
+    for name, text in settings_files(m).items():
         path = m.target / name
         if not path.exists():
             path.write_text(text, encoding="utf-8", newline="\n")
@@ -333,6 +369,9 @@ def main() -> int:
     parser.add_argument("--only", action="append", default=[], help="a folder name, or part of one")
     parser.add_argument("--list", action="store_true", help="show what would be downloaded; download nothing")
     parser.add_argument("--yes", action="store_true", help="don't ask before downloading")
+    parser.add_argument("--names", action="store_true",
+                        help="download nothing: only write the settings files (plain names) that models "
+                             "already installed are missing")
     args = parser.parse_args()
     for stream in (sys.stdout, sys.stderr):
         stream.reconfigure(encoding="utf-8", errors="replace")
@@ -362,7 +401,7 @@ def main() -> int:
             failed.append((m, f"could not reach its source: {e}"))
             print(f"! {m.group:9} {m.id:48} could not reach its source: {e}")
             continue
-        settings = [n for n in m.write if not (m.target / n).exists()]
+        settings = [n for n in settings_files(m) if not (m.target / n).exists()]
         if size or missing:
             todo.append((m, size, missing))
             note = " (gated: needs .\\fetch-model.ps1 -Login)" if m.gated else ""
@@ -378,6 +417,15 @@ def main() -> int:
     free = shutil.disk_usage(REPO).free
     print(f"\n{len([t for t in todo if t[1]])} to download, {total / 1e9:.1f} GB; "
           f"{free / 1e9:.0f} GB free on {REPO.anchor}")
+    if args.names:
+        # Only models whose files are all here; their missing settings files, nothing else.
+        written = 0
+        for m, size, missing in todo:
+            if not size and not missing:
+                finish(m)
+                written += 1
+        print(f"\n{written} installed model(s) had a settings file to write; nothing was downloaded.")
+        return 0
     if args.list or not todo:
         return 1 if failed and not args.list else 0
     if total * 1.1 > free:  # an archive is on disk beside what it unpacks to, briefly

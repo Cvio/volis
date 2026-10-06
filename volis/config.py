@@ -263,6 +263,13 @@ class PyTts:
 
 
 @dataclass
+class PyWindow:
+    # What the window remembers about itself (P14).
+    advanced_open: bool = False  # the Advanced section, as the user left it
+    text_size: int = 12  # the transcript's text size, in points (A- / A+)
+
+
+@dataclass
 class PyFragments:
     # Hold a short sentence with no final punctuation and join it to the next.
     hold: bool = True
@@ -299,6 +306,7 @@ class PythonConfig:
     context: PyContext = field(default_factory=PyContext)
     fragments: PyFragments = field(default_factory=PyFragments)
     tts: PyTts = field(default_factory=PyTts)
+    window: PyWindow = field(default_factory=PyWindow)
 
     @classmethod
     def load(cls, path: Path) -> tuple[PythonConfig, bool]:
@@ -349,6 +357,8 @@ def save_python_selections(path: Path, pyconfig: PythonConfig) -> None:
     _set(doc, "context", "hold_speech", pyconfig.context.hold_speech)
     _set(doc, "fragments", "hold", pyconfig.fragments.hold)
     _set(doc, "tts", "diacritize", pyconfig.tts.diacritize)
+    _set(doc, "window", "advanced_open", pyconfig.window.advanced_open)
+    _set(doc, "window", "text_size", pyconfig.window.text_size)
     try:
         path.write_text(tomlkit.dumps(doc), encoding="utf-8", newline="")
     except OSError as e:

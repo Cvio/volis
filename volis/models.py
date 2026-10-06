@@ -97,6 +97,9 @@ class Engine:
     data_dir: ModelDir | None = None
     # volis only below.
     from_engine_toml: bool = True
+    # True when engine.toml or the folder's volis-python.toml gives the name;
+    # False when it is only the folder's name.
+    named: bool = True
     # False: the model does not say which languages it knows. It is offered
     # for every language, labelled "languages unknown".
     languages_known: bool = True
@@ -454,6 +457,7 @@ def _transformers_asr(directory: Path, overrides: dict[str, Any]) -> Engine:
         dir_name=directory.name,
         dir=directory,
         name=overrides.get("name", directory.name),
+        named="name" in overrides,
         kind="segment",
         backend=TRANSFORMERS,
         languages=[],
@@ -532,6 +536,7 @@ def _gguf_asr(directory: Path, ggufs: list[Path], overrides: dict[str, Any]) -> 
         dir_name=directory.name,
         dir=directory,
         name=overrides.get("name", directory.name),
+        named="name" in overrides,
         kind="segment",
         backend=LLAMACPP_AUDIO,
         languages=[],
@@ -560,6 +565,7 @@ def _lora_adapter(directory: Path, overrides: dict[str, Any]) -> Engine:
         dir_name=directory.name,
         dir=directory,
         name=overrides.get("name", directory.name),
+        named="name" in overrides,
         kind="segment",
         backend=TRANSFORMERS,
         languages=[],
@@ -646,6 +652,7 @@ class Translator:
     top_level: bool  # True: the file volis-rust uses
     architecture: str = ""
     has_chat_template: bool = False
+    named: bool = False  # True when the folder's volis-python.toml gives the name
     size_bytes: int = 0
     missing: list[str] = field(default_factory=list)
     unusable: str = ""
@@ -706,6 +713,7 @@ def _translators_in(directory: Path) -> list[Translator | Failed]:
                 id=directory.name,
                 path=directory,
                 name=overrides.get("name", directory.name),
+                named="name" in overrides,
                 backend=TRANSFORMERS,
                 top_level=False,
                 missing=[w.name for w in weights if not w.present]
@@ -791,6 +799,7 @@ def _gguf_translator(
         id=ident,
         path=path,
         name=(overrides or {}).get("name") or str(meta.get("general.name") or path.stem),
+        named=bool((overrides or {}).get("name")),
         backend="llamacpp",
         top_level=top_level,
         architecture=str(meta.get("general.architecture", "")),

@@ -165,11 +165,24 @@ If someone gave you a ready-made Volis folder, skip to
 A window opens, with a console window behind it that shows what Volis is doing.
 
 1. Under **Spoken**, choose the language you will speak. Under **Translate into**, choose
-   the other one.
+   the other one. **Swap** between them exchanges the two.
 2. Choose a **Recognizer** and a **Translator** from the lists. Volis remembers your choices.
-3. Choose your **Microphone** and **Speakers**.
-4. Press **Start**. The first time, loading the models takes a few seconds.
+   Hold the mouse over a name to see the details of that model. If an orange line appears
+   under them, the two won't fit in your computer's memory together: choose a smaller
+   translator.
+3. Choose your **Microphone** and **Speakers**, and press **Test** beside each:
+   - **Test** beside Speakers says a short sentence. If you don't hear it, choose other speakers.
+   - **Test** beside Microphone records you for 3 seconds, plays it back, and shows what
+     Volis heard.
+4. Press the big green **START** button (or Ctrl+Enter). The first time, loading the models
+   takes a few seconds. The button always shows what Volis is doing; press it again to stop.
 5. Speak. Each sentence appears with its translation, and the translation is spoken.
+
+While a conversation runs, the settings fold away so the text has the whole window. **A−** and
+**A+** above the text make it smaller or larger. **Settings** brings the settings back.
+
+A setting that is greyed out says why in small grey text beside it, and when you hold the mouse
+over it.
 
 ## Ways to use it
 
@@ -198,15 +211,23 @@ WAV, MP3, M4A, FLAC, OGG and Opus all work.
 
 ### The options in the window
 
+**Speak translations** is with the main settings: it says each translation aloud. Turn it off
+for captions only.
+
+The rest are under **Advanced**, which stays closed until you open it:
+
 | Option | What it does |
 |---|---|
-| **Speak translations** | Says each translation aloud. Turn it off for captions only. |
 | **Half-duplex** | Mutes the microphone while Volis is speaking. Leave it on unless you wear a headset. |
+| **Add vowel marks to Arabic before it is spoken** | Helps the Arabic voices pronounce words correctly. Needs one more small model: `.\fetch-models.ps1 -Only tashkeel`. |
+| **Compare recognizers** | Every recognizer you have writes down the same sentence, side by side. Nothing is translated. |
 | **Show text while speaking** | Shows words as you say them, before the sentence is finished. Costs more work. |
 | **Translate with the earlier sentences as context** | Each sentence is translated knowing the few before it, so "it", "her" and the like come out right. |
 | **Revise earlier translations** | Looks again at a short sentence once the next one is heard, and corrects it on screen if its meaning changed. |
-| **Add vowel marks to Arabic before it is spoken** | Helps the Arabic voices pronounce words correctly. Needs one more small model: `.\fetch-models.ps1 -Only tashkeel`. |
+| **Wait for the next sentence before speaking a short one** | With the option above: a short sentence is spoken only after the next is heard, so it is spoken corrected. |
+| **Join short fragments to what follows** | A few words with no full stop wait a moment for the rest of the sentence. |
 | **Glossary** | Names and terms to keep exactly as written, separated by commas. |
+| **Pair with another PC** | Two computers, one conversation (see above). |
 
 [SETTINGS.md](SETTINGS.md) lists every setting and every command-line option.
 

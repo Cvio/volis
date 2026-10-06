@@ -86,7 +86,7 @@ def test_a_revision_is_marked_and_keeps_its_history(window):
 
 def test_loading_memory_errors_and_progress_reach_the_screen(window):
     feed(window, ev.Loading("recognizer whisper"))
-    assert window.indicator.text() == "LOADING recognizer whisper..."
+    assert window.start_state.text() == "LOADING recognizer whisper..."
     feed(window, ev.ModelLoaded("recognizer", "whisper", "cuda", 1_600_000_000, 0), ev.Listening(),
          ev.Progress(30.0, 120.0), ev.Error("no installed voice speaks \"ja\""))
     assert "GPU 1.6 GB" in window.memory.text() and "on the GPU" in window.memory.text()
@@ -190,7 +190,7 @@ def test_the_peer_panel_shows_this_pcs_addresses_and_the_connection(window):
     assert "Paired with laptop-b (192.168.1.20)" in status and "Floor: laptop-b's" in status
     assert "Mexican Spanish" in status or "Spanish" in status
     assert window.pair_label.text() == "Paired with laptop-b" and window.connect_button.text() == "Disconnect"
-    assert "laptop-b IS TALKING" in window.indicator.text()
+    assert "laptop-b IS TALKING" in window.start_state.text()
 
     feed(window, ev.Remote("laptop-b", "es-MX", "¿Dónde está la estación?", "en", "Where is the station?"))
     assert cells(window, 0) == ["<<", "Where is the station?", "¿Dónde está la estación?", "from laptop-b"]

@@ -119,6 +119,54 @@ Eight milestones for non-technical users. Built in order; stop after each.
   - Not done by a person: a real headset plugged in while the app is open.
   - Found on the way: `models\asr\whisper-model-large-hmong` has no `config.json`, so Volis
     can't tell what it is. It now shows in the recognizer list as broken, with that reason.
+- **P14 done: the window, for non-technical users.** All eight changes. The words the window
+  uses are worked out in `gui/view.py` (no Qt, 14 tests): plain model names, the big control's
+  label, why a control is greyed out, the won't-fit warning. `gui/devicetest.py` (no Qt, 8
+  tests) is the two Test buttons. `tests/test_window_p14.py` (11 tests) drives the real window.
+
+  | Before | After |
+  |---|---|
+  | ![before, stopped](docs/images/p14-before-stopped.png) | ![after, stopped](docs/images/p14-after-stopped.png) |
+  | ![before, running](docs/images/p14-before-running.png) | ![after, running](docs/images/p14-after-running.png) |
+
+  Advanced, opened: ![after, Advanced open](docs/images/p14-after-advanced.png)
+
+  The pictures are made by `scripts/window_shots.py` from the real window, on this machine's
+  models, with no model loaded (the running picture is fed the events a conversation sends).
+  1. **Basic and Advanced.** Visible: the two languages, recognizer, translator, microphone,
+     speakers, Speak translations, the mode. Everything else is under Advanced, closed until
+     opened, remembered in `[window] advanced_open`. The settings scroll: with Advanced open
+     they are taller than a laptop screen.
+  2. **Conversation view.** While running the settings fold into a bar (languages, the two
+     models) and the transcript takes the window. A− / A+ change its text size
+     (`[window] text_size`, default 12). **Departure from the file:** the bar has a Settings
+     button that unfolds the settings, because the mode can be changed while running (P6) and
+     folding them away for good would have removed that.
+  3. **Swap** exchanges the two languages and re-ranks the recognizers. Hidden in shared mode.
+  4. **Plain names.** A list shows the name a settings file gives (`Engine.named`,
+     `Translator.named`), else the folder name cleaned (`view.clean_name`); the folder, file,
+     compression, size and backend are the tooltip. `fetch_models.py` has a plain name for
+     every model (`PLAIN_NAMES`) and writes it into the folder's `volis-python.toml`;
+     `fetch-models.ps1 -Names` does that for models already installed, downloading nothing.
+     **Not done for the user:** their installed models keep cleaned folder names until they
+     run that, and two (`Gemma 4 E4B (Q4_K_M, audio)`, `Qwen3-ASR 0.6B (Q8)`) keep the
+     technical names written earlier, since an existing settings file is never changed.
+  5. **One big Start/Stop control,** green, with the state in large letters and what pressing
+     it does under it. New shortcut: Ctrl+Enter. The state banner is gone.
+  6. **Test buttons.** Run for real here: the English and Spanish voices played their test
+     sentence; Persian said no voice is installed; the microphone test recorded 3 s, played
+     it back and ran Whisper on it. A recording below -50 dBFS says "nothing was heard" and
+     loads nothing.
+  7. **Reasons.** `view.disabled_reasons` gives every greyed-out control one line, shown as
+     its tooltip and in small grey text beside it. While running they all say the same thing,
+     so then only the tooltip carries it.
+  8. **The warning.** An orange line under the translator when the pair won't fit (from
+     `perf.verdict`, the same estimate as the performance panel), only just fits, or was
+     measured too slow on this machine (recognition slower than speech, or over 3 s a
+     sentence). **Limit:** "too slow" appears only for a pair that has been run here; there
+     is no speed estimate for one that hasn't.
+  - Not done by a person: "a first-time user can choose languages and start a conversation
+    without opening Advanced" is the user's own test.
 
 ### Later (noted in `volis-next-features.md`, deliberately not in this round)
 

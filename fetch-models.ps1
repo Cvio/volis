@@ -7,6 +7,7 @@
 #     .\fetch-models.ps1 -Group use        only the ones worth having here (use | bigger | untested | tested | all)
 #     .\fetch-models.ps1 -Only Qwen3-ASR   only the entries whose name contains this
 #     .\fetch-models.ps1 -Yes              don't ask before downloading
+#     .\fetch-models.ps1 -Names -Group all download nothing: give installed models their plain names
 #
 # What is already in place is left alone, and an engine.toml or volis-python.toml
 # that exists is never overwritten. Gated models (Cohere Transcribe) need
@@ -17,7 +18,8 @@ param(
     [string[]]$Group,
     [string[]]$Only,
     [switch]$List,
-    [switch]$Yes
+    [switch]$Yes,
+    [switch]$Names
 )
 $repo = $PSScriptRoot
 $python = Join-Path $repo ".venv\Scripts\python.exe"
@@ -32,5 +34,6 @@ foreach ($g in $Group) { $argsList += @("--group", $g) }
 foreach ($o in $Only) { $argsList += @("--only", $o) }
 if ($List) { $argsList += "--list" }
 if ($Yes) { $argsList += "--yes" }
+if ($Names) { $argsList += "--names" }
 & $python @argsList
 exit $LASTEXITCODE

@@ -24,15 +24,15 @@ from pathlib import Path
 
 import numpy as np
 from PySide6.QtCore import QEvent, QObject, Qt, QTimer
-from PySide6.QtGui import QAction, QBrush, QColor, QKeySequence
+from PySide6.QtGui import QAction, QBrush, QColor, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QCheckBox, QComboBox, QFileDialog, QFormLayout, QFrame, QGroupBox, QHBoxLayout, QHeaderView, QLabel,
     QLineEdit,
     QMainWindow, QMessageBox, QProgressBar, QPushButton, QRadioButton, QStyledItemDelegate, QTableWidget,
-    QTableWidgetItem, QVBoxLayout, QWidget,
+    QScrollArea, QTableWidgetItem, QToolButton, QVBoxLayout, QWidget,
 )
 
-from .. import audio, export, filerun, models, paths, scoring, varieties
+from .. import audio, export, filerun, models, paths, perf, scoring, varieties
 from .. import events as ev
 from ..audio import SAMPLE_RATE
 from ..config import Config, ConfigError, PythonConfig, save_python_selections
@@ -41,6 +41,7 @@ from ..pipeline import CONTINUOUS, SHARED, TURN, ArraySource, Collected, Options
 from .. import shared as shared_mod
 from ..translate.context import parse_glossary
 from .. import peer as peer_mod
+from . import devicetest, view
 from . import rescan as rescan_mod
 from . import session as ses
 
@@ -207,18 +208,29 @@ class MainWindow(QMainWindow):
         rescan_action.triggered.connect(self.rescan)
         view_menu.addAction(rescan_action)
 
-        self.start_button = QPushButton("Start")
+        # One large control whose label and colour are the state (P14).
+        self.start_button = QPushButton()
+        self.start_button.setMinimumSize(360, 66)
+        self.start_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.start_button.clicked.connect(self.toggle)
+        self.start_state, self.start_hint = QLabel(), QLabel()
+        inside = QVBoxLayout(self.start_button)
+        inside.setContentsMargins(16, 6, 16, 6)
+        inside.setSpacing(0)
+        for label, style in ((self.start_state, "font-size: 15pt; font-weight: bold"), (self.start_hint, "font-size: 9pt")):
+            label.setStyleSheet(f"color: white; background: transparent; {style}")
+            label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)  # a click is the button's
+            inside.addWidget(label)
+        QShortcut(QKeySequence("Ctrl+Return"), self, activated=self.toggle)
+        QShortcut(QKeySequence("Ctrl+Enter"), self, activated=self.toggle)
         self.pause_button = QPushButton("Pause")
         self.pause_button.clicked.connect(self.toggle_pause)
-        self.indicator = QLabel()
-        self.indicator.setMinimumWidth(330)
         self.meter = QProgressBar()
         self.meter.setRange(int(METER_FLOOR_DB), 0)
         self.meter.setFormat("%v dBFS")
         self.meter.setFixedWidth(180)
         top = QHBoxLayout()
-        for widget in (self.start_button, self.pause_button, self.indicator):
+        for widget in (self.start_button, self.pause_button):
             top.addWidget(widget)
         self.pair_label = QLabel()
         top.addWidget(self.pair_label)
@@ -350,26 +362,88 @@ class MainWindow(QMainWindow):
         for button in (self.style_toggle, self.style_hold):
             self.style_group.addButton(button)
         self.style_box, self.mode_box = style_box, mode_box
+        self.swap_button = QPushButton("⇄  Swap")
+        self.swap_button.setToolTip("Swap the two languages.")
+        self.swap_button.clicked.connect(self.swap_languages)
+        self.test_speakers = QPushButton("Test")
+        self.test_speakers.setToolTip("Says a short sentence in the language you translate into, through these "
+                                      "speakers.")
+        self.test_speakers.clicked.connect(self.run_speaker_test)
+        self.test_microphone = QPushButton("Test")
+        self.test_microphone.setToolTip("Records 3 seconds, plays them back, and shows what the recognizer heard.")
+        self.test_microphone.clicked.connect(self.run_microphone_test)
+        self.test_status = QLabel()  # what a test is doing, and how it ended
+        self.test_status.setWordWrap(True)
+        self.test_status.setVisible(False)
+        self._test_message: str | None = None  # set by the test's thread, shown by tick
+        self._test_running = False
+        self.fit_warning = QLabel()  # before Start: these models won't fit, or are too slow
+        self.fit_warning.setWordWrap(True)
+        self.fit_warning.setStyleSheet("color: #d08c00")
+        self.fit_warning.setVisible(False)
+        self._tooltips: dict = {}  # each control's own tooltip, for when it isn't greyed out
+        self.reason_labels: dict[str, QLabel] = {}
+
+        def reason(name: str) -> QLabel:
+            """The small line beside a control that says why it is greyed out."""
+            label = QLabel()
+            label.setWordWrap(True)
+            label.setStyleSheet("color: gray; font-size: 8pt; margin-left: 22px")
+            label.setVisible(False)
+            self.reason_labels[name] = label
+            return label
+
+        def beside(combo: QComboBox, button: QPushButton) -> QWidget:
+            box = QWidget()
+            row = QHBoxLayout(box)
+            row.setContentsMargins(0, 0, 0, 0)
+            row.addWidget(combo, 1)
+            row.addWidget(button)
+            return box
+
         form = QFormLayout()
-        form.addRow("Mode", mode_box)
         form.addRow("Spoken", self.source_lang)
+        form.addRow("", self.swap_button)
         form.addRow("Translate into", self.target_lang)
+        form.addRow(reason("languages"))
         form.addRow("Recognizer", self.recognizer)
         form.addRow("Translator", self.translator)
-        form.addRow("Microphone", self.input_device)
-        form.addRow("Speakers", self.output_device)
+        form.addRow(self.fit_warning)
+        form.addRow("Microphone", beside(self.input_device, self.test_microphone))
+        form.addRow("Speakers", beside(self.output_device, self.test_speakers))
+        form.addRow(self.test_status)
         form.addRow(self.speak)
-        form.addRow(self.half_duplex)
-        form.addRow(self.diacritize)
-        form.addRow(self.compare)
-        form.addRow(self.streaming)
-        form.addRow(self.use_context)
-        form.addRow(self.revise)
-        form.addRow(self.hold_speech)
-        form.addRow(self.hold_fragments)
-        form.addRow("Glossary", self.glossary)
-        form.addRow(self.pair)
-        form.addRow(self.peer_box)
+        form.addRow("Mode", mode_box)
+        form.addRow(reason("mode_shared"))
+
+        self.advanced_toggle = QToolButton()
+        self.advanced_toggle.setText("Advanced")
+        self.advanced_toggle.setCheckable(True)
+        self.advanced_toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.advanced_toggle.setStyleSheet("QToolButton { border: none; font-weight: bold; padding: 4px 0 }")
+        self.advanced_toggle.toggled.connect(self.advanced_toggled)
+        self.advanced_box = QWidget()
+        advanced = QFormLayout(self.advanced_box)
+        advanced.setContentsMargins(0, 0, 0, 0)
+        advanced.addRow(self.half_duplex)
+        advanced.addRow(reason("half_duplex"))
+        advanced.addRow(self.diacritize)
+        advanced.addRow(self.compare)
+        advanced.addRow(self.streaming)
+        advanced.addRow(reason("streaming"))
+        advanced.addRow(self.use_context)
+        advanced.addRow(self.revise)
+        advanced.addRow(reason("revise"))
+        advanced.addRow(self.hold_speech)
+        advanced.addRow(reason("hold_speech"))
+        advanced.addRow(self.hold_fragments)
+        advanced.addRow("Glossary", self.glossary)
+        advanced.addRow(self.pair)
+        advanced.addRow(reason("pair"))
+        advanced.addRow(self.peer_box)
+        form.addRow(self.advanced_toggle)
+        form.addRow(self.advanced_box)
+
         self.memory = QLabel()
         self.memory.setWordWrap(True)
         form.addRow(self.memory)
@@ -385,13 +459,51 @@ class MainWindow(QMainWindow):
         form.addRow(self.notice)
         settings = QGroupBox("Settings")
         settings.setLayout(form)
-        settings.setFixedWidth(400)
-        self.settings_box = settings
+        # With Advanced open the settings are taller than a laptop's screen: they scroll.
+        self.settings_box = QScrollArea()
+        self.settings_box.setWidget(settings)
+        self.settings_box.setWidgetResizable(True)
+        self.settings_box.setFrameShape(QFrame.Shape.NoFrame)
+        self.settings_box.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.settings_box.setFixedWidth(450)
+        # Every control that can be greyed out, by the name view.disabled_reasons uses.
+        self.controls = {
+            "source_lang": [self.source_lang], "target_lang": [self.target_lang], "swap": [self.swap_button],
+            "recognizer": [self.recognizer], "translator": [self.translator],
+            "input_device": [self.input_device], "output_device": [self.output_device],
+            "test_microphone": [self.test_microphone], "test_speakers": [self.test_speakers],
+            "speak": [self.speak], "half_duplex": [self.half_duplex], "diacritize": [self.diacritize],
+            "compare": [self.compare], "streaming": [self.streaming], "use_context": [self.use_context],
+            "revise": [self.revise], "hold_speech": [self.hold_speech], "hold_fragments": [self.hold_fragments],
+            "pair": [self.pair], "mode": [mode_box], "mode_shared": [self.mode_shared], "turn_style": [style_box],
+            "source_live": [self.source_live], "source_file": [self.source_file], "open_file": [self.open_button],
+            "speed": [self.realtime, self.fast, self.play_original],
+        }
+        for widgets in self.controls.values():
+            for widget in widgets:
+                self._tooltips[widget] = widget.toolTip()
+
+        # While a conversation runs the settings fold away into this bar (P14).
+        self.bar_label = QLabel()
+        self.bar_label.setStyleSheet("font-size: 11pt")
+        self.show_settings = QPushButton("Settings")
+        self.show_settings.setCheckable(True)
+        self.show_settings.setToolTip("Show the settings again. Most can't be changed until you stop.")
+        self.show_settings.toggled.connect(lambda _on: self.refresh())
+        self.smaller, self.larger = QPushButton("A−"), QPushButton("A+")
+        for button, up, tip in ((self.smaller, False, "Smaller text"), (self.larger, True, "Larger text")):
+            button.setFixedWidth(40)
+            button.setToolTip(tip)
+            button.clicked.connect(lambda _checked=False, up=up: self.change_text_size(up))
+        self.bar = QWidget()
+        bar_row = QHBoxLayout(self.bar)
+        bar_row.setContentsMargins(0, 0, 0, 0)
+        bar_row.addWidget(self.bar_label, 1)
+        bar_row.addWidget(self.show_settings)
+        bar_row.addWidget(QLabel("Text size"))
+        bar_row.addWidget(self.smaller)
+        bar_row.addWidget(self.larger)
         # The mode, unlike every other setting, can change while running.
-        self.locked_while_running = [self.source_lang, self.target_lang, self.recognizer, self.translator,
-                                     self.input_device, self.output_device, self.speak, self.half_duplex,
-                                     self.compare, self.streaming, self.use_context, self.revise,
-                                     self.hold_speech, self.hold_fragments, self.pair, self.diacritize]
         for widget in (self.streaming, self.use_context, self.revise, self.hold_speech, self.hold_fragments,
                        self.diacritize):
             widget.toggled.connect(self.save)
@@ -408,6 +520,9 @@ class MainWindow(QMainWindow):
         self.target_lang.currentIndexChanged.connect(self.save)
         for widget in (self.recognizer, self.translator, self.input_device, self.output_device):
             widget.currentIndexChanged.connect(self.save)
+        for widget in (self.recognizer, self.translator):
+            widget.currentIndexChanged.connect(
+                lambda _i: None if getattr(self, "_filling", True) else self.update_fit_warning())
         for widget in (self.speak, self.half_duplex):
             widget.toggled.connect(self.save)
 
@@ -437,8 +552,9 @@ class MainWindow(QMainWindow):
             label.setSizePolicy(label.sizePolicy().horizontalPolicy(), label.sizePolicy().Policy.Fixed)
 
         body = QHBoxLayout()
-        body.addWidget(settings)
+        body.addWidget(self.settings_box)
         right = QVBoxLayout()
+        right.addWidget(self.bar)
         right.addWidget(self.shared_view)
         right.addWidget(self.headsets)
         right.addWidget(self.table, 1)
@@ -511,7 +627,9 @@ class MainWindow(QMainWindow):
                 combo.clear()
                 combo.addItem(first, "")
                 for r in ranked:
-                    combo.addItem(f"{r.engine.name}  ({r.fit.label(tag)})", r.engine.dir_name)
+                    label = r.fit.label(tag)
+                    combo.addItem(view.plain_name(r.engine.named, r.engine.name, r.engine.dir_name)
+                                  + (f"  ({label})" if label.startswith("tuned") else ""), r.engine.dir_name)
                 if chosen and combo.findData(chosen) < 0:
                     combo.addItem(f"{chosen}  (not usable for this language)", chosen)
                 _select(combo, chosen)
@@ -584,6 +702,124 @@ class MainWindow(QMainWindow):
             log.info("shared machine: %s key; starting the %s turn", which, which)
             self.pipeline.begin_shared_turn(resolved.direction)
 
+    # -------------------------------------------------------------- P14: the window for everyone
+
+    def situation(self) -> view.Situation:
+        """What decides which controls can be used now."""
+        file_mode = self.source_file.isChecked()
+        return view.Situation(
+            running=self.running(), file_mode=file_mode, shared=self.config.mode.kind == SHARED,
+            turn_mode=self.mode_turn.isChecked(), pair=self.pair.isChecked(), context=self.use_context.isChecked(),
+            revise=self.revise.isChecked(), speak=self.speak.isChecked())
+
+    def advanced_toggled(self, opened: bool) -> None:
+        self.advanced_box.setVisible(opened)
+        self.advanced_toggle.setArrowType(Qt.ArrowType.DownArrow if opened else Qt.ArrowType.RightArrow)
+        self.save()
+
+    def swap_languages(self) -> None:
+        """Spoken and Translate into change places, in one click."""
+        source, target = self.source_lang.currentData(), self.target_lang.currentData()
+        self._filling = True
+        _select(self.source_lang, target)
+        _select(self.target_lang, source)
+        self.config.languages.source, self.config.languages.target = target, source
+        self._fill_recognizers()  # ranked for the language now spoken
+        self._filling = False
+        self.save()
+        self.update_fit_warning()
+        self.refresh()
+
+    def apply_text_size(self) -> None:
+        font = self.table.font()
+        font.setPointSize(self.pyconfig.window.text_size)
+        self.table.setFont(font)
+        self.table.resizeRowsToContents()
+        size = self.pyconfig.window.text_size
+        self.smaller.setEnabled(view.text_size_step(size, False) != size)
+        self.larger.setEnabled(view.text_size_step(size, True) != size)
+
+    def change_text_size(self, up: bool) -> None:
+        self.pyconfig.window.text_size = view.text_size_step(self.pyconfig.window.text_size, up)
+        self.apply_text_size()
+        self.save()
+
+    def _bar_text(self, shared: bool) -> str:
+        sides = tuple(varieties.display_name(shared_mod.language(side, self.config.shared))
+                      for side in shared_mod.SIDES)
+        return view.conversation_bar(self.source_lang.currentText(), self.target_lang.currentText(),
+                                     self.recognizer.currentText(), self.translator.currentText(), shared, sides)
+
+    def _chosen_engine(self):
+        return next((e for e in self.engines if e.dir_name == self.recognizer.currentData()), None)
+
+    def update_fit_warning(self) -> None:
+        """Before Start: say so when the chosen recognizer and translator
+        likely won't fit in memory, or were too slow here for a conversation.
+        Worked out from files and from what was measured; nothing is loaded."""
+        try:
+            panel = self.perf_panel
+            estimates = []
+            if self.config.mode.kind == SHARED and not self.source_file.isChecked():
+                chosen = {shared_mod.asr(side, self.config.shared) for side in shared_mod.SIDES}
+                engines = [e for e in self.engines if e.dir_name in chosen] or [self._chosen_engine()]
+            else:
+                engines = [self._chosen_engine()]
+            for engine in engines:
+                if engine is not None and engine.enabled():
+                    estimates.append(perf.estimate_recognizer(engine, panel.measured, panel.gpu))
+            entry = next((t for t in self.translators if t.id == self.translator.currentData()), None)
+            if entry is not None and entry.enabled() and not self.compare.isChecked():
+                estimates.append(perf.estimate_translator(entry, panel.measured, panel.gpu))
+            sample = panel.sampler.latest() or panel.sampler.sample()
+            ours = sum(e.gpu_bytes for e in panel.loaded.values())
+            speed = panel.measured.speed(self.recognizer.currentData() or "", self.translator.currentData() or "")
+            warning = view.fit_warning(perf.verdict(estimates, sample, ours, sample.ram_ours), speed)
+        except Exception as e:  # a warning must never stop the window opening
+            log.debug("no fit warning: %s", e)
+            warning = view.Warning("", "")
+        self.fit_warning.setText(warning.text)
+        self.fit_warning.setToolTip(warning.detail)
+        self.fit_warning.setVisible(bool(warning.text))
+        for combo in (self.recognizer, self.translator):
+            combo.setToolTip(combo.itemData(combo.currentIndex(), Qt.ItemDataRole.ToolTipRole) or "")
+
+    def _run_test(self, work) -> None:
+        """A device test, on its own thread; what it says is shown by tick."""
+        if self._test_running or self.running():
+            return
+        self._test_running = True
+        self.test_status.setVisible(True)
+
+        def say(text: str) -> None:
+            self._test_message, self._redraw = text, True
+
+        def run() -> None:
+            try:
+                work(say)
+            except Exception as e:
+                say(f"The test failed: {e}")
+            finally:
+                self._test_running, self._redraw = False, True
+
+        threading.Thread(target=run, name="volis-device-test", daemon=True).start()
+        self.refresh()
+
+    def run_speaker_test(self) -> None:
+        language, device = self.target_lang.currentData(), self.output_device.currentData() or ""
+        voices = list(self.voices)
+        self._run_test(lambda say: devicetest.speakers(voices, language, device, say))
+
+    def run_microphone_test(self) -> None:
+        engine, language = self._chosen_engine(), self.source_lang.currentData()
+        mic, out = self.input_device.currentData() or "", self.output_device.currentData() or ""
+
+        def level(db: float, left: float) -> None:
+            self.session.level_db, self._redraw = db, True
+            self._test_message = f"Recording: say something now... {left:.0f} s left"
+
+        self._run_test(lambda say: devicetest.microphone(engine, language, mic, out, say, level))
+
     # -------------------------------------------------------------- settings
 
     def rediscover(self) -> None:
@@ -605,10 +841,14 @@ class MainWindow(QMainWindow):
         self.hold_speech.setChecked(self.pyconfig.context.hold_speech)
         self.diacritize.setChecked(self.pyconfig.tts.diacritize)
         self.hold_fragments.setChecked(self.pyconfig.fragments.hold)
+        self.advanced_toggle.setChecked(self.pyconfig.window.advanced_open)
+        self.advanced_toggled(self.pyconfig.window.advanced_open)
+        self.apply_text_size()
         {CONTINUOUS: self.mode_continuous, SHARED: self.mode_shared}.get(self.config.mode.kind,
                                                                          self.mode_turn).setChecked(True)
         (self.style_hold if self.config.mode.turn_style == "hold" else self.style_toggle).setChecked(True)
         self._filling = False
+        self.update_fit_warning()
 
     def _discover(self) -> None:
         """What is in models\\ and which audio devices exist, now. Folders that
@@ -639,11 +879,13 @@ class MainWindow(QMainWindow):
         self._fill_recognizers()
         self.translator.clear()
         for t in self.translators:
-            label = t.name if t.enabled() else f"{t.name} (unusable)"
-            self.translator.addItem(f"{label}  [{t.id}]", t.id)
-            if not t.enabled():
-                self.translator.setItemData(self.translator.count() - 1, t.unusable or ", ".join(t.missing),
-                                            Qt.ItemDataRole.ToolTipRole)
+            name = view.plain_name(t.named, t.name, t.id)
+            self.translator.addItem(name if t.enabled() else f"{name}  (can't be used)", t.id)
+            self.translator.setItemData(self.translator.count() - 1, view.details([
+                ("Can't be used", "" if t.enabled() else (t.unusable or "missing: " + ", ".join(t.missing))),
+                ("File", t.id), ("Family", t.architecture), ("Compression", view.quantization(t.path.name)),
+                ("Size", view.size_text(t.size_bytes) if t.size_bytes else ""), ("Runs with", t.backend)]),
+                Qt.ItemDataRole.ToolTipRole)
         for failed in self.broken_translators:
             self._add_broken(self.translator, failed)
         top = next((t.id for t in self.translators if t.top_level), "")
@@ -701,6 +943,7 @@ class MainWindow(QMainWindow):
         self.notice.setVisible(True)
         log.info("rescan: %s", "; ".join(lines) if lines else "nothing has changed")
         self.save()
+        self.update_fit_warning()
         self.refresh()
 
     def _fill_recognizers(self) -> None:
@@ -710,12 +953,21 @@ class MainWindow(QMainWindow):
         self.recognizer.clear()
         ranked = models.rank(tag, self.engines)
         for r in ranked:
-            self.recognizer.addItem(f"{r.engine.name}  ({r.fit.label(tag)}, {r.engine.backend})", r.engine.dir_name)
+            e = r.engine
+            label = r.fit.label(tag)
+            self.recognizer.addItem(view.plain_name(e.named, e.name, e.dir_name)
+                                    + (f"  ({label})" if label.startswith("tuned") else ""), e.dir_name)
+            self.recognizer.setItemData(self.recognizer.count() - 1, view.details([
+                ("Folder", e.dir_name), ("Fit", label), ("Runs with", e.backend),
+                ("Languages", ", ".join(e.languages) if e.languages_known else "not stated"),
+                ("Size", view.size_text(sum(f.path.stat().st_size for f in e.files if f.present))),
+                ("Details", e.detail)]), Qt.ItemDataRole.ToolTipRole)
         listed = {r.engine.dir_name for r in ranked}
         for engine in self.engines:
             if engine.dir_name not in listed and not engine.enabled():
                 why = engine.unusable or "missing: " + ", ".join(engine.missing_files())
-                self.recognizer.addItem(f"{engine.name}  (unusable)", engine.dir_name)
+                self.recognizer.addItem(f"{view.plain_name(engine.named, engine.name, engine.dir_name)}  "
+                                        "(can't be used)", engine.dir_name)
                 index = self.recognizer.count() - 1
                 self.recognizer.setItemData(index, why, Qt.ItemDataRole.ToolTipRole)
                 self.recognizer.model().item(index).setEnabled(False)
@@ -861,6 +1113,7 @@ class MainWindow(QMainWindow):
         self.pyconfig.context.mode = self.context_mode()
         self.pyconfig.context.hold_speech = self.hold_speech.isChecked()
         self.pyconfig.tts.diacritize = self.diacritize.isChecked()
+        self.pyconfig.window.advanced_open = self.advanced_toggle.isChecked()
         self.pyconfig.fragments.hold = self.hold_fragments.isChecked()
         try:
             c.save_selections(paths.config_file(self.root))
@@ -946,6 +1199,9 @@ class MainWindow(QMainWindow):
             self.perf_panel.observe(event)
             if isinstance(event, ev.Stopped):
                 self._finished()
+        if self._test_message is not None:
+            self.test_status.setText(self._test_message)
+            self._test_message = None
         if changed or self._redraw:
             self._redraw = False
             self.refresh()
@@ -1054,43 +1310,48 @@ class MainWindow(QMainWindow):
     def refresh(self) -> None:
         s = self.session
         running, file_mode = self.running(), self.source_file.isChecked()
-        self.start_button.setText("Stop" if running else "Start")
+        control = view.start_control(s, self.config.mode.turn_key, self.config.mode.turn_style == "hold",
+                                     self.paused, file_mode)
+        self.start_state.setText(control.label)
+        self.start_hint.setText(control.hint)
+        self.start_button.setStyleSheet(
+            f"QPushButton {{ background: {control.colour}; border-radius: 8px; border: none; }} "
+            f"QPushButton:hover {{ border: 2px solid white; }}")
+        self.start_button.setToolTip(f"{control.label}. {control.hint}")
         self.pause_button.setVisible(file_mode)
         self.pause_button.setEnabled(running and self.source is not None)
         self.pause_button.setText("Resume" if self.paused else "Pause")
-        for widget in self.locked_while_running:
-            widget.setEnabled(not running)
-        # Revision builds on context, and is off while paired: what the other
-        # PC has shown and spoken can't be taken back.
+        shared = self.config.mode.kind == SHARED and not file_mode
         pairing = self.pairing()
-        self.revise.setEnabled(not running and self.use_context.isChecked() and not pairing)
         self.revise.setText("Revise earlier translations when what follows changes them"
                             + (" (off while paired)" if pairing else ""))
-        # Holding speech only means something with revision and the voice both on.
-        self.hold_speech.setEnabled(not running and not pairing and self.context_mode() == "revision"
-                                    and self.speak.isChecked())
-        # Shared mode is one machine for two people; paired mode is two machines.
-        shared = self.config.mode.kind == SHARED and not file_mode
-        self.pair.setEnabled(not running and not file_mode and not shared)
-        self.pair.setToolTip("Not in Shared machine mode: choose another mode first." if shared else
-                             "Two PCs, one conversation. Each translates what its own person says and sends only "
-                             "the text; the other PC shows it and speaks it. Works with volis-rust too.")
-        self.mode_shared.setEnabled(not self.pair.isChecked())
-        self.mode_shared.setToolTip('Not while paired: untick "Pair with another PC" first.' if self.pair.isChecked()
-                                    else "Two people who speak different languages use this one PC, a key each.")
-        if shared:  # each side has its own language and recognizer
-            for widget in (self.source_lang, self.target_lang, self.streaming):
-                widget.setEnabled(False)
+        # Every control that can't be used says why: as its tooltip, and in
+        # small text beside it (not while running: then the settings are folded
+        # away and each would say the same thing).
+        why = view.disabled_reasons(self.situation())
+        if self._test_running:
+            for name in ("test_speakers", "test_microphone"):
+                why.setdefault(name, "A test is running.")
+        for name, widgets in self.controls.items():
+            for widget in widgets:
+                widget.setEnabled(name not in why)
+                widget.setToolTip(why.get(name) or self._tooltips.get(widget, ""))
+        beside = {name: why.get(name, "") for name in self.reason_labels} | {"languages": why.get("source_lang", "")}
+        for name, label in self.reason_labels.items():
+            text = beside.get(name, "")
+            label.setText(text)
+            label.setVisible(bool(text) and text != view.RUNNING)
+        self.swap_button.setVisible(not shared)
+        # While running, the settings fold away and the transcript takes the space.
+        self.settings_box.setVisible(not running or self.show_settings.isChecked())
+        self.show_settings.setVisible(running)
+        if not running and self.show_settings.isChecked():
+            self.show_settings.setChecked(False)
+        self.bar_label.setText(self._bar_text(shared) if running else "")
         self._draw_peer(running)
         self._draw_shared(shared)
-        self.mode_box.setEnabled(not file_mode)
-        self.style_box.setEnabled(self.mode_turn.isChecked())
-        for widget in (self.open_button, self.realtime, self.fast, self.play_original, self.source_live, self.source_file):
-            widget.setEnabled(not running)
         for widget in (self.realtime, self.fast, self.play_original, self.export_button, self.open_button, self.progress):
             widget.setVisible(file_mode)
-        self.input_device.setEnabled(not file_mode and not running)
-        self.half_duplex.setEnabled(not file_mode and not running)
         self.file_label.setVisible(file_mode)
         if self.file_path is not None:
             seconds = len(self.file_audio) / SAMPLE_RATE if self.file_audio is not None else 0
@@ -1098,11 +1359,6 @@ class MainWindow(QMainWindow):
             self.file_label.setToolTip(str(self.file_path))
             self.file_label.setStyleSheet("")
 
-        text, colour = ses.indicator(s, self.config.mode.turn_key, self.config.mode.turn_style == "hold",
-                                     self.paused, file_mode)
-        self.indicator.setText(text)
-        self.indicator.setStyleSheet(f"font-weight: bold; font-size: 15pt; padding: 6px 14px; "
-                                     f"border-radius: 6px; background: {colour}; color: white")
         self.meter.setVisible(not file_mode)
         self.meter.setValue(int(max(METER_FLOOR_DB, s.level_db)) if s.level_db is not None else int(METER_FLOOR_DB))
 
