@@ -272,21 +272,25 @@ Eight milestones for non-technical users. Built in order; stop after each.
     column (and `typed.Result.note`). The translator list's tooltip says what these models
     can't do (`view.translator_limits`).
   - `fetch_models.py` has both models (group `tested`), without MADLAD's `.gguf` files.
-  - **Still to do, in this order:**
-    1. Download (needs the user's OK): `.\fetch-models.ps1 -Group tested` entries
-       `google/madlad400-3b-mt` (11.8 GB) and `facebook/nllb-200-distilled-1.3B` (5.5 GB,
-       `pytorch_model.bin` only: confirm transformers loads it offline).
-    2. Run `tests/test_seq2seq.py` (its last test uses the real models) and verify on the real
-       tokenizers: every code in the two tables, MADLAD in float16 (T5 can overflow in half
-       precision: if the output is empty or garbage, default it to float32 or bfloat16), and
-       whether 5.9 GB + beams fits the 8 GB card.
-    3. The check: both models on the Persian and Arabic fixtures, from text
-       (`--translate ... --compare-mt`) and from a file; chrF into `MODELS.md` beside the Gemma
-       rows, Persian clean-up on. `scripts/p16_check.py --mt <id>` already gives fa>en.
-    4. CTranslate2: not yet tried. Verify `ctranslate2` installs with `uv` and runs in-process;
-       add the second path (folders with `model.bin`) or report why not.
-    5. Not yet done in the window: a translator that lacks the chosen language is refused when
-       it translates, not greyed out beforehand. README has no P17 text yet (add once measured).
+  - A live conversation turns context and revision off for these (`uses_context = False`).
+  - **NLLB-200 distilled 1.3B: downloaded, verified, measured.** `pytorch_model.bin` loads
+    offline; float16 on the GPU, about 3.5 s to load; all
+    202 codes read, and every entry of the `NLLB` table is in its tokenizer. `mt_bench.py`:
+    es>en 61.6, ar>en 68.6, fa>en **70.2** (the best measured; Gemma 4 12B 67.5), en>es 61.6,
+    mean 65.5, obey 23/24, 687 ms a sentence. `p16_check.py`: Persian clean-up changes nothing
+    for it (+0.0 on four transcripts, -0.2 on Qwen3-ASR's). Checked from text
+    (`--compare-mt` beside Gemma 3 4B), with an Iraqi target (`acm_Arab` forced), and from a
+    Persian file (`--file`, Whisper turbo: 2 sentences, median 694 ms).
+  - **Still open:**
+    1. **MADLAD is not measured.** The user's `models\mt\madlad400-3b-mt` holds only
+       `model-q4k.gguf`, which is the candle project's format (raw T5 tensors, no llama.cpp
+       metadata): volis lists it as unusable. The seq2seq backend needs the repository's
+       `model.safetensors` (11.8 GB): ask before downloading. Then verify the `MADLAD` table
+       against its tokenizer and float16 (T5 can overflow in half precision).
+    2. **CTranslate2 not built.** `ctranslate2` 4.8.2 resolves for this environment (dry run
+       only; not installed). Building the second path needs the package and a converted model.
+    3. A translator that lacks the chosen language is refused when it translates, not greyed
+       out beforehand. `--translate` prints "prompt default" for a model with no prompt.
 
 ### Later (noted in `volis-next-features.md`, deliberately not in this round)
 

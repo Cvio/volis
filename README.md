@@ -261,6 +261,20 @@ slightly wrong can throw a translator off:
 The conversation shows the tidied text. Hold the mouse over a sentence to see it exactly as it
 was heard. This is on by default; [SETTINGS.md](SETTINGS.md) says how to turn it off.
 
+### Translators that only translate
+
+Most translators Volis uses are chat models that are asked to translate. Some models do nothing
+but translate (NLLB-200 is one), and for some languages they do it better: in our tests
+NLLB-200 gave the best Persian. Pick one in the Translator list like any other. Two things are
+different:
+
+- Each sentence is translated on its own. Earlier sentences, your list of names and terms, and
+  dialect wording are not used.
+- If the model has no entry for a regional variety, it translates as the plain language and
+  says so beside the sentence.
+
+[MODELS.md](MODELS.md) says how to get one, and which licence each has.
+
 ### See what it costs your computer
 
 **View > Performance** (Ctrl+Shift+P) opens a panel showing how much of the graphics card,

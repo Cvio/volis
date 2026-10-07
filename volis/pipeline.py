@@ -1214,6 +1214,10 @@ class TranslationThread:
             # the other PC has shown and spoken can't be taken back.
             log.info("revision is off while paired")
             mode = "carry"
+        if mode != "off" and not getattr(translator, "uses_context", True):
+            # A dedicated translation model (seq2seq) takes no earlier sentences and can't be asked to revise.
+            log.info("context is off: %s translates each sentence on its own", getattr(translator, "name", "this translator"))
+            mode = "off"
         # Carry-forward: each sentence is translated knowing what came before.
         self.history = ctx.History(py.sentences if mode in ("carry", "revision") else 0, py.token_budget)
         # Revision: and the last few are translated again once a new one arrives.

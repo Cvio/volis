@@ -134,8 +134,12 @@ def main() -> int:
         try:
             times: list[float] = []
             scores = quality(translator, pyconfig.context, times)
-            alone, with_context = obedience(translator)
-            at_once, after, worse = dialogue_results(translator, pyconfig.context)
+            alone, _ = obedience(translator)
+            if getattr(translator, "uses_context", True):
+                _, with_context = obedience(translator)
+                at_once, after, worse = dialogue_results(translator, pyconfig.context)
+            else:  # a dedicated translation model: no context, no revision to measure
+                with_context, at_once, after, worse = alone, 0, 0, 0
             rows.append((entry, translator.device, scores, alone, with_context, at_once, after, worse,
                          statistics.median(times) * 1000 if times else 0))
         finally:

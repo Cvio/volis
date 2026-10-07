@@ -265,6 +265,7 @@ character error rate; translation is chrF into English from the clips' correct t
 
 | Translator | Persian > English chrF |
 |---|---|
+| NLLB-200 1.3B | **70.2** |
 | Gemma 4 12B | 67.5 |
 | Gemma 3 12B | 66.8 |
 | Gemma 4 E4B | 65.3 |
@@ -291,6 +292,7 @@ GGUF files on the graphics card.
 | Gemma 3 12B | bigger | 7.3 GB | 63.1 | 70.3 | **66.9** | 60.5 | 65.2 | 24 / 24 | 9313 * | |
 | TranslateGemma 12B | bigger | 7.3 GB | 62.3 | 68.4 | 64.9 | 61.2 | 64.2 | 24 / 24 | 8040 * | |
 | Qwen3 8B | tested | 5.0 GB | 64.3 | 67.3 | 62.3 | 59.9 | 63.4 | 24 / 23 | 867 | No better than the 4B models and slower. |
+| NLLB-200 1.3B | tested | 5.5 GB | 61.6 | 68.6 | **70.2** | 61.6 | 65.5 | 23 / n/a | 687 | Made only to translate, not a chat model: no earlier sentences, no glossary, no dialect wording. The best Persian measured, and it fits 8 GB. **Non-commercial licence.** |
 | Qwen3 0.6B (safetensors) | tested | 1.5 GB | 58.8 on the Spanish file | | | | | | 1974 | Through transformers, not llama.cpp: proves that backend. Five times slower a sentence than a GGUF of a larger model. |
 
 \* didn't fit the laptop's 8 GB card and spilled into ordinary memory. These times say nothing

@@ -154,6 +154,10 @@ def languages(family: str, codes: frozenset[str]) -> list[str]:
 
 class Seq2SeqTranslator:
     prompt_file = None  # there is no prompt
+    uses_context = False  # the pipeline turns carry-forward context and revision off
+
+    def count_tokens(self, text: str) -> int:
+        return len(self._tokenizer.encode(text, add_special_tokens=False))
 
     def __init__(self, entry: TranslatorEntry, device: str = "auto") -> None:
         import torch
