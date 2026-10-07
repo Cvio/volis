@@ -318,17 +318,31 @@ def _ctc_types() -> set[str]:
 
 def _whisper_words(tokenizer, sequence, stamps) -> list[Word]:
     """Group Whisper's per-token times into words: a token starting with a
-    space (or the first text token) starts a new word."""
+    space (or the first text token) starts a new word.
+
+    Whisper's tokens are pieces of bytes, not of letters: one letter outside
+    Latin script (a Persian letter, the half-space) can be split over two
+    tokens, and either half decoded alone is U+FFFD, the "unknown character"
+    diamond. So tokens are held back until what they decode to is whole."""
     words: list[Word] = []
     special = set(tokenizer.all_special_ids)
+    first_time = tokenizer.convert_tokens_to_ids("<|0.00|>")
+    held: list[int] = []
+    began = 0.0
     for token, stamp in zip(sequence.tolist(), stamps.tolist()):
-        if token in special or token >= tokenizer.convert_tokens_to_ids("<|0.00|>"):
+        if token in special or token >= first_time:
             continue
-        piece = tokenizer.decode([token])
+        if not held:
+            began = float(stamp)
+        held.append(token)
+        piece = tokenizer.decode(held)
+        if "�" in piece:
+            continue  # half a letter: wait for the rest
+        held = []
         if not piece:
             continue
         if piece.startswith(" ") or not words:
-            words.append(Word(piece.strip(), float(stamp), float(stamp)))
+            words.append(Word(piece.strip(), began, float(stamp)))
         else:
             words[-1].text += piece
             words[-1].end = float(stamp)
