@@ -51,6 +51,16 @@ def details(rows: list[tuple[str, str]]) -> str:
     return "\n".join(f"{label}: {value}" for label, value in rows if value)
 
 
+def translator_limits(backend: str) -> str:
+    """What a dedicated translation model can't do, in plain words; "" for a
+    chat model, which can do all of it."""
+    if backend != "seq2seq":
+        return ""
+    from ..translate.seq2seq import LIMITS
+
+    return LIMITS
+
+
 def quantization(file_name: str) -> str:
     found = re.search(r"(?i)(?:^|[-_.])(i?q\d(?:_[0-9a-z]+)*|int8|f16|fp16|bf16|f32)(?=$|[-_.])", file_name)
     return found.group(1).upper() if found else ""

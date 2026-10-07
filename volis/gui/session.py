@@ -52,6 +52,7 @@ class Row:
     approximate: bool = False  # times shared out by length
     typed: bool = False  # typed or pasted in, not heard (P15)
     original: str = ""  # the text before a clean-up step changed it (P16)
+    note: str = ""  # from the translator: a variety it translated as its base language (P17)
     held: bool = False  # a fragment waiting to be joined to what follows
     sent_to: str | None = None  # paired: the PC its translation reached
     side: str = ""  # shared machine: whose words these are ("left" or "right")
@@ -296,7 +297,7 @@ class Session:
         elif isinstance(event, ev.Translated):
             if (row := self.row(event.id)) is not None:
                 row.target, row.target_lang, row.translate_ms = event.text, event.lang, event.translate_ms
-                row.problem = None
+                row.problem, row.note = None, event.note
         elif isinstance(event, ev.NotTranslated):
             if (row := self.row(event.id)) is not None:
                 row.problem = event.reason

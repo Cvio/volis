@@ -246,6 +246,7 @@ class Translated(Event):
     device: str  # "cpu" or "cuda"
     model: str
     context_turns: int = 0  # earlier sentences sent with it (carry-forward context)
+    note: str = ""  # "translated as Arabic: this model has no Iraqi Arabic" (a seq2seq translator)
 
 
 @dataclass

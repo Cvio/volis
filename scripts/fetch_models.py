@@ -104,6 +104,8 @@ PLAIN_NAMES = {
     "mt/gemma-3-12b-it-GGUF": "Gemma 3 12B — needs a 16 GB card",
     "mt/translategemma-12b-it-GGUF": "TranslateGemma 12B — needs a 16 GB card",
     "mt/Qwen3-8B-GGUF": "Qwen3 8B",
+    "mt/madlad400-3b-mt": "MADLAD-400 3B — translation only, 400 languages",
+    "mt/nllb-200-distilled-1.3B": "NLLB-200 1.3B — translation only, 200 languages (non-commercial licence)",
     "mt/Qwen3-0.6B": "Qwen3 0.6B — slow; for testing",
 }
 
@@ -180,6 +182,16 @@ LIST = [
           repo="unsloth/gemma-4-E4B-it-GGUF", include=("gemma-4-E4B-it-Q4_K_M.gguf",)),
     Model("mt", "translategemma-4b-it-GGUF", "use", "TranslateGemma 4B Q4_K_M",
           repo="mradermacher/translategemma-4b-it-GGUF", include=("*.Q4_K_M.gguf",)),
+    # Dedicated translation models (seq2seq, through transformers). MADLAD's repository also holds
+    # .gguf files volis can't run (llama.cpp has no chat format for T5); they are not fetched.
+    Model("mt", "madlad400-3b-mt", "tested", "MADLAD-400 3B (11.8 GB; Apache 2.0)",
+          repo="google/madlad400-3b-mt",
+          include=("config.json", "generation_config.json", "model.safetensors", "spiece.model", "tokenizer.json",
+                   "tokenizer_config.json", "special_tokens_map.json", "added_tokens.json")),
+    Model("mt", "nllb-200-distilled-1.3B", "tested", "NLLB-200 distilled 1.3B (5.5 GB; CC-BY-NC 4.0: non-commercial use only)",
+          repo="facebook/nllb-200-distilled-1.3B",
+          include=("config.json", "generation_config.json", "pytorch_model.bin", "sentencepiece.bpe.model",
+                   "tokenizer.json", "tokenizer_config.json", "special_tokens_map.json")),
     Model("mt", "gemma-4-12b-it-GGUF", "bigger", "Gemma 4 12B Q4_K_M (best Arabic measured; needs more than 8 GB of GPU memory)",
           repo="unsloth/gemma-4-12b-it-GGUF", include=("gemma-4-12b-it-Q4_K_M.gguf",)),
     # Model("mt", "gemma-3-12b-it-GGUF", "bigger", "Gemma 3 12B Q4_K_M (needs more than 8 GB of GPU memory)",

@@ -111,6 +111,19 @@ format, which is stored in the file. Search Hugging Face for the model's name wi
 - **Languages.** A general chat model translates the languages it knows well. For a less
   common language, try a sentence before you trust it.
 
+**Models made only to translate** (MADLAD-400, NLLB-200, OPUS-MT) work too, as they are
+published: a folder with `config.json`, not a GGUF. They are not chat models: you give them
+text and a language, and they give back the translation.
+
+- They know which languages they have. Volis reads the list from the model and refuses a
+  language it lacks, by name. Where a model has no entry for a regional variety (Iraqi Arabic,
+  say), it translates as the plain language and says so beside the sentence.
+- They translate each sentence on its own: they can't use earlier sentences, a glossary, or a
+  dialect instruction.
+- OPUS-MT models translate one pair each, one way. Keep the folder's published name
+  (`opus-mt-fa-en`): that is how Volis knows the pair.
+- **NLLB-200's licence (CC-BY-NC 4.0) allows non-commercial use only.** MADLAD-400 is Apache 2.0.
+
 ### A voice
 
 Volis speaks with [Piper](https://github.com/rhasspy/piper) voices. Each speaks one language,

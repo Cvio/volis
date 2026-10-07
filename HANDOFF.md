@@ -259,6 +259,34 @@ Eight milestones for non-technical users. Built in order; stop after each.
   - **Also learned, the first Persian figures here:** recognition CER is 4.2% (MMS), 4.5%
     (Gemma 4 E4B), 6.6% (Whisper turbo), 20.5% (Qwen3-ASR 0.6B); and on correct text the
     translators score 61.5 to 67.5, Gemma 4 12B highest. `MODELS.md` has them.
+- **P17 in progress: seq2seq translators (MADLAD, NLLB, Marian).** *Built and tested without a
+  model* (`tests/test_seq2seq.py`, stand-in model):
+  - `volis/translate/seq2seq.py`: backend `seq2seq` (`AutoModelForSeq2SeqLM`, 4 beams), the
+    `NLLB` and `MADLAD` code tables, `code_for` (variety, then language, then ISO 639-3; a
+    variety the model lacks falls back with a note), `codes_from_vocab` (the check against the
+    loaded tokenizer) and `codes_in` (the same from `tokenizer.json`, for the model list).
+  - `models.py`: `_text_seq2seq_family`, `_seq2seq_translator`; `Translator.languages`.
+    `--report` prints the family and the languages.
+  - `translate_checked(..., prompted=False)` skips only the "recited" guard.
+  - The fallback note travels `TranslationResult.note` -> `Translated.note` -> the row's notes
+    column (and `typed.Result.note`). The translator list's tooltip says what these models
+    can't do (`view.translator_limits`).
+  - `fetch_models.py` has both models (group `tested`), without MADLAD's `.gguf` files.
+  - **Still to do, in this order:**
+    1. Download (needs the user's OK): `.\fetch-models.ps1 -Group tested` entries
+       `google/madlad400-3b-mt` (11.8 GB) and `facebook/nllb-200-distilled-1.3B` (5.5 GB,
+       `pytorch_model.bin` only: confirm transformers loads it offline).
+    2. Run `tests/test_seq2seq.py` (its last test uses the real models) and verify on the real
+       tokenizers: every code in the two tables, MADLAD in float16 (T5 can overflow in half
+       precision: if the output is empty or garbage, default it to float32 or bfloat16), and
+       whether 5.9 GB + beams fits the 8 GB card.
+    3. The check: both models on the Persian and Arabic fixtures, from text
+       (`--translate ... --compare-mt`) and from a file; chrF into `MODELS.md` beside the Gemma
+       rows, Persian clean-up on. `scripts/p16_check.py --mt <id>` already gives fa>en.
+    4. CTranslate2: not yet tried. Verify `ctranslate2` installs with `uv` and runs in-process;
+       add the second path (folders with `model.bin`) or report why not.
+    5. Not yet done in the window: a translator that lacks the chosen language is refused when
+       it translates, not greyed out beforehand. README has no P17 text yet (add once measured).
 
 ### Later (noted in `volis-next-features.md`, deliberately not in this round)
 

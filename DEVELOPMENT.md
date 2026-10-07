@@ -117,6 +117,15 @@ Two recognizers on the development machine are not downloadable:
 [model-converter](../model-converter/README.md) for volis-rust. Volis runs the originals
 instead, which score better.
 
+## Translators that only translate (seq2seq)
+
+`volis\translate\seq2seq.py` runs MADLAD-400 (`t5`), NLLB-200 (`m2m_100`) and Marian models
+through `AutoModelForSeq2SeqLM`, with beam search (4). `models.py` recognizes them by
+`model_type` and never takes a speech model for one. The language-code tables are in the
+module; every code is checked against the loaded tokenizer's vocabulary, and the model list
+reads the codes from `tokenizer.json` without loading anything. Half precision on the GPU when
+the model fits, otherwise the CPU.
+
 ## The Persian clean-up
 
 `volis\persian.py` runs between recognition and translation when the source language is

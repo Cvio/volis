@@ -648,7 +648,7 @@ class Translator:
     id: str  # "qwen3-1.7b-q4_k_m.gguf" at the top level, "folder/file.gguf" in a folder
     path: Path  # the .gguf, or the folder for a transformers model
     name: str
-    backend: str  # "llamacpp" | "transformers"
+    backend: str  # "llamacpp" | "transformers" | "seq2seq"
     top_level: bool  # True: the file volis-rust uses
     architecture: str = ""
     has_chat_template: bool = False
@@ -660,6 +660,8 @@ class Translator:
     lora: Path | None = None
     lora_scale: float = 1.0
     settings: dict[str, Any] = field(default_factory=dict)  # device, dtype from the folder's volis-python.toml
+    # A dedicated translation model (seq2seq) says which languages it has; a chat model doesn't.
+    languages: list[str] = field(default_factory=list)
 
     def enabled(self) -> bool:
         return not self.missing and not self.unusable
@@ -708,6 +710,9 @@ def _translators_in(directory: Path) -> list[Translator | Failed]:
         ]
     if (directory / "config.json").is_file():
         weights = _find_weights(directory)
+        family = _text_seq2seq_family(directory)
+        if family:
+            return [_seq2seq_translator(directory, family, weights, overrides)]
         return [
             Translator(
                 id=directory.name,
@@ -725,6 +730,61 @@ def _translators_in(directory: Path) -> list[Translator | Failed]:
             )
         ]
     raise ModelError(f"{directory.absolute()} has no .gguf file and no config.json")
+
+
+SEQ2SEQ = "seq2seq"
+
+
+def _text_seq2seq_family(directory: Path) -> str:
+    """The model_type of a text-to-text translation model (t5, m2m_100,
+    marian...), or "" for anything else. A speech seq2seq model (Whisper) is
+    never one: it belongs to recognizers."""
+    try:
+        model_type = json.loads((directory / "config.json").read_text(encoding="utf-8")).get("model_type")
+    except (OSError, ValueError):
+        return ""
+    from transformers.models.auto import modeling_auto
+
+    from .translate import seq2seq
+
+    speech, ctc, _version = _speech_classes()
+    if model_type in speech or model_type in ctc or not seq2seq.kind(model_type or ""):
+        return ""
+    return model_type if model_type in modeling_auto.MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING_NAMES else ""
+
+
+def _seq2seq_translator(directory: Path, model_type: str, weights: list[ModelFile],
+                        overrides: dict[str, Any]) -> Translator:
+    from .translate import seq2seq
+
+    family = seq2seq.kind(model_type)
+    unusable = ""
+    if family == "marian":
+        pair = seq2seq.marian_pair(directory)
+        languages = list(pair) if pair else []
+        if not pair:
+            unusable = (f"volis can't tell which language pair it translates: name the folder like "
+                        f'"opus-mt-fa-en" ({directory.absolute()})')
+    else:
+        languages = seq2seq.languages(family, seq2seq.codes_in(directory, family))
+        if not languages:
+            unusable = (f"no language codes found in {(directory / 'tokenizer.json').absolute()}, so volis can't "
+                        "tell it which language to translate into")
+    return Translator(
+        id=directory.name,
+        path=directory,
+        name=overrides.get("name", directory.name),
+        named="name" in overrides,
+        backend=SEQ2SEQ,
+        top_level=False,
+        architecture=model_type,
+        missing=[w.name for w in weights if not w.present] or ([] if weights else ["*.safetensors or pytorch_model.bin"]),
+        unusable=unusable,
+        size_bytes=sum(w.path.stat().st_size for w in weights if w.present),
+        has_chat_template=False,
+        settings={k: overrides[k] for k in ("device", "dtype") if k in overrides},
+        languages=languages,
+    )
 
 
 def _why_not_a_translator(directory: Path) -> str:

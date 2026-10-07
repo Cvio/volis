@@ -102,6 +102,9 @@ def print_single_files(root: Path, translators: list[Translator | Failed]) -> No
         if t.size_bytes:
             facts.append(f"{t.size_bytes / 1e9:.1f} GB")
         print(f"        {t.name}  ({', '.join(facts)})")
+        if t.languages:
+            shown = ", ".join(t.languages[:12]) + (f" and {len(t.languages) - 12} more" if len(t.languages) > 12 else "")
+            print(f"        languages ({len(t.languages)}): {shown}")
         if t.missing:
             print(f"        DISABLED - missing: {', '.join(t.missing)}")
         elif t.unusable:

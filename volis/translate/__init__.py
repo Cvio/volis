@@ -58,6 +58,7 @@ class TranslationResult:
     raw: str  # before cleaning
     seconds: float
     device: str  # "cpu" or "cuda": every timing says which was used
+    note: str = ""  # for the transcript row: "translated as Arabic: this model has no Iraqi Arabic"
 
 
 class Translator(Protocol):
@@ -93,6 +94,10 @@ def load(entry: TranslatorEntry, prompt: PromptFile, device: str = "auto") -> Tr
         from .hf import TransformersTranslator
 
         return TransformersTranslator(entry, prompt, device)
+    if entry.backend == "seq2seq":
+        from .seq2seq import Seq2SeqTranslator
+
+        return Seq2SeqTranslator(entry, device)
     raise TranslateError(f'translator "{entry.id}" has backend "{entry.backend}", which volis can\'t run yet')
 
 
@@ -106,10 +111,12 @@ def system_text(prompt: PromptFile, request: TranslationRequest) -> str:
     return f"{text}\n{glossary}" if glossary else text
 
 
-def translate_checked(translator, request: TranslationRequest, generate) -> TranslationResult:
+def translate_checked(translator, request: TranslationRequest, generate, prompted: bool = True) -> TranslationResult:
     """Rust's `Translator::translate` around any backend's raw generation:
     unknown tags refused before any prompt is built, then clean, then the three
-    guards. `generate(request)` returns the raw model output."""
+    guards. `generate(request)` returns the raw model output. `prompted=False`
+    for a model with no prompt (seq2seq): nothing to recite, so that guard is
+    skipped."""
     text = request.text.strip()
     if not text:
         return TranslationResult("", "", 0.0, translator.device)
@@ -127,10 +134,10 @@ def translate_checked(translator, request: TranslationRequest, generate) -> Tran
         log.debug("translation cleaned from %r to %r", raw, cleaned)
     # Reciting the instructions, the glossary or the context is no translation.
     context = [t.source for t in request.context] + [t.translation for t in request.context]
-    wrapper = translator.prompt_file.wrapper(request.source, request.target)
+    wrapper = translator.prompt_file.wrapper(request.source, request.target) if prompted else ""
     context.append(wrapper)
-    if guards.leaks_the_prompt(cleaned, system_text(translator.prompt_file, request), context) \
-            or guards.contains_the_wrapper(cleaned, wrapper):
+    if prompted and (guards.leaks_the_prompt(cleaned, system_text(translator.prompt_file, request), context)
+                     or guards.contains_the_wrapper(cleaned, wrapper)):
         raise Refused(
             "recited",
             "the model recited its own instructions instead of translating. This happens when the "

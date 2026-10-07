@@ -121,6 +121,15 @@ min_words_per_second = 0.33
 sparse_min_seconds = 3.0
 ```
 
+### Translators that only translate
+
+A MADLAD, NLLB or OPUS-MT model (see [MODELS.md](MODELS.md)) is picked like any translator, by
+its folder name: `[translate] model = "madlad400-3b-mt"`. With one of these, these settings do
+nothing, because the model takes no instructions: `[translate] prompt`, everything in
+`[context]` (earlier sentences, the glossary, revision), and the dialect wording. Each sentence
+is translated on its own. `--print-prompt` shows the text sent and the language codes used. In
+the model's own `volis-python.toml`, `name`, `device` and `dtype` apply.
+
 ## Lists you can edit
 
 Two plain-text files in `config\`:

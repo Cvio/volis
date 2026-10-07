@@ -66,6 +66,7 @@ class Result:
     device: str = ""  # "cuda" or "cpu"
     chrf: float | None = None  # against the reference, when there is one for this line
     problem: str = ""  # why there is no translation
+    note: str = ""  # "translated as Arabic: this model has no Iraqi Arabic"
 
 
 @dataclass
@@ -117,7 +118,8 @@ def one(translator, model: str, label: str, text: str, source: str, target: str,
     if not result.text:
         return Result(model, label, problem="the translation came back empty", device=result.device)
     score = round(scoring.chrf(reference, result.text, target), 1) if reference else None
-    return Result(model, label, result.text, int(result.seconds * 1000), result.device, score)
+    return Result(model, label, result.text, int(result.seconds * 1000), result.device, score,
+                  note=getattr(result, "note", ""))
 
 
 def table(compared: list[Compared]) -> str:
@@ -132,7 +134,8 @@ def table(compared: list[Compared]) -> str:
                 out.append(f"  {r.name}: {r.problem}")
                 continue
             score = f", chrF {r.chrf:.1f}" if r.chrf is not None else ""
-            out.append(f"  {r.name}: {r.text}\n      ({r.ms} ms on the {r.device.upper()}{score})")
+            note = f"; {r.note}" if r.note else ""
+            out.append(f"  {r.name}: {r.text}\n      ({r.ms} ms on the {r.device.upper()}{score}{note})")
     if any(row.reference for row in compared):
         out.append("\n" + SCORE_NOTE)
     return "\n".join(out)
@@ -248,7 +251,8 @@ class Worker:
                 continue
             log.info("typed %s\n  [%s] %s\n  [%s] %s\n  (%d ms to translate on the %s)", sid, source, line,
                      target, result.text, result.ms, result.device.upper())
-            self.events.put(ev.Translated(sid, result.text, target, result.ms, result.device, entry.id))
+            self.events.put(ev.Translated(sid, result.text, target, result.ms, result.device, entry.id,
+                                          note=result.note))
             if speak and self._speak is not None:
                 try:
                     self._say("Speaking...")

@@ -1046,7 +1046,9 @@ class MainWindow(QMainWindow):
             self.translator.setItemData(self.translator.count() - 1, view.details([
                 ("Can't be used", "" if t.enabled() else (t.unusable or "missing: " + ", ".join(t.missing))),
                 ("File", t.id), ("Family", t.architecture), ("Compression", view.quantization(t.path.name)),
-                ("Size", view.size_text(t.size_bytes) if t.size_bytes else ""), ("Runs with", t.backend)]),
+                ("Size", view.size_text(t.size_bytes) if t.size_bytes else ""), ("Runs with", t.backend),
+                ("Languages", str(len(t.languages)) if t.languages else ""),
+                ("Limits", view.translator_limits(t.backend))]),
                 Qt.ItemDataRole.ToolTipRole)
         for failed in self.broken_translators:
             self._add_broken(self.translator, failed)
@@ -1781,6 +1783,8 @@ class MainWindow(QMainWindow):
                 notes.append(f"{line.translate_ms} ms")
             if line.sent_to:
                 notes.append(f"sent to {line.sent_to}")
+            if line.note:
+                notes.append(line.note)
             who = {"left": "← ", "right": "→ "}.get(line.side, "")  # shared machine: whose words
             when = "typed" if line.typed else who + ses.clock(line.start)
             cells = [when, line.source, line.target or (line.problem or ""), ", ".join(notes)]
