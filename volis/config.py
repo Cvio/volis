@@ -263,6 +263,14 @@ class PyTts:
 
 
 @dataclass
+class PyText:
+    # Persian: between recognition and translation, replace Arabic look-alike
+    # letters and repair the half-space (volis/persian.py). The window shows
+    # the cleaned text, with what was heard in the row's tooltip.
+    persian_cleanup: bool = True
+
+
+@dataclass
 class PyWindow:
     # What the window remembers about itself (P14).
     advanced_open: bool = False  # the Advanced section, as the user left it
@@ -307,6 +315,7 @@ class PythonConfig:
     fragments: PyFragments = field(default_factory=PyFragments)
     tts: PyTts = field(default_factory=PyTts)
     window: PyWindow = field(default_factory=PyWindow)
+    text: PyText = field(default_factory=PyText)
 
     @classmethod
     def load(cls, path: Path) -> tuple[PythonConfig, bool]:

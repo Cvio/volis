@@ -117,6 +117,15 @@ Two recognizers on the development machine are not downloadable:
 [model-converter](../model-converter/README.md) for volis-rust. Volis runs the originals
 instead, which score better.
 
+## The Persian clean-up
+
+`volis\persian.py` runs between recognition and translation when the source language is
+Persian (`[text] persian_cleanup`). Its letter table, spacing patterns and verb list are
+ported from [hazm](https://github.com/roshan-research/hazm)'s normalizer (MIT), not imported:
+hazm would add three packages and load a 3.4 MB word list at start. The module's docstring
+lists exactly what was ported and what was left out. `scripts\p16_check.py` measures its
+effect on the Persian test clips, clean-up off and on; `HANDOFF.md` has the figures.
+
 ## volis-rust
 
 Volis began as a port of volis-rust, the original Rust implementation, and stays compatible

@@ -93,6 +93,12 @@ hold_speech_s = 2.0      # ...this long at most
 [tts]
 diacritize = false  # Arabic: predict the vowel marks before the voice pronounces the text
 
+[text]
+persian_cleanup = true  # Persian: before translating, replace Arabic look-alike letters and
+                        # repair the half-space (می خواهم -> می‌خواهم). The window shows the
+                        # cleaned text; the tooltip shows what was heard. false = translate
+                        # exactly what the recognizer wrote
+
 [window]             # what the window remembers about itself
 advanced_open = false   # whether the Advanced section is open
 text_size = 12          # the conversation's text size, in points (the A- and A+ buttons)
@@ -114,6 +120,15 @@ sparse = true          # a word or two for several seconds of "speech"
 min_words_per_second = 0.33
 sparse_min_seconds = 3.0
 ```
+
+## Lists you can edit
+
+Two plain-text files in `config\`:
+
+| File | What it is |
+|---|---|
+| `hallucinations.toml` | Phrases recognizers invent on silence ("Thanks for watching"), which Volis drops. |
+| `persian_verbs.txt` | Persian verb stems, one verb a line as `past#present`. The Persian clean-up uses it to tell a verb written with its prefix joined on (میخواهم) from a word that only starts with the same letters (میز, a table). Add a verb if Volis fails to separate it. |
 
 ## Settings for one model
 

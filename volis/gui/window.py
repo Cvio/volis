@@ -1785,6 +1785,9 @@ class MainWindow(QMainWindow):
             when = "typed" if line.typed else who + ses.clock(line.start)
             cells = [when, line.source, line.target or (line.problem or ""), ", ".join(notes)]
             self._set(index, cells, span=(line.start, line.end))
+            source_cell = self.table.item(index, 1)
+            if source_cell is not None:  # P16: what was heard, when a clean-up step changed it
+                source_cell.setToolTip("As heard, before clean-up: " + line.original if line.original else "")
             if line.problem and not line.target:
                 self.table.item(index, 2).setForeground(QBrush(PROBLEM))
             if line.revised:

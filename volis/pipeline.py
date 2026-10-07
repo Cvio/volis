@@ -36,13 +36,14 @@ import queue
 import threading
 import time
 import wave
+import dataclasses
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
 
 from . import asr as asr_pkg
-from . import compare, models, paths, sentences, varieties
+from . import compare, models, paths, persian, sentences, varieties
 from . import translate as tr
 from .asr import guards as guards_mod
 from .audio import SAMPLE_RATE
@@ -267,6 +268,8 @@ class Pipeline:
         self.events = events
         self.source = source if source is not None else MicSource(config.audio.input_device)
         self.pyconfig = pyconfig if pyconfig is not None else PythonConfig.load(paths.python_config_file(root))[0]
+        # clean_text(text, language) -> persian.Cleaned: [text] persian_cleanup (P16).
+        self.clean_text = persian.cleaner(root, self.pyconfig.text.persian_cleanup)
         self.stats = Stats()
         self.recognizer_name = ""
         self.translator_name = ""
@@ -623,9 +626,12 @@ class Pipeline:
                         if translation is not None:
                             typed_batches += 1
                             for k, line in enumerate(command.lines, 1):
-                                sentence = sentences.Sentence(f"t{typed_batches}.{k}", 0, line, 0.0, 0.0, False)
+                                cleaned = self.clean_text(line, language)
+                                sentence = sentences.Sentence(f"t{typed_batches}.{k}", 0, cleaned.text, 0.0, 0.0,
+                                                              False)
                                 self.stats.sentences += 1
-                                self.emit(SentenceMsg(sentence.id, 0, line, language, 0.0, 0.0, False, True))
+                                self.emit(SentenceMsg(sentence.id, 0, cleaned.text, language, 0.0, 0.0, False, True,
+                                                      cleaned.original if cleaned.changed else ""))
                                 translation.submit(sentence, language, time.monotonic(),
                                                    Route(generation=self.generation))
                         continue
@@ -1175,8 +1181,16 @@ class AsrWorker:
 
     def _send(self, sentence, source: str, cut_at: float) -> None:
         self.pipeline.stats.sentences += 1
+        # The last step before translation (P16): a language's clean-up, after
+        # the guards. What is shown and translated is the cleaned text; what
+        # was heard goes along for the row's tooltip.
+        cleaned = self.pipeline.clean_text(sentence.text, source)
+        if cleaned.changed:
+            log.info("  sentence %s cleaned up for %s: %r -> %r", sentence.id, source, cleaned.original, cleaned.text)
+            sentence = dataclasses.replace(sentence, text=cleaned.text)
         self.pipeline.emit(SentenceMsg(sentence.id, sentence.utterance, sentence.text, source,
-                                       sentence.start, sentence.end, sentence.approximate))
+                                       sentence.start, sentence.end, sentence.approximate,
+                                       original=cleaned.original if cleaned.changed else ""))
         if self.translation is not None:
             self.translation.submit(sentence, source, cut_at, self.route)
 

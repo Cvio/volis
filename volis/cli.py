@@ -251,7 +251,7 @@ def run(args: list[str], root: Path) -> int:
 def run_compare_mt(root: Path, config: Config, command: Command) -> int:
     """--translate --compare-mt: the text through two or three translators,
     one loaded at a time, each timed, each scored against --reference."""
-    from . import translate, typed
+    from . import persian, translate, typed
     from .config import PythonConfig
     from .translate import prompts
 
@@ -264,7 +264,8 @@ def run_compare_mt(root: Path, config: Config, command: Command) -> int:
         return 1
     source = command.source or config.languages.source
     target = command.target or config.languages.target
-    lines = typed.lines_of(command.text)
+    clean = persian.cleaner(root, pyconfig.text.persian_cleanup)
+    lines = [clean(line, source).text for line in typed.lines_of(command.text)]
     if not lines:
         print("Error: there is no text to translate", file=sys.stderr)
         return 1
@@ -293,9 +294,12 @@ def run_translate(root: Path, config: Config, command: Command) -> int:
     except (ConfigError, translate.TranslateError, prompts.PromptError) as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
-    request = translate.TranslationRequest(
-        command.text, command.source or config.languages.source, command.target or config.languages.target
-    )
+    source = command.source or config.languages.source
+    from . import persian
+
+    # The same clean-up a spoken sentence gets before translation (P16).
+    text = persian.cleaner(root, pyconfig.text.persian_cleanup)(command.text, source).text
+    request = translate.TranslationRequest(text, source, command.target or config.languages.target)
     try:
         if command.name == "print-prompt":
             # Bytes, so Windows doesn't turn LF into CRLF: the prompt is

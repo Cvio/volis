@@ -30,7 +30,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import events as ev
-from . import scoring
+from . import persian, scoring
 from . import translate as tr
 
 log = logging.getLogger(__name__)
@@ -149,6 +149,9 @@ class Worker:
     def __init__(self, root: Path, pyconfig, events: queue.Queue, load=None, speak=None) -> None:
         self.root, self.pyconfig, self.events = root, pyconfig, events
         self._load = load or self._load_translator
+        # The same clean-up a spoken sentence gets before translation (P16).
+        self._clean = (persian.cleaner(root, pyconfig.text.persian_cleanup) if root is not None
+                       else lambda text, language: persian.Cleaned(text, text))
         self._speak = speak  # speak(text, language) or None
         self._jobs: queue.Queue = queue.Queue()
         self._loaded = None  # (id, translator): kept between lines, released at Start
@@ -234,7 +237,10 @@ class Worker:
         for k, line in enumerate(lines, 1):
             sid = f"t{self._count}.{k}"
             self._say(f"Translating {k} of {len(lines)}...")
-            self.events.put(ev.SentenceMsg(sid, 0, line, source, 0.0, 0.0, False, True))
+            cleaned = self._clean(line, source)
+            line = cleaned.text
+            self.events.put(ev.SentenceMsg(sid, 0, line, source, 0.0, 0.0, False, True,
+                                           cleaned.original if cleaned.changed else ""))
             result = one(translator, entry.id, label, line, source, target, "", glossary)
             if result.problem:
                 log.warning("typed %s: not translated: %s", sid, result.problem)
@@ -252,6 +258,7 @@ class Worker:
 
     def _compare(self, lines, source, target, entries, reference, glossary, names) -> None:
         self._unload()  # the compared translators need the room
+        lines = [self._clean(line, source).text for line in lines]
         began = time.perf_counter()
         compared = compare(lines, source, target, entries, self._load, reference, glossary, self._say,
                            name=lambda entry: names.get(entry.id, entry.name))

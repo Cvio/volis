@@ -61,6 +61,11 @@ def hallucinations_file(root: Path) -> Path:
     return root / "config" / "hallucinations.toml"
 
 
+def persian_verbs_file(root: Path) -> Path:
+    """`<root>/config/persian_verbs.txt` - verb stems for the Persian clean-up, user-editable."""
+    return root / "config" / "persian_verbs.txt"
+
+
 def prompts_dir(root: Path) -> Path:
     """`<root>/prompts` - the translator's system text, one file per variant."""
     return root / "prompts"

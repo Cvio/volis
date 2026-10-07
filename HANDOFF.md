@@ -202,6 +202,63 @@ Eight milestones for non-technical users. Built in order; stop after each.
     through a real pipeline with stand-in models. The picture: `docs/images/p15-compare.png`.
   - Not decided, noted: while running in shared machine mode a typed line is translated in
     the main language pair's direction, not a side's.
+- **P16 done: the Persian clean-up step** (`volis/persian.py`, `[text] persian_cleanup`, on by
+  default). After the guards and before translation, for a Persian source only, spoken or
+  typed: Arabic look-alike letters become the Persian ones, and the half-space is put back
+  where a recognizer wrote a space or nothing. The window shows the cleaned text; the row's
+  tooltip shows what was heard (`SentenceMsg.original`).
+  - **hazm: ported, not installed** (checked first, as the file asks). hazm 0.12.1 installs on
+    this Python, but brings nltk, python-crfsuite and flashtext, and its normalizer loads a
+    3.4 MB word list and builds a tokenizer and lemmatizer when created. Ported from it, with
+    the source named in the module: the letter table (390 letters), `AFFIX_SPACING_PATTERNS`,
+    the ZWNJ tidying, and `seperate_mi` with its verb list (`config\persian_verbs.txt`, 693
+    stems, 7032 forms, user-editable). **Not ported:** its word-list joins, its removal of
+    vowel marks, and its restyling of quotation marks, the decimal point and Western digits.
+  - **Three departures from hazm,** each in the docstring: a mi- written apart is joined only
+    before a verb when the verb list is there (hazm joins it to anything, so "ماه می سال", the
+    month of May, becomes one word); ۀ becomes ه + hamza above; Arabic-Indic digits become
+    Persian digits (Western digits stay). Arabic ة is left alone: Persian writes it two ways
+    and no table can say which.
+  - 21 tests (`tests/test_persian.py`), a rule each on real examples, one through a real
+    pipeline with a stand-in recognizer, one for typed text.
+  - **Measured (`scripts/p16_check.py`): no clear effect.** Ten Persian FLEURS clips, every
+    installed recognizer that covers Persian and every installed translator, each sentence on
+    its own, chrF against the FLORES+ English, as heard and cleaned:
+
+    | transcript from | sentences changed | CER |
+    |---|---|---|
+    | the clips' own text | 2 of 10 | 0% |
+    | Gemma 4 E4B (audio) | 0 of 10 | 4.5% |
+    | MMS 1B | 0 of 10 | 4.2% |
+    | Whisper large-v3-turbo | 6 of 10 | 6.6% |
+    | Qwen3-ASR 0.6B | 4 of 10 | 20.5% |
+
+    | translator | own text | Gemma 4 E4B | MMS | Whisper turbo | Qwen3-ASR |
+    |---|---|---|---|---|---|
+    | Gemma 3 4B | 64.3 → 64.3 | 59.9 → 59.9 | 58.5 → 58.5 | 58.6 → 58.4 | 48.8 → 50.4 |
+    | Gemma 4 E4B | 65.3 → 64.7 | 63.2 → 63.2 | 61.3 → 61.3 | 61.2 → 60.6 | 47.9 → 48.6 |
+    | TranslateGemma 4B | 61.5 → 62.0 | 61.9 → 61.9 | 57.9 → 57.9 | 59.1 → 59.0 | 50.5 → 51.2 |
+    | Aya Expanse 8B | 61.9 → 61.9 | 59.5 → 59.5 | 58.7 → 58.7 | 59.4 → 59.8 | 49.1 → 49.7 |
+    | Gemma 3 12B * | 66.8 → 67.2 | 61.7 → 61.7 | 63.2 → 63.2 | 62.3 → 61.7 | 51.5 → 51.9 |
+    | Gemma 4 12B * | 67.5 → 67.1 | 63.4 → 63.4 | 62.5 → 62.5 | 63.4 → 62.6 | 48.8 → 49.7 |
+    | TranslateGemma 12B * | 64.6 → 64.6 | 58.9 → 58.9 | 63.2 → 63.2 | 60.4 → 60.7 | 53.8 → 53.6 |
+
+    (chrF as heard → cleaned. \* doesn't fit this 8 GB card: about 4 s a sentence here.)
+
+    Every change is between -0.8 and +1.7, and ten sentences can't tell that from nothing.
+    **Where it was slightly worse:** Whisper's transcripts, with five of the seven translators
+    (-0.2 to -0.8), and the clips' own text with the two Gemma 4 models (-0.5, -0.6). **Where
+    it was slightly better:** Qwen3-ASR's transcripts, with six of seven (+0.5 to +1.7).
+    Gemma 4 and MMS already write the half-space correctly: nothing to clean, no change.
+    The transcript error rate doesn't move because the scoring ignores the half-space.
+    - **No Arabic look-alike letter appeared in any of the 40 transcripts,** so the first rule
+      was not exercised by this test at all. Every change measured is a half-space.
+    - So on read news speech the step neither helps nor hurts measurably. It stays on by
+      default, as the file specifies, and switchable. Whether it earns its place needs a test
+      it can fail: conversational Persian, or a recognizer that writes Arabic letters.
+  - **Also learned, the first Persian figures here:** recognition CER is 4.2% (MMS), 4.5%
+    (Gemma 4 E4B), 6.6% (Whisper turbo), 20.5% (Qwen3-ASR 0.6B); and on correct text the
+    translators score 61.5 to 67.5, Gemma 4 12B highest. `MODELS.md` has them.
 
 ### Later (noted in `volis-next-features.md`, deliberately not in this round)
 

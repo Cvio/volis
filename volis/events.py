@@ -226,6 +226,7 @@ class SentenceMsg(Event):
     end: float
     approximate: bool = False  # times shared out by length, not from word timings
     typed: bool = False  # typed or pasted in (P15), not heard
+    original: str = ""  # what was heard or typed, when a clean-up step changed it (P16)
 
 
 @dataclass

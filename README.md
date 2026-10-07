@@ -249,6 +249,18 @@ The rest are under **Advanced**, which stays closed until you open it:
 
 [SETTINGS.md](SETTINGS.md) lists every setting and every command-line option.
 
+### Persian
+
+Persian text is tidied before it is translated, because two things a recognizer often gets
+slightly wrong can throw a translator off:
+
+- letters that look the same in Arabic and Persian but are different characters;
+- the "half-space" that joins the parts of a Persian word, which recognizers often write as an
+  ordinary space, or leave out.
+
+The conversation shows the tidied text. Hold the mouse over a sentence to see it exactly as it
+was heard. This is on by default; [SETTINGS.md](SETTINGS.md) says how to turn it off.
+
 ### See what it costs your computer
 
 **View > Performance** (Ctrl+Shift+P) opens a panel showing how much of the graphics card,

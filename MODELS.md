@@ -238,6 +238,31 @@ graphics card free; the same model without that ending is the original, on the g
 No word timings means the text can't be shown word by word while you speak; everything else
 works.
 
+### Persian
+
+Ten Persian test clips (read news sentences), each sentence on its own. Recognition is the
+character error rate; translation is chrF into English from the clips' correct text.
+
+| Recognizer | Persian CER |
+|---|---|
+| MMS 1B | 4.2% |
+| Gemma 4 E4B (audio) | 4.5% |
+| Whisper large-v3-turbo | 6.6% |
+| Qwen3-ASR 0.6B | 20.5% |
+
+| Translator | Persian > English chrF |
+|---|---|
+| Gemma 4 12B | 67.5 |
+| Gemma 3 12B | 66.8 |
+| Gemma 4 E4B | 65.3 |
+| TranslateGemma 12B | 64.6 |
+| Gemma 3 4B | 64.3 |
+| Aya Expanse 8B | 61.9 |
+| TranslateGemma 4B | 61.5 |
+
+Qwen3-ASR 0.6B is not usable for Persian. The Persian clean-up step (README, "Persian") made
+no measurable difference to any of these on this test.
+
 ### Translators
 
 Text only, against reference translations, with earlier sentences as context. All are `Q4_K_M`
@@ -306,7 +331,6 @@ Each model has its own licence. Check it before you pass a copy on.
 - Any recognizer on dialect speech with a reference to score against, on a noisy room, or on
   a real conversation. (One informal trial: Standard Arabic and Iraqi dialect speech gave the
   same translations.)
-- Persian recognition (MMS and Whisper have it; there is no Persian reference run).
 - The 12B translators' speed on a GPU they fit.
 - Streaming and shared machine mode with a GGUF speech model, with figures. (Both were tried with Gemma 4 E4B and
   Qwen3-ASR on another machine: they work.)
