@@ -40,6 +40,17 @@ def choose(files: list[str], role: str, include: list[str]) -> list[str]:
     if role == "tts":  # a voice: everything it was published with (the .onnx is the model)
         return [f for f in files if f != ".gitattributes"]
     ggufs = [f for f in files if f.lower().endswith(".gguf")]
+    # A repo that holds the whole model (config.json and its weights) and some .gguf copies
+    # beside it, like google/madlad400-3b-mt: the model is what is wanted. Those copies are
+    # often for another program and volis can't run them. Naming a .gguf with -Include still
+    # gets that file.
+    whole = "config.json" in files and any(f in ("model.safetensors", "pytorch_model.bin")
+                                           or f.startswith(("model-0", "pytorch_model-0")) for f in files)
+    if ggufs and whole and not any(fnmatch.fnmatch(f, p) for f in ggufs for p in include):
+        print(f"note: this repo has the full model and {len(ggufs)} .gguf copies of it. Downloading the full "
+              "model; the .gguf files are left out.")
+        files = [f for f in files if f not in ggufs]
+        ggufs = []
     if ggufs:
         models = [f for f in ggufs if not os.path.basename(f).lower().startswith("mmproj")]
         if include:

@@ -703,6 +703,10 @@ def _translators_in(directory: Path) -> list[Translator | Failed]:
     ggufs = sorted(p for p in directory.glob("*.gguf") if not p.name.lower().startswith("mmproj"))
     # Only the first shard of a split model stands for it.
     ggufs = [p for p in ggufs if _is_first_shard(p.name)]
+    # A dedicated translation model published with .gguf copies beside it (MADLAD): the copies
+    # are for another program (no chat format, nothing llama.cpp can run); the model is the folder.
+    if ggufs and (directory / "config.json").is_file() and _text_seq2seq_family(directory):
+        ggufs = []
     if ggufs:
         return [
             _gguf_translator(p, f"{directory.name}/{p.name}", overrides, top_level=False)

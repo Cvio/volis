@@ -80,6 +80,28 @@ def test_translation_models_are_found_with_their_family_and_languages(tmp_path):
     assert nllb.languages == ["ar", "en", "fa"] and madlad.languages == ["en", "fa"] and marian.languages == ["fa", "en"]
 
 
+def test_gguf_copies_beside_a_translation_model_do_not_hide_it(tmp_path):
+    d = folder(tmp_path, "madlad400-3b-mt", "t5", ["<2en>", "<2fa>"])
+    (d / "model-q4k.gguf").write_bytes(b"GGUF")
+    found = models.discover_translators(tmp_path)
+    assert [(t.id, t.backend, t.enabled()) for t in found] == [("madlad400-3b-mt", "seq2seq", True)]
+
+
+def test_fetching_a_repo_with_the_full_model_and_gguf_copies_takes_the_model():
+    import sys
+
+    sys.path.insert(0, str(paths.app_root() / "scripts"))
+    import fetch_model
+
+    repo = ["README.md", "config.json", "model.safetensors", "spiece.model", "tokenizer.json", "model-q3k.gguf",
+            "model-q4k.gguf"]
+    chosen = fetch_model.choose(repo, "mt", [])
+    assert "model.safetensors" in chosen and "config.json" in chosen and not any(f.endswith(".gguf") for f in chosen)
+    assert fetch_model.choose(repo, "mt", ["model-q4k.gguf"])[0] == "model-q4k.gguf", "asked for by name: still possible"
+    with pytest.raises(SystemExit, match="Pick one"):
+        fetch_model.choose(["README.md", "a-Q4_K_M.gguf", "a-Q8_0.gguf"], "mt", [])
+
+
 def test_a_speech_model_and_a_model_with_no_codes_are_not_offered(tmp_path):
     folder(tmp_path, "whisper-small", "whisper")
     folder(tmp_path, "t5-no-codes", "t5", ["<pad>"])
