@@ -59,9 +59,11 @@ NLLB = {
     "sr": "srp_Cyrl", "kk": "kaz_Cyrl", "ky": "kir_Cyrl", "tg": "tgk_Cyrl", "ks": "kas_Arab",
 }
 # MADLAD-400: `<2xx>` with the language's two-letter code where it has one.
-# These are the varieties it has a token of their own for.
-MADLAD = {"ar-eg": "arz", "ar-iq": "acm", "ar-ma": "ary", "ar-tn": "aeb", "ar-sa": "ars", "ar-sy": "apc",
-          "ar-lb": "apc", "fa-af": "prs", "zh-hk": "yue", "pt-br": "pt", "zh-tw": "zh"}
+# These are the varieties it has a token of their own for, checked against
+# google/madlad400-3b-mt's tokenizer (492 codes). It has Egyptian and Moroccan
+# Arabic and Dari; it has no Iraqi, Gulf, Levantine or Tunisian Arabic and no
+# Cantonese, which fall back to the language.
+MADLAD = {"ar-eg": "arz", "ar-ma": "ary", "fa-af": "prs", "pt-br": "pt", "zh-tw": "zh"}
 
 _NLLB_CODE = re.compile(r"^[a-z]{3}_[A-Z][a-z]{3}$")
 _MADLAD_CODE = re.compile(r"^<2([A-Za-z_-]+)>$")

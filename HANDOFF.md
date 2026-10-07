@@ -281,16 +281,23 @@ Eight milestones for non-technical users. Built in order; stop after each.
     for it (+0.0 on four transcripts, -0.2 on Qwen3-ASR's). Checked from text
     (`--compare-mt` beside Gemma 3 4B), with an Iraqi target (`acm_Arab` forced), and from a
     Persian file (`--file`, Whisper turbo: 2 sentences, median 694 ms).
+  - **MADLAD-400 3B: verified and measured** (`model.safetensors`, 11.8 GB). 492 codes. The
+    first `MADLAD` table was wrong in five places, found by the check against the tokenizer:
+    it has no `acm`, `aeb`, `apc`, `ars` or `yue`. It has `arz`, `ary` and `prs`. Table
+    corrected; Iraqi and the rest fall back to `ar` with the note. float16 on the GPU gives
+    sound output (no T5 overflow). `mt_bench.py`: es>en 62.8, ar>en 69.4, fa>en 66.5, en>es
+    62.2, mean 65.2, obey 23/24, 1937 ms a sentence. Persian clean-up: +0.0 on three
+    transcripts, -0.7 and -1.0 on Qwen3-ASR's and Whisper's. **It does not fit beside a
+    recognizer on 8 GB:** an Arabic file with Whisper turbo loaded took 7.3 s for its sentence.
+  - `fetch-model.ps1` on a repo holding the full model and `.gguf` copies now takes the model
+    (the user got only MADLAD's candle-format `model-q4k.gguf` the first time), and such a
+    copy in the folder no longer hides the model from the list.
   - **Still open:**
-    1. **MADLAD is not measured.** The user's `models\mt\madlad400-3b-mt` holds only
-       `model-q4k.gguf`, which is the candle project's format (raw T5 tensors, no llama.cpp
-       metadata): volis lists it as unusable. The seq2seq backend needs the repository's
-       `model.safetensors` (11.8 GB): ask before downloading. Then verify the `MADLAD` table
-       against its tokenizer and float16 (T5 can overflow in half precision).
-    2. **CTranslate2 not built.** `ctranslate2` 4.8.2 resolves for this environment (dry run
+    1. **CTranslate2 not built.** `ctranslate2` 4.8.2 resolves for this environment (dry run
        only; not installed). Building the second path needs the package and a converted model.
-    3. A translator that lacks the chosen language is refused when it translates, not greyed
-       out beforehand. `--translate` prints "prompt default" for a model with no prompt.
+    2. A translator that lacks the chosen language is refused when it translates, not greyed
+       out beforehand. `--translate` prints "prompt default" for a model with no prompt, and
+       doesn't print the fallback note (the window and `--compare-mt` do).
 
 ### Later (noted in `volis-next-features.md`, deliberately not in this round)
 
