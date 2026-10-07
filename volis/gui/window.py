@@ -560,10 +560,17 @@ class MainWindow(QMainWindow):
                                       "translators need the memory.")
         self.typed_compare.toggled.connect(lambda _on: self.refresh())
         self.typed_status = QLabel()
-        self.typed_status.setStyleSheet("color: gray")
+        self.typed_status.setWordWrap(True)
+        self.typed_busy = QProgressBar()  # moves while a translation or comparison is under way
+        self.typed_busy.setRange(0, 0)
+        self.typed_busy.setTextVisible(False)
+        self.typed_busy.setFixedHeight(8)
+        self.typed_busy.setVisible(False)
+        self._typed_sent = False  # True from a press until the worker has finished
         self.typed_models = QListWidget()  # which translators to compare: tick two or three
         self.typed_models.setFixedHeight(84)
         self.typed_models.setToolTip("Tick two or three translators.")
+        self.typed_models.itemChanged.connect(lambda _item: self.refresh())
         self.typed_reference = QPlainTextEdit()
         self.typed_reference.setPlaceholderText("Optional: a reference translation to score each one against "
                                                 "(Google's, or a person's). One line per line of the text above.")
@@ -595,6 +602,8 @@ class MainWindow(QMainWindow):
         buttons.addStretch(1)
         entry_row.addLayout(buttons)
         typed_layout.addLayout(entry_row)
+        typed_layout.addWidget(self.typed_busy)  # directly under the text and the button: where the eye is
+        typed_layout.addWidget(self.typed_status)
         self.compare_box = QWidget()
         compare_layout = QVBoxLayout(self.compare_box)
         compare_layout.setContentsMargins(0, 0, 0, 0)
@@ -605,7 +614,6 @@ class MainWindow(QMainWindow):
         compare_layout.addWidget(self.typed_note)
         compare_layout.addWidget(self.compare_table)
         typed_layout.addWidget(self.compare_box)
-        typed_layout.addWidget(self.typed_status)
 
         self.latency = QLabel()
         self.status = QLabel()
@@ -879,6 +887,25 @@ class MainWindow(QMainWindow):
         speech = self._typed_voices[engine.dir_name].speak(text)
         devicetest._play(speech.samples, speech.sample_rate, self.output_device.currentData() or "")
 
+    def typed_busy_now(self) -> bool:
+        return self._typed_sent or (self.typed_worker is not None and not self.typed_worker.idle())
+
+    def _draw_typed(self, running: bool) -> None:
+        """The button, the moving bar and the line under them (view.typed_control)."""
+        busy = self.typed_busy_now()
+        control = view.typed_control(self.typed_compare.isChecked(), running, len(self.compared_translators()), busy,
+                                     self.typed_worker.status if self.typed_worker is not None else "",
+                                     typed.MAX_COMPARED)
+        self.typed_button.setText(control.label)
+        self.typed_button.setEnabled(control.enabled)
+        self.typed_button.setToolTip(control.message)
+        self.typed_busy.setVisible(control.working)
+        for box in (self.typed_text, self.typed_models, self.typed_reference, self.typed_compare):
+            box.setEnabled(not busy)
+        if control.message or not self.typed_status.text() or self.typed_status.text().endswith("..."):
+            self.typed_status.setText(control.message)
+        self.typed_status.setStyleSheet("font-weight: bold" if control.working else "color: gray")
+
     def compared_translators(self) -> list:
         ticked = [self.typed_models.item(i).data(Qt.ItemDataRole.UserRole) for i in range(self.typed_models.count())
                   if self.typed_models.item(i).checkState() == Qt.CheckState.Checked]
@@ -908,6 +935,8 @@ class MainWindow(QMainWindow):
                 self._typed().compare(text, source, target, entries, self.typed_reference.toPlainText(), glossary,
                                       {t.id: name(t) for t in entries})
                 self.typed_status.setText("Comparing...")
+                self._typed_sent = True
+                self.refresh()
             return
         if self.running():
             if self.source is not None:
@@ -926,6 +955,8 @@ class MainWindow(QMainWindow):
         self.session.languages = (source, target)
         self._typed().translate(text, source, target, entry, glossary, self.speak.isChecked(), name(entry))
         self.typed_text.clear()
+        self._typed_sent = True
+        self.refresh()
 
     def _show_comparison(self, event) -> None:
         """One row per line and translator: the translation, how long it
@@ -1393,8 +1424,10 @@ class MainWindow(QMainWindow):
         if self.typed_worker is not None and self.typed_worker.status:
             self.typed_status.setText(self.typed_worker.status)
             changed = True
-        elif self.typed_worker is not None and self.typed_worker.idle() and self.typed_status.text().endswith("..."):
+        elif self.typed_worker is not None and self.typed_worker.idle() and self._typed_sent:
+            self._typed_sent = False  # finished: the button comes back
             self.typed_status.setText("")
+            changed = True
         if changed or self._redraw:
             self._redraw = False
             self.refresh()
@@ -1542,7 +1575,7 @@ class MainWindow(QMainWindow):
             self.show_settings.setChecked(False)
         self.bar_label.setText(self._bar_text(shared) if running else "")
         self.compare_box.setVisible(self.typed_compare.isChecked())
-        self.typed_button.setText("Compare" if self.typed_compare.isChecked() else "Translate")
+        self._draw_typed(running)
         self._draw_peer(running)
         self._draw_shared(shared)
         for widget in (self.realtime, self.fast, self.play_original, self.export_button, self.open_button, self.progress):

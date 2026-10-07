@@ -61,6 +61,32 @@ def translator_limits(backend: str) -> str:
     return LIMITS
 
 
+@dataclass(frozen=True)
+class TypedControl:
+    """The Translate / Compare button under the text box, and the line beside it."""
+
+    label: str
+    enabled: bool
+    message: str  # why it can't be pressed, or what is happening
+    working: bool = False  # True: show the moving bar; the user has nothing more to do
+
+
+def typed_control(compare: bool, running: bool, ticked: int, busy: bool, status: str = "",
+                  most: int = 3) -> TypedControl:
+    """What the button says and whether it can be pressed. While work is under
+    way it says so itself and can't be pressed again; when it can't start, the
+    reason is beside it instead of appearing after a click."""
+    label = "Compare" if compare else "Translate"
+    if busy:
+        doing = (status or ("Comparing..." if compare else "Translating...")).rstrip(".")
+        return TypedControl("Working...", False, f"{doing}. Nothing more to do: please wait.", True)
+    if compare and running:
+        return TypedControl(label, False, "Stop the conversation to compare translators: they need the memory it is using.")
+    if compare and not 2 <= ticked <= most:
+        return TypedControl(label, False, f"Tick two or three translators in the list to compare them ({ticked} ticked).")
+    return TypedControl(label, True, "")
+
+
 def quantization(file_name: str) -> str:
     found = re.search(r"(?i)(?:^|[-_.])(i?q\d(?:_[0-9a-z]+)*|int8|f16|fp16|bf16|f32)(?=$|[-_.])", file_name)
     return found.group(1).upper() if found else ""
