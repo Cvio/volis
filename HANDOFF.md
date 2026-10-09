@@ -351,6 +351,21 @@ Eight milestones for non-technical users. Built in order; stop after each.
 - Saving every live session as a transcript. **Checked: export does not cover live sessions.**
   File > Export works only after a file run (`MainWindow.export` refuses without a file); a
   live conversation is kept in the log file only.
+- **Phrasebook matching (for P19d; the user's decision 2026-10-09: hold, keep as an
+  enhancement).** The plan uses a checked translation automatically when a recognized sentence
+  is at least 90% similar to an entry (`[phrasebook] match = 0.9`). Measured with one common
+  letter-similarity measure (Python's `difflib` ratio; the plan names none), that rule is
+  wrong in both directions. Against "Can I see the menu, please?": harmless rewordings miss
+  ("Could I see the menu, please?" 88%, without "please" 84%, "May I take a look at the menu
+  first, please?" 63%), while changes of meaning pass ("Can **we** see the menu, please?"
+  94%). In Persian, against میشه منو رو ببینم لطفا: "can I see the menu **first**" passes at
+  92% and would lose "first", "can **we** see the menu" passes at 98% and would say "I", and
+  "can **you** see **me**, please?" (میشه منو ببینی لطفا) misses by two points at 88%.
+  **Proposed instead:** (1) a stored translation is used automatically only on an exact match,
+  ignoring punctuation and capitals; (2) one entry can list several wordings that share a
+  checked translation; (3) a near match is shown as a suggestion beside the model's
+  translation, never swapped in. `volis-next-features.md` is unchanged: decide this when P19d
+  is built.
 
 ## Open list (2026-10-02)
 
