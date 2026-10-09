@@ -369,7 +369,7 @@ class TestBench(QWidget):
         languages.addWidget(self.t_source, 1)
         languages.addWidget(QLabel("into"))
         languages.addWidget(self.t_target, 1)
-        self.t_from_text = QRadioButton("Text I type or paste")
+        self.t_from_text = QRadioButton("Text")
         self.t_from_sound = QRadioButton("Speech: a recording or an audio file")
         self.t_from_text.setChecked(True)
         self._t_kind = QButtonGroup(self)
