@@ -110,48 +110,6 @@ def test_a_typed_row_is_logged_with_the_rest_for_export(window):
     assert window.collected.events[0].typed
 
 
-def test_the_compare_part_is_hidden_until_asked_for(window):
-    assert not window.compare_box.isVisibleTo(window) and window.typed_button.text() == "Translate"
-    window.typed_compare.setChecked(True)
-    assert window.compare_box.isVisibleTo(window) and window.typed_button.text() == "Compare"
-    assert window.typed_note.text() == typed.SCORE_NOTE and "does not show that a translation is correct" in typed.SCORE_NOTE
-    assert window.typed_models.count() == 4, "every usable translator is offered"
-
-
-def tick(window, *names) -> None:
-    for i in range(window.typed_models.count()):
-        item = window.typed_models.item(i)
-        item.setCheckState(Qt.CheckState.Checked if any(n in item.text() for n in names) else Qt.CheckState.Unchecked)
-
-
-def test_two_translators_side_by_side_with_times_devices_and_scores(window):
-    window.typed_compare.setChecked(True)
-    tick(window, "Gemma", "Aya")
-    window.typed_text.setPlainText(FA)
-    window.typed_reference.setPlainText("Where does it hurt?")
-    window.submit_typed()
-    settle(window)
-    got = rows(window.compare_table)
-    assert len(got) == 2 and {r[1] for r in got} == {"Gemma 3 4b it", "Aya expanse 8b"}
-    for row in got:
-        assert row[0] == FA and row[2] == "Where does it hurt?" and row[3] == "250 ms" and row[5] == "100.0"
-    assert {r[4] for r in got} == {"graphics card", "processor"}
-    assert window.compare_table.item(0, 0).toolTip() == "Reference: Where does it hurt?"
-    assert window.table.rowCount() == 0, "a comparison isn't added to the conversation"
-    assert window.typed_text.toPlainText() == FA, "kept, to compare again with other translators"
-
-
-def test_one_translator_or_four_is_not_a_comparison(window):
-    window.typed_compare.setChecked(True)
-    window.typed_text.setPlainText(ES)
-    tick(window, "Gemma")
-    window.submit_typed()
-    assert "two or three" in window.typed_status.text()
-    tick(window, "Gemma", "Aya", "Translategemma", "Qwen")
-    window.submit_typed()
-    assert "two or three" in window.typed_status.text() and window.compare_table.rowCount() == 0
-
-
 class RunningPipeline:
     def __init__(self) -> None:
         self.typed: list = []
@@ -168,11 +126,6 @@ def test_while_a_conversation_runs_it_translates_the_typed_text_itself(window):
     window.submit_typed()
     assert window.pipeline.typed == [[ES, "Buenos días."]]
     assert window.loads == [], "the translator isn't loaded a second time"
-    window.typed_compare.setChecked(True)
-    tick(window, "Gemma", "Aya")
-    window.typed_text.setPlainText(ES)
-    window.submit_typed()
-    assert "Stop the conversation to compare" in window.typed_status.text()
 
 
 def test_a_space_typed_in_the_box_is_not_a_turn(window):

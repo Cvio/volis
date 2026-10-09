@@ -87,8 +87,29 @@ It uses PyInstaller in one-folder mode (`volis.spec`), installed from `uv.lock`'
 second while the panel is open. Windows doesn't report one program's GPU memory, so Volis's
 share is the sum of what its loaded models take, and "others" is the rest. Every run is
 recorded in `logs\performance.json`: the memory each model took when it loaded, and the run's
-speed. The What if tab uses those measurements once a model has been loaded here, and its file
-sizes before that.
+speed. The panel itself shows only the running conversation. The measurements it keeps are
+also read by the main window's "won't fit" warning and by the test bench's Whole set tab, which
+uses them once a model has been loaded here and its file sizes before that.
+
+## The test bench
+
+View > Test bench: comparing recognizers, comparing translators, and checking a whole set, in
+a window of its own so the main window is only about holding a conversation.
+
+- `volis\bench.py` has the work and no Qt: `hear` (one clip through each recognizer), `ready`
+  (whether a comparison can start, and the one line that says why not), `Recorder`, `History`
+  and the `Worker` thread. Translators are compared by `typed.compare`, as on the command line.
+- `volis\gui\testbench.py` lays the controls out and paints what `bench` decides.
+- A clip is cut into utterances once, by the detector a conversation uses, so every recognizer
+  is given the same pieces. Models are loaded one at a time and released before the next:
+  they would not fit together on a small card, and a time measured beside another model
+  measures the crowding.
+- It works only while no conversation runs, and a conversation can't start while it is
+  working: both would need the same memory.
+- Comparisons are kept in `logs\test-bench.json` (the last 200). Whole-set runs go to
+  `logs\performance.json` with every other run.
+- `scripts\window_shots.py` draws each tab with example results, for the pictures in
+  `docs\images\`.
 
 ## Test recordings and checks
 

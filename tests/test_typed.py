@@ -163,7 +163,21 @@ def test_a_line_that_is_refused_says_why_and_the_next_still_goes(worker):
     assert "refused" in got[1].reason
 
 
-def test_release_closes_the_translator_and_a_comparison_reports_one_event(worker):
+def test_the_test_bench_compares_any_number_and_can_be_stopped():
+    loaded = []
+
+    def load(e):
+        loaded.append(e.id)
+        return Scripted({ES: "x y z"})
+
+    out = typed.compare([ES], "es", "en", [entry(c) for c in "abcde"], load, most=None)
+    assert loaded == list("abcde") and len(out[0].results) == 5
+    loaded.clear()
+    out = typed.compare([ES], "es", "en", [entry(c) for c in "abc"], load, most=None, cancelled=lambda: len(loaded) >= 1)
+    assert loaded == ["a"], "nothing more is loaded once it is stopped"
+
+
+def test_release_closes_the_translator_so_the_next_line_loads_it_again(worker):
     loads = []
     w, events = worker({ES: "Where does it hurt?"}, loads=loads)
     w.translate(ES, "es", "en", entry("m"), [], speak=False)
@@ -172,11 +186,6 @@ def test_release_closes_the_translator_and_a_comparison_reports_one_event(worker
     w.translate(ES, "es", "en", entry("m"), [], speak=False)
     drain(w, events)
     assert loads == ["m", "m"], "loaded again after a release"
-    w.compare(ES, "es", "en", [entry("a"), entry("b")], "Where does it hurt?", [], names={"a": "Gemma"})
-    got = [e for e in drain(w, events) if isinstance(e, ev.MtComparison)]
-    assert len(got) == 1 and got[0].lines[0]["text"] == ES
-    assert [r["name"] for r in got[0].lines[0]["results"]] == ["Gemma", "b"]
-    assert got[0].lines[0]["results"][0]["chrf"] == 100.0
 
 
 # ---------------------------------------------------------------- through a running conversation

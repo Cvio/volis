@@ -156,22 +156,13 @@ def test_a_test_sentence_for_each_language_and_its_varieties():
         assert view.test_sentence(tag), tag
 
 
-# ---------------------------------------------------------------- the Translate / Compare button
+# ---------------------------------------------------------------- the Translate button
 
 
 def test_the_typed_button_says_it_is_working_and_cannot_be_pressed_again():
-    busy = view.typed_control(True, False, 2, True, "Loading Gemma 4 12B...")
+    busy = view.typed_control(True, "Loading Gemma 4 12B...")
     assert (busy.label, busy.enabled, busy.working) == ("Working...", False, True)
     assert busy.message == "Loading Gemma 4 12B. Nothing more to do: please wait."
-    assert view.typed_control(False, False, 0, True).message.startswith("Translating. Nothing more to do")
+    assert view.typed_control(True).message.startswith("Translating. Nothing more to do")
+    assert view.typed_control(False) == view.TypedControl("Translate", True, "")
 
-
-def test_the_typed_button_says_why_it_cannot_start_before_it_is_pressed():
-    stop = view.typed_control(True, True, 2, False)
-    assert not stop.enabled and stop.label == "Compare" and "Stop the conversation" in stop.message
-    one = view.typed_control(True, False, 1, False)
-    assert not one.enabled and "two or three" in one.message and "(1 ticked)" in one.message
-    assert not view.typed_control(True, False, 4, False).enabled
-    ready = view.typed_control(True, False, 2, False)
-    assert ready.enabled and not ready.message and not ready.working
-    assert view.typed_control(False, True, 0, False) == view.TypedControl("Translate", True, "")

@@ -250,17 +250,6 @@ class Translated(Event):
 
 
 @dataclass
-class MtComparison(Event):
-    """Typed text through two or three translators (P15): one entry per line,
-    each {"text", "reference", "results": [{"model", "name", "text", "ms",
-    "device", "chrf", "problem"}]}."""
-
-    source: str
-    target: str
-    lines: list
-
-
-@dataclass
 class NotTranslated(Event):
     id: str
     reason: str

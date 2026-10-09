@@ -79,13 +79,18 @@ class Compared:
 
 
 def compare(lines: list[str], source: str, target: str, entries: list, load, reference: str = "",
-            glossary: list[str] | None = None, on_status=lambda text: None, name=lambda entry: entry.name) -> list[Compared]:
-    """Each line through each translator in `entries` (two or three). `load`
-    opens a translator from its entry; each is closed before the next is
-    loaded. A translator that can't be loaded, or refuses a line, is reported
-    in its place and the rest go on."""
+            glossary: list[str] | None = None, on_status=lambda text: None, name=lambda entry: entry.name,
+            most: int | None = MAX_COMPARED, cancelled=lambda: False) -> list[Compared]:
+    """Each line through each translator in `entries`: the first `most` of
+    them (the command line's limit), or all with `most=None` (the test bench).
+    `load` opens a translator from its entry; each is closed before the next
+    is loaded. A translator that can't be loaded, or refuses a line, is
+    reported in its place and the rest go on. `cancelled()` is asked before
+    each translator and each line."""
     out = [Compared(line, reference_for(reference, i, len(lines))) for i, line in enumerate(lines)]
-    for entry in entries[:MAX_COMPARED]:
+    for entry in (entries if most is None else entries[:most]):
+        if cancelled():
+            break
         label = name(entry)
         on_status(f"Loading {label}...")
         try:
@@ -97,6 +102,8 @@ def compare(lines: list[str], source: str, target: str, entries: list, load, ref
             continue
         try:
             for n, row in enumerate(out, 1):
+                if cancelled():
+                    break
                 on_status(f"{label}: translating {n} of {len(out)}...")
                 row.results.append(one(translator, entry.id, label, row.text, source, target, row.reference,
                                        glossary or []))
@@ -145,8 +152,7 @@ def table(compared: list[Compared]) -> str:
 
 
 class Worker:
-    """Typed text while no conversation runs, and comparisons: one thread,
-    one job at a time. What happens is put on `events`, as the pipeline does,
+    """Typed text while no conversation runs: one thread, one job at a time. What happens is put on `events`, as the pipeline does,
     so the window shows a typed line exactly as it shows a spoken one."""
 
     def __init__(self, root: Path, pyconfig, events: queue.Queue, load=None, speak=None) -> None:
@@ -181,13 +187,6 @@ class Worker:
             self._jobs.put(("translate", lines, source, target, entry, glossary, speak, name or entry.name))
         return len(lines)
 
-    def compare(self, text: str, source: str, target: str, entries: list, reference: str, glossary: list[str],
-                names: dict[str, str] | None = None) -> int:
-        lines = lines_of(text)
-        if lines and entries:
-            self._jobs.put(("compare", lines, source, target, list(entries), reference, glossary, names or {}))
-        return len(lines)
-
     def release(self) -> None:
         """Close the translator kept loaded (a conversation is about to load
         its own; two copies would not fit)."""
@@ -219,10 +218,8 @@ class Worker:
             try:
                 if job[0] == "release":
                     self._unload()
-                elif job[0] == "translate":
-                    self._translate(*job[1:])
                 else:
-                    self._compare(*job[1:])
+                    self._translate(*job[1:])
             except Exception as e:  # a failed job is reported; the worker lives on
                 log.exception("typed text failed")
                 self.events.put(ev.Error(f"the typed text could not be translated: {e}"))
@@ -259,15 +256,3 @@ class Worker:
                     self._speak(result.text, target)
                 except Exception as e:
                     self.events.put(ev.Error(f"the typed translation was not spoken: {e}"))
-
-    def _compare(self, lines, source, target, entries, reference, glossary, names) -> None:
-        self._unload()  # the compared translators need the room
-        lines = [self._clean(line, source).text for line in lines]
-        began = time.perf_counter()
-        compared = compare(lines, source, target, entries, self._load, reference, glossary, self._say,
-                           name=lambda entry: names.get(entry.id, entry.name))
-        log.info("compared %d translator(s) on %d line(s) in %.1f s:\n%s", len(entries), len(lines),
-                 time.perf_counter() - began, table(compared))
-        self.events.put(ev.MtComparison(source, target, [
-            {"text": row.text, "reference": row.reference,
-             "results": [vars(r) for r in row.results]} for row in compared]))

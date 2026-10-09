@@ -219,13 +219,7 @@ a new line; each line is translated on its own.
 Use it in a noisy room, or for a name, an address or a number. It works whether or not a
 conversation is running.
 
-**To try translators against each other,** tick **Compare translators**, tick two or three
-in the list, and press **Compare**. Each one's translation is shown side by side, with how
-long it took. If you paste a translation you trust (Google's, or a person's) into the
-reference box, each is given a score from 0 to 100 for how close it comes to that reference.
-A high score means "close to the reference", not "correct": a good translation that uses
-different words scores lower. Comparing only works while no conversation is running, because
-the translators need the memory.
+To try translators against each other on the same text, use the Test bench (below).
 
 ### The options in the window
 
@@ -238,7 +232,6 @@ The rest are under **Advanced**, which stays closed until you open it:
 |---|---|
 | **Half-duplex** | Mutes the microphone while Volis is speaking. Leave it on unless you wear a headset. |
 | **Add vowel marks to Arabic before it is spoken** | Helps the Arabic voices pronounce words correctly. Needs one more small model: `.\fetch-models.ps1 -Only tashkeel`. |
-| **Compare recognizers** | Every recognizer you have writes down the same sentence, side by side. Nothing is translated. |
 | **Show text while speaking** | Shows words as you say them, before the sentence is finished. Costs more work. |
 | **Translate with the earlier sentences as context** | Each sentence is translated knowing the few before it, so "it", "her" and the like come out right. |
 | **Revise earlier translations** | Looks again at a short sentence once the next one is heard, and corrects it on screen if its meaning changed. |
@@ -275,11 +268,51 @@ different:
 
 [MODELS.md](MODELS.md) says how to get one, and which licence each has.
 
+### Try models against each other: the Test bench
+
+You don't need this to hold a conversation. It is for finding out which model is best for
+you, before you rely on one.
+
+**View > Test bench** (Ctrl+Shift+T) opens a window of its own, with three tabs:
+
+| Tab | The question it answers | What you give it |
+|---|---|---|
+| **Recognizers** | Which one hears this best? | A recording you make there, or an audio file. If you also type what was really said, each recognizer is marked against it. |
+| **Translators** | Which one translates this best? | Text you type or paste, or a recording or an audio file (one recognizer writes it down first, and every translator gets the same words). If you also paste a translation you trust, each is scored against it. |
+| **Whole set** | Will this recognizer, translator and voice run together on this computer? | Your choice of the three. It answers at once, without loading anything, and can then time the set on a recording. |
+
+Before you start: the Test bench works only while no conversation is running, because it
+needs the same memory. If one is running, a line at the top says so and a button beside it
+stops the conversation.
+
+1. Choose the tab.
+2. Give it the sound or the text. To record, press **Record**, speak, and press
+   **Stop recording**.
+3. Tick the models to try.
+4. Press **Compare**. If the button is grey, the line beside it says what is still missing.
+5. Wait. A line at the top says what it is doing. Models are loaded one at a time, so this can
+   take a minute or more; there is nothing else for you to do. **Cancel** stops it after the
+   model that is running.
+6. Read the table. To use one of the models, click its row and press
+   **Use in the conversation**.
+
+How to read the numbers:
+
+- **Letters wrong** and **Words wrong** (recognizers): how far what was heard is from the text
+  you typed. Lower is better.
+- **Score** (translators): from 0 to 100, how close the translation is to the one you pasted.
+  Higher means closer, not "correct": a good translation in different words scores lower.
+- **Time** and **Speed**: how long the model took, without the time to load it.
+
+Every comparison is kept. The list above the table shows earlier ones, and **Copy as a table**
+copies the one on screen so you can paste it into your notes.
+
 ### See what it costs your computer
 
 **View > Performance** (Ctrl+Shift+P) opens a panel showing how much of the graphics card,
-memory and processor Volis is using, and how long each sentence takes. Its **What if** tab
-tells you whether a different choice of models would fit before you load them.
+memory and processor Volis is using, and how long each sentence takes. To find out whether a
+different choice of models would fit before you load them, use the Test bench's **Whole set**
+tab.
 
 ## If something goes wrong
 
@@ -291,7 +324,7 @@ tells you whether a different choice of models would fit before you load them.
 | A model you downloaded isn't in the lists | Run `--report`: every folder Volis found is listed, with the reason if it can't be used. |
 | Nothing happens when you speak | Check the level meter at the top right moves when you talk. If it doesn't, pick another **Microphone**, and check the microphone isn't muted in Windows. |
 | Volis translates its own voice | Tick **Half-duplex**, or use a headset. |
-| Everything is very slow | The models probably don't fit on your graphics card together. Open **View > Performance**; the **What if** tab says whether they fit. Choose a smaller translator. |
+| Everything is very slow | The models probably don't fit on your graphics card together. Open **View > Test bench**; the **Whole set** tab says whether they fit. Choose a smaller translator. |
 | Translation takes several seconds per sentence | The translator is running on the processor, not the graphics card. Run `.\doctor.ps1`: if it says `GPU offload: no`, do step 3 of the setup. |
 | Setup finished, but `.\doctor.ps1` says `GPU offload: no` | Step 3 of the setup was skipped or didn't finish. Do it (or do it again); its Part C must end with `Successfully built`. |
 | It starts, then says a model "is not in" the models folder | The model named in your settings isn't installed. Pick one from the list in the window. |

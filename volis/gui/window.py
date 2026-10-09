@@ -2,7 +2,8 @@
 clicks into pipeline starts and stops; what the events mean lives there.
 
 Port of Rust `gui.rs`'s main window: recognizer, language and device pickers,
-start and stop, the caption pane, the latency readout and the compare toggle.
+start and stop, the caption pane and the latency readout. (Comparing recognizers
+and translators is in the test bench, testbench.py.)
 New in volis: the translator picker, each model's memory, and file mode
 (open or drop a file, real time or fast, pause, a timeline whose rows play
 their stretch of audio when clicked, export).
@@ -29,7 +30,7 @@ from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QCheckBox, QComboBox, QFileDialog, QFormLayout, QFrame, QGroupBox, QHBoxLayout, QHeaderView, QLabel,
     QLineEdit,
     QMainWindow, QMessageBox, QProgressBar, QPushButton, QRadioButton, QStyledItemDelegate, QTableWidget,
-    QListWidget, QListWidgetItem, QPlainTextEdit, QScrollArea, QTableWidgetItem, QToolButton, QVBoxLayout, QWidget,
+    QPlainTextEdit, QScrollArea, QTableWidgetItem, QToolButton, QVBoxLayout, QWidget,
 )
 
 from .. import audio, export, filerun, models, paths, perf, scoring, typed, varieties
@@ -50,7 +51,6 @@ log = logging.getLogger(__name__)
 REFRESH_MS = 100  # Rust's REFRESH
 METER_FLOOR_DB = -60.0
 COLUMNS = ["Time", "Source", "Translation", "Notes"]
-COMPARE_COLUMNS = ["Text", "Translator", "Translation", "Time", "Runs on", "Score"]
 MUTED = QColor(130, 130, 130)
 PROBLEM = QColor(190, 60, 40)
 REVISED = QColor(255, 244, 200)
@@ -206,6 +206,12 @@ class MainWindow(QMainWindow):
         perf_action.setShortcut("Ctrl+Shift+P")
         view_menu = self.menuBar().addMenu("&View")
         view_menu.addAction(perf_action)
+        # The test bench: comparing recognizers and translators, and measuring a whole set.
+        self.test_bench = None  # made when first opened
+        bench_action = QAction("&Test bench", self)
+        bench_action.setShortcut("Ctrl+Shift+T")
+        bench_action.triggered.connect(self.open_test_bench)
+        view_menu.addAction(bench_action)
         rescan_action = QAction("&Rescan models and devices", self)
         rescan_action.setShortcut("F5")
         rescan_action.triggered.connect(self.rescan)
@@ -284,7 +290,6 @@ class MainWindow(QMainWindow):
         self.diacritize.setToolTip("Arabic is written without its short vowels, and the voices mispronounce some "
                                    "words without them. On: a small model predicts the marks first, as Piper itself "
                                    "does (about 0.3 s more per sentence). Only Arabic is affected.")
-        self.compare = QCheckBox("Compare recognizers (no translation or speech)")
         self.streaming = QCheckBox("Show text while speaking (streaming)")
         self.streaming.setToolTip("Transcribes the growing utterance every second; words two passes agree on are "
                                   "committed, the rest is shown lighter and may change. Costs more recognition.")
@@ -431,7 +436,6 @@ class MainWindow(QMainWindow):
         advanced.addRow(self.half_duplex)
         advanced.addRow(reason("half_duplex"))
         advanced.addRow(self.diacritize)
-        advanced.addRow(self.compare)
         advanced.addRow(self.streaming)
         advanced.addRow(reason("streaming"))
         advanced.addRow(self.use_context)
@@ -476,7 +480,7 @@ class MainWindow(QMainWindow):
             "input_device": [self.input_device], "output_device": [self.output_device],
             "test_microphone": [self.test_microphone], "test_speakers": [self.test_speakers],
             "speak": [self.speak], "half_duplex": [self.half_duplex], "diacritize": [self.diacritize],
-            "compare": [self.compare], "streaming": [self.streaming], "use_context": [self.use_context],
+            "streaming": [self.streaming], "use_context": [self.use_context],
             "revise": [self.revise], "hold_speech": [self.hold_speech], "hold_fragments": [self.hold_fragments],
             "pair": [self.pair], "mode": [mode_box], "mode_shared": [self.mode_shared], "turn_style": [style_box],
             "source_live": [self.source_live], "source_file": [self.source_file], "open_file": [self.open_button],
@@ -554,43 +558,14 @@ class MainWindow(QMainWindow):
         self.typed_text.installEventFilter(self)
         self.typed_button = QPushButton("Translate")
         self.typed_button.clicked.connect(self.submit_typed)
-        self.typed_compare = QCheckBox("Compare translators")
-        self.typed_compare.setToolTip("Send the text through two or three translators and show the results side by "
-                                      "side, with the time each took. Only while no conversation is running: the "
-                                      "translators need the memory.")
-        self.typed_compare.toggled.connect(lambda _on: self.refresh())
         self.typed_status = QLabel()
         self.typed_status.setWordWrap(True)
-        self.typed_busy = QProgressBar()  # moves while a translation or comparison is under way
+        self.typed_busy = QProgressBar()  # moves while a translation is under way
         self.typed_busy.setRange(0, 0)
         self.typed_busy.setTextVisible(False)
         self.typed_busy.setFixedHeight(8)
         self.typed_busy.setVisible(False)
         self._typed_sent = False  # True from a press until the worker has finished
-        self.typed_models = QListWidget()  # which translators to compare: tick two or three
-        self.typed_models.setFixedHeight(84)
-        self.typed_models.setToolTip("Tick two or three translators.")
-        self.typed_models.itemChanged.connect(lambda _item: self.refresh())
-        self.typed_reference = QPlainTextEdit()
-        self.typed_reference.setPlaceholderText("Optional: a reference translation to score each one against "
-                                                "(Google's, or a person's). One line per line of the text above.")
-        self.typed_reference.setFixedHeight(84)
-        self.typed_reference.installEventFilter(self)
-        self.typed_note = QLabel(typed.SCORE_NOTE)
-        self.typed_note.setWordWrap(True)
-        self.typed_note.setStyleSheet("color: gray; font-size: 8pt")
-        self.compare_table = QTableWidget(0, len(COMPARE_COLUMNS))
-        self.compare_table.setHorizontalHeaderLabels(COMPARE_COLUMNS)
-        self.compare_table.setWordWrap(True)
-        self.compare_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self.compare_table.verticalHeader().setVisible(False)
-        self.compare_table.setItemDelegate(DirectionDelegate(self.compare_table))
-        compare_header = self.compare_table.horizontalHeader()
-        for column, mode in enumerate((QHeaderView.ResizeMode.Stretch, QHeaderView.ResizeMode.ResizeToContents,
-                                       QHeaderView.ResizeMode.Stretch, QHeaderView.ResizeMode.ResizeToContents,
-                                       QHeaderView.ResizeMode.ResizeToContents, QHeaderView.ResizeMode.ResizeToContents)):
-            compare_header.setSectionResizeMode(column, mode)
-        self.compare_table.setMinimumHeight(150)
         self.typed_box = QWidget()
         typed_layout = QVBoxLayout(self.typed_box)
         typed_layout.setContentsMargins(0, 0, 0, 0)
@@ -598,22 +573,11 @@ class MainWindow(QMainWindow):
         entry_row.addWidget(self.typed_text, 1)
         buttons = QVBoxLayout()
         buttons.addWidget(self.typed_button)
-        buttons.addWidget(self.typed_compare)
         buttons.addStretch(1)
         entry_row.addLayout(buttons)
         typed_layout.addLayout(entry_row)
         typed_layout.addWidget(self.typed_busy)  # directly under the text and the button: where the eye is
         typed_layout.addWidget(self.typed_status)
-        self.compare_box = QWidget()
-        compare_layout = QVBoxLayout(self.compare_box)
-        compare_layout.setContentsMargins(0, 0, 0, 0)
-        choose_row = QHBoxLayout()
-        choose_row.addWidget(self.typed_models, 1)
-        choose_row.addWidget(self.typed_reference, 2)
-        compare_layout.addLayout(choose_row)
-        compare_layout.addWidget(self.typed_note)
-        compare_layout.addWidget(self.compare_table)
-        typed_layout.addWidget(self.compare_box)
 
         self.latency = QLabel()
         self.status = QLabel()
@@ -845,7 +809,7 @@ class MainWindow(QMainWindow):
                 if engine is not None and engine.enabled():
                     estimates.append(perf.estimate_recognizer(engine, panel.measured, panel.gpu))
             entry = next((t for t in self.translators if t.id == self.translator.currentData()), None)
-            if entry is not None and entry.enabled() and not self.compare.isChecked():
+            if entry is not None and entry.enabled():
                 estimates.append(perf.estimate_translator(entry, panel.measured, panel.gpu))
             sample = panel.sampler.latest() or panel.sampler.sample()
             ours = sum(e.gpu_bytes for e in panel.loaded.values())
@@ -890,31 +854,23 @@ class MainWindow(QMainWindow):
     def typed_busy_now(self) -> bool:
         return self._typed_sent or (self.typed_worker is not None and not self.typed_worker.idle())
 
-    def _draw_typed(self, running: bool) -> None:
+    def _draw_typed(self) -> None:
         """The button, the moving bar and the line under them (view.typed_control)."""
         busy = self.typed_busy_now()
-        control = view.typed_control(self.typed_compare.isChecked(), running, len(self.compared_translators()), busy,
-                                     self.typed_worker.status if self.typed_worker is not None else "",
-                                     typed.MAX_COMPARED)
+        control = view.typed_control(busy, self.typed_worker.status if self.typed_worker is not None else "")
         self.typed_button.setText(control.label)
         self.typed_button.setEnabled(control.enabled)
         self.typed_button.setToolTip(control.message)
         self.typed_busy.setVisible(control.working)
-        for box in (self.typed_text, self.typed_models, self.typed_reference, self.typed_compare):
-            box.setEnabled(not busy)
+        self.typed_text.setEnabled(not busy)
         if control.message or not self.typed_status.text() or self.typed_status.text().endswith("..."):
             self.typed_status.setText(control.message)
         self.typed_status.setStyleSheet("font-weight: bold" if control.working else "color: gray")
 
-    def compared_translators(self) -> list:
-        ticked = [self.typed_models.item(i).data(Qt.ItemDataRole.UserRole) for i in range(self.typed_models.count())
-                  if self.typed_models.item(i).checkState() == Qt.CheckState.Checked]
-        return [t for t in self.translators if t.id in ticked]
-
     def submit_typed(self) -> None:
-        """Translate what is in the text box: with the current languages and
-        translator, into the transcript; or, with Compare ticked, through the
-        ticked translators, side by side."""
+        """Translate what is in the text box, with the current languages and
+        translator, into the transcript. (Comparing translators is in the
+        test bench.)"""
         text = self.typed_text.toPlainText()
         if not typed.lines_of(text):
             return
@@ -924,25 +880,12 @@ class MainWindow(QMainWindow):
         def name(t) -> str:
             return view.plain_name(t.named, t.name, t.id)
 
-        if self.typed_compare.isChecked():
-            entries = self.compared_translators()
-            if self.running():
-                self.typed_status.setText("Stop the conversation to compare translators: they need the memory it is using.")
-            elif not 2 <= len(entries) <= typed.MAX_COMPARED:
-                self.typed_status.setText("Tick two or three translators in the list to compare them.")
-            else:
-                self.compare_table.setRowCount(0)
-                self._typed().compare(text, source, target, entries, self.typed_reference.toPlainText(), glossary,
-                                      {t.id: name(t) for t in entries})
-                self.typed_status.setText("Comparing...")
-                self._typed_sent = True
-                self.refresh()
+        if self.bench_busy():
+            self.typed_status.setText(self.BENCH_BUSY)
             return
         if self.running():
             if self.source is not None:
                 self.typed_status.setText("A file is being translated. Type when it has finished.")
-            elif self.session.comparing:
-                self.typed_status.setText("Recognizers are being compared: nothing is translated. Stop first.")
             else:
                 self.pipeline.translate_typed(typed.lines_of(text))  # the running conversation translates it
                 self.typed_text.clear()
@@ -957,25 +900,6 @@ class MainWindow(QMainWindow):
         self.typed_text.clear()
         self._typed_sent = True
         self.refresh()
-
-    def _show_comparison(self, event) -> None:
-        """One row per line and translator: the translation, how long it
-        took, where it ran, and its score against the reference."""
-        rows = [(line, result) for line in event.lines for result in line["results"]]
-        self.compare_table.setRowCount(len(rows))
-        for index, (line, r) in enumerate(rows):
-            score = "" if r["chrf"] is None else f"{r['chrf']:.1f}"
-            cells = [line["text"], r["name"], r["problem"] or r["text"], f"{r['ms']} ms" if not r["problem"] else "",
-                     {"cuda": "graphics card", "cpu": "processor"}.get(r["device"], ""), score]
-            for column, text in enumerate(cells):
-                item = QTableWidgetItem(text)
-                if column == 0 and line["reference"]:
-                    item.setToolTip("Reference: " + line["reference"])
-                if r["problem"] and column == 2:
-                    item.setForeground(QBrush(QColor("#b83a26")))
-                self.compare_table.setItem(index, column, item)
-        self.compare_table.resizeRowsToContents()
-        self.typed_status.setText("")
 
     def _run_test(self, work) -> None:
         """A device test, on its own thread; what it says is shown by tick."""
@@ -1083,16 +1007,6 @@ class MainWindow(QMainWindow):
                 Qt.ItemDataRole.ToolTipRole)
         for failed in self.broken_translators:
             self._add_broken(self.translator, failed)
-        ticked = {self.typed_models.item(i).data(Qt.ItemDataRole.UserRole) for i in range(self.typed_models.count())
-                  if self.typed_models.item(i).checkState() == Qt.CheckState.Checked}
-        self.typed_models.clear()
-        for t in self.translators:
-            if t.enabled():
-                item = QListWidgetItem(view.plain_name(t.named, t.name, t.id))
-                item.setData(Qt.ItemDataRole.UserRole, t.id)
-                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-                item.setCheckState(Qt.CheckState.Checked if t.id in ticked else Qt.CheckState.Unchecked)
-                self.typed_models.addItem(item)
         top = next((t.id for t in self.translators if t.top_level), "")
         wanted = self.pyconfig.translate.model or top
         if not _select(self.translator, wanted):
@@ -1105,6 +1019,8 @@ class MainWindow(QMainWindow):
             for device in devices:
                 combo.addItem(device.name + ("  *" if device.is_default else ""), device.name)
             _select(combo, chosen)
+        if self.test_bench is not None:
+            self.test_bench.refill()  # its lists are these models and languages
 
     @staticmethod
     def _add_broken(combo: QComboBox, failed) -> None:
@@ -1215,9 +1131,8 @@ class MainWindow(QMainWindow):
         self.refresh()
 
     def pairing(self) -> bool:
-        """Whether a run started now would pair: ticked, the microphone, and
-        not a comparison."""
-        return (self.pair.isChecked() and not self.source_file.isChecked() and not self.compare.isChecked()
+        """Whether a run started now would pair: ticked, and the microphone."""
+        return (self.pair.isChecked() and not self.source_file.isChecked()
                 and self.config.mode.kind != SHARED)
 
     def can_connect(self) -> bool:
@@ -1331,9 +1246,27 @@ class MainWindow(QMainWindow):
     def running(self) -> bool:
         return self.pipeline is not None
 
+    def open_test_bench(self) -> None:
+        """View > Test bench: a window of its own, made the first time."""
+        if self.test_bench is None:
+            from .testbench import TestBench
+
+            self.test_bench = TestBench(self)
+        self.test_bench.show()
+        self.test_bench.raise_()
+        self.test_bench.activateWindow()
+
+    def bench_busy(self) -> bool:
+        return self.test_bench is not None and self.test_bench.busy()
+
+    BENCH_BUSY = "The test bench is still working. Wait for it to finish, or press Cancel there."
+
     def toggle(self) -> None:
         if self.running():
             self.stop()
+        elif self.bench_busy():
+            self.notice.setText(self.BENCH_BUSY)  # two sets of models would not fit
+            self.notice.setVisible(True)
         elif self.source_file.isChecked():
             self.start_file()
         else:
@@ -1343,9 +1276,8 @@ class MainWindow(QMainWindow):
         self.notice.setVisible(False)  # a rescan's news is old once a conversation starts
         if self.typed_worker is not None:
             self.typed_worker.release()  # the conversation loads its own; two copies wouldn't fit
-        comparing = self.compare.isChecked()
         paired = self.pairing() and source is None
-        self.session.begin(self.config.languages.source, self.config.languages.target, comparing, speak, paired)
+        self.session.begin(self.config.languages.source, self.config.languages.target, False, speak, paired)
         self.session.clear()
         self.collected = Collected()
         self.scores = ""
@@ -1354,7 +1286,7 @@ class MainWindow(QMainWindow):
         self.paused = False
         ev.restart_clock()
         self.events = queue.Queue()
-        self.options = Options(compare=comparing, translate=not comparing, speak=speak, pair=paired,
+        self.options = Options(speak=speak, pair=paired,
                                mt=self.translator.currentData() or "",
                                glossary=parse_glossary(self.glossary.text()))
         self.pipeline = Pipeline(self.root, dataclasses.replace(self.config), self.options, self.events, source,
@@ -1417,10 +1349,7 @@ class MainWindow(QMainWindow):
             changed = True
             if not self.running():  # a run keeps its own record; this is the record between runs
                 self.collected.events.append(event)
-            if isinstance(event, ev.MtComparison):
-                self._show_comparison(event)
-            else:
-                self.session.apply(event)
+            self.session.apply(event)
         if self.typed_worker is not None and self.typed_worker.status:
             self.typed_status.setText(self.typed_worker.status)
             changed = True
@@ -1574,8 +1503,7 @@ class MainWindow(QMainWindow):
         if not running and self.show_settings.isChecked():
             self.show_settings.setChecked(False)
         self.bar_label.setText(self._bar_text(shared) if running else "")
-        self.compare_box.setVisible(self.typed_compare.isChecked())
-        self._draw_typed(running)
+        self._draw_typed()
         self._draw_peer(running)
         self._draw_shared(shared)
         for widget in (self.realtime, self.fast, self.play_original, self.export_button, self.open_button, self.progress):
@@ -1619,8 +1547,6 @@ class MainWindow(QMainWindow):
         # While a run is going the pipeline hasn't summed up yet: show what the rows say.
         stats = dict(s.stats) if s.stats else s.counts() | s.running_stats() | {"worst_stall_ms": s.worst_stall_ms}
         line = filerun.status_line(stats) if (s.lines or s.stats) else ""
-        if s.comparing:
-            line = "Comparing recognizers: nothing is translated or spoken.  " + line
         self.status.setText("\n".join(x for x in (line, self.scores) if x))
         self.error.setText(s.last_error or "")
         self.error.setVisible(bool(s.last_error))
@@ -1874,6 +1800,8 @@ class MainWindow(QMainWindow):
             self.player.close()
         if self.typed_worker is not None:
             self.typed_worker.close()
+        if self.test_bench is not None:
+            self.test_bench.shutdown()
         event.accept()
 
 

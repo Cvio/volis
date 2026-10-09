@@ -68,7 +68,7 @@ def test_only_the_basics_show_and_advanced_starts_closed_and_is_remembered(windo
                   window.input_device, window.output_device, window.test_microphone, window.test_speakers,
                   window.speak, window.mode_turn, window.mode_continuous, window.mode_shared):
         assert basic.isVisibleTo(window), basic
-    for advanced in (window.half_duplex, window.diacritize, window.compare, window.streaming, window.use_context,
+    for advanced in (window.half_duplex, window.diacritize, window.streaming, window.use_context,
                      window.revise, window.hold_speech, window.hold_fragments, window.glossary, window.pair):
         assert not advanced.isVisibleTo(window), advanced.text() if hasattr(advanced, "text") else advanced
     window.advanced_toggle.setChecked(True)

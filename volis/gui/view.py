@@ -63,28 +63,21 @@ def translator_limits(backend: str) -> str:
 
 @dataclass(frozen=True)
 class TypedControl:
-    """The Translate / Compare button under the text box, and the line beside it."""
+    """The Translate button under the text box, and the line beside it."""
 
     label: str
     enabled: bool
-    message: str  # why it can't be pressed, or what is happening
+    message: str  # what is happening
     working: bool = False  # True: show the moving bar; the user has nothing more to do
 
 
-def typed_control(compare: bool, running: bool, ticked: int, busy: bool, status: str = "",
-                  most: int = 3) -> TypedControl:
-    """What the button says and whether it can be pressed. While work is under
-    way it says so itself and can't be pressed again; when it can't start, the
-    reason is beside it instead of appearing after a click."""
-    label = "Compare" if compare else "Translate"
+def typed_control(busy: bool, status: str = "") -> TypedControl:
+    """What the button says and whether it can be pressed. While a
+    translation is under way it says so itself and can't be pressed again."""
     if busy:
-        doing = (status or ("Comparing..." if compare else "Translating...")).rstrip(".")
+        doing = (status or "Translating...").rstrip(".")
         return TypedControl("Working...", False, f"{doing}. Nothing more to do: please wait.", True)
-    if compare and running:
-        return TypedControl(label, False, "Stop the conversation to compare translators: they need the memory it is using.")
-    if compare and not 2 <= ticked <= most:
-        return TypedControl(label, False, f"Tick two or three translators in the list to compare them ({ticked} ticked).")
-    return TypedControl(label, True, "")
+    return TypedControl("Translate", True, "")
 
 
 def quantization(file_name: str) -> str:
@@ -135,7 +128,7 @@ class Situation:
 
 RUNNING = "Stop the conversation to change this."
 LOCKED_WHILE_RUNNING = ("source_lang", "target_lang", "swap", "recognizer", "translator", "input_device",
-                        "output_device", "speak", "half_duplex", "compare", "streaming", "use_context", "revise",
+                        "output_device", "speak", "half_duplex", "streaming", "use_context", "revise",
                         "hold_speech", "hold_fragments", "pair", "diacritize", "test_speakers", "test_microphone",
                         "source_live", "source_file", "open_file", "speed")
 

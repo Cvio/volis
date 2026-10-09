@@ -131,12 +131,3 @@ def test_falling_behind_turns_the_panel_red(window):
     assert "#d03030" in panel.now_labels["speech"].styleSheet()
     panel.hide()
 
-
-def test_what_if_estimates_without_loading(window):
-    panel = window.perf_panel
-    panel.sampler.history.append(sample())
-    panel.fill_from_window()
-    panel.refresh_whatif()
-    assert panel.verdict_label.text()
-    if window.engines:
-        assert panel.estimate_table.rowCount() >= 1

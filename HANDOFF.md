@@ -298,6 +298,49 @@ Eight milestones for non-technical users. Built in order; stop after each.
     2. A translator that lacks the chosen language is refused when it translates, not greyed
        out beforehand. `--translate` prints "prompt default" for a model with no prompt, and
        doesn't print the fallback note (the window and `--compare-mt` do).
+- **The test bench (a UI refinement the user asked for, between P17 and P18).** The four
+  testing tools were in three places and each changed what another button did: "Compare
+  recognizers" (a tick box under Advanced that changed START), "Compare translators" (a tick
+  box that changed Translate), and the What if and Benchmarks tabs of the performance panel.
+  They are now one window, **View > Test bench** (Ctrl+Shift+T), `gui/testbench.py` over
+  `bench.py`:
+  - **Recognizers:** a recording made there or an audio file, through each ticked recognizer;
+    with the correct text typed in, letters wrong (CER) and words wrong (WER), time, speed
+    against the speech, where it ran and the memory it took.
+  - **Translators:** typed or pasted text, or a recording or file heard by one chosen
+    recognizer, through each ticked translator (any number now, not two or three); score
+    against a pasted reference.
+  - **Whole set:** What if and Benchmarks merged: choose a set, see at once whether it fits,
+    "Measure this set on a recording", the table of runs.
+  - One rule, said once at the top: not while a conversation runs (with a button that stops
+    it). One line and one moving bar while it works, one Cancel. The reason a Compare button
+    is grey is beside it before it is pressed (`bench.ready`). Every comparison is kept
+    (`logs\test-bench.json`) and listed under Results; "Copy as a table" gives Markdown; "Use in
+    the conversation" sets the main window's choice from a row.
+  - **Decisions:** the name; always in the View menu, no setting hides it; the performance
+    panel keeps only the live view ("Now"); recognizer comparison is on a clip (recorded or a
+    file), not live as you speak, so a run can be repeated and scored.
+  - **Removed from the main window:** both tick boxes, the translator list, the reference box
+    and the comparison table; `typed.Worker.compare` and the `MtComparison` event. A
+    conversation can't start, and typed text isn't translated, while the bench is working.
+  - **Left as it was:** the pipeline's own compare mode and `--listen --compare` on the command
+    line; `--translate --compare-mt`; `session.py` still models a comparing session
+    (`comparing`, `ComparisonLine`), which the window no longer starts.
+  - **How pasted text applies to recognizers** (the user asked for text, speech and a file on
+    both tabs): a recognizer can only be given sound, so on the Recognizers tab the typed
+    text is the correct text it is marked against. On the Translators tab all three are inputs.
+  - Tests: `tests/test_bench.py` (16, stand-in models) and `tests/test_window_testbench.py`
+    (14, the real window offscreen). Checked on real models: two Persian FLEURS clips through
+    Whisper turbo and MMS, then through NLLB and Gemma 3 4B as heard by Whisper.
+  - **Noticed while checking, not changed:** two recordings joined end to end, the second
+    37 dB quieter than the first (FLEURS has one at -59 dBFS): the speech detector found no
+    speech in the second, though it finds it when that clip is given alone. It is the Silero
+    detector itself (the same through sherpa-onnx with none of volis's code). A quiet speaker
+    straight after a loud one could be missed the same way in a conversation.
+  - Pictures: ![recognizers](docs/images/testbench-recognizers.png)
+    ![translators](docs/images/testbench-translators.png)
+    ![whole set](docs/images/testbench-whole-set.png)
+    The main window now, Advanced open: ![main window](docs/images/testbench-main-window.png)
 
 ### Later (noted in `volis-next-features.md`, deliberately not in this round)
 

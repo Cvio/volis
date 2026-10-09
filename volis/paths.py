@@ -105,6 +105,11 @@ def performance_file(root: Path) -> Path:
     return logs_dir(root) / "performance.json"
 
 
+def test_bench_file(root: Path) -> Path:
+    """`<root>/logs/test-bench.json` - the comparisons made in the test bench."""
+    return logs_dir(root) / "test-bench.json"
+
+
 def cache_dir(root: Path) -> Path:
     """`<root>/cache` - where a library that insists on caching is sent.
 

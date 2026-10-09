@@ -137,8 +137,8 @@ and some a particular accent.
 
 ### Will it fit?
 
-Once a model is in the `models` folder, open **View > Performance** in the window and choose
-the **What if** tab. Pick the recognizer, translator and voice you have in mind: it shows the
+Once a model is in the `models` folder, open **View > Test bench** in the window and choose
+the **Whole set** tab. Pick the recognizer, translator and voice you have in mind: it shows the
 memory they need and whether they fit on your card as it is now, without loading anything.
 
 Two models that don't fit together still run, but spill into ordinary memory and become
@@ -148,14 +148,21 @@ several times slower. That is the usual reason for Volis suddenly being slow.
 
 Published scores don't tell you how a model hears *your* voice in *your* room. To find out:
 
-1. **Listen.** In the window, tick **Compare recognizers** and speak: every recognizer you have
-   transcribes the same sentence, side by side, with its timing.
-2. **Measure.** Record yourself reading a page (two minutes is enough). Save what you read
-   beside the recording, as described in [SETTINGS.md](SETTINGS.md#--file). Run the recording
-   through file mode once with each model: each run ends with an error rate for the recognizer
-   and a score for the translator, on your own voice.
-3. **Time it.** The **Benchmarks** tab of the performance panel runs a recording through any
-   combination and records how fast it was. Those results feed the What if tab from then on.
+Open **View > Test bench** in the window ([README.md](README.md#try-models-against-each-other-the-test-bench)
+walks through it):
+
+1. **Recognizers.** Record yourself reading a few sentences, or choose a recording, and tick the
+   recognizers to try. Type what you read into "Correct text" and each one is marked against
+   it: letters wrong, words wrong, how long it took and the memory it needed.
+2. **Translators.** Paste a few sentences (or use the same recording) and tick the translators.
+   With a translation you trust pasted into "Reference", each gets a score beside its time.
+3. **Whole set.** Choose the recognizer, translator and voice you settled on. It says whether
+   they fit in this computer's memory together, and **Measure this set on a recording** times
+   them working together. Those measurements also feed the main window's warning that a
+   choice won't fit.
+
+For a long recording scored as a whole, file mode does the same with a reference file beside
+the recording: see [SETTINGS.md](SETTINGS.md#--file).
 
 ## Getting models
 

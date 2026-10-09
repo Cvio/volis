@@ -35,15 +35,17 @@ CONVERSATION = [
     ("3.1", "es", "¿Trajo una identificación con fotografía?", "en", "Did you bring a photo ID?"),
 ]
 
-COMPARED = {
-    "text": "کجا درد می‌کند؟", "reference": "Where does it hurt?",
-    "results": [
-        {"model": "a", "name": "Gemma 3 4B", "text": "Where does it hurt?", "ms": 410, "device": "cuda",
-         "chrf": 100.0, "problem": ""},
-        {"model": "b", "name": "TranslateGemma 4B", "text": "Where is the pain?", "ms": 380, "device": "cuda",
-         "chrf": 31.4, "problem": ""},
-    ],
-}
+# The test bench's pictures: comparisons as it would show them, with no model run.
+HEARD = [
+    ["Whisper turbo", "کجا درد می‌کند؟ از دیروز سرم درد می‌کند.", "640 ms", "5.9x faster than speech", "graphics card",
+     "1.7 GB", "0.0%", "0.0%", ""],
+    ["MMS", "کجا درد میکند از دیروز سرم درد می کند", "410 ms", "9.3x faster than speech", "graphics card", "3.9 GB",
+     "2.9%", "25.0%", ""],
+]
+TRANSLATED = [
+    ["کجا درد می‌کند؟", "NLLB-200 1.3B", "Where does it hurt?", "590 ms", "graphics card", "100.0", ""],
+    ["کجا درد می‌کند؟", "Gemma 3 4B", "Where is the pain?", "410 ms", "graphics card", "31.4", ""],
+]
 
 
 def running_events(source: str, target: str) -> list:
@@ -55,6 +57,39 @@ def running_events(source: str, target: str) -> list:
                    ev.SentenceMsg(sid, n, text, source, float(n * 5), float(n * 5 + 2.4), False),
                    ev.Translated(sid, translation, target, 480, "cuda", "translator", n - 1)]
     return events
+
+
+def test_bench(app, window, args) -> None:
+    """Each tab of the test bench, showing a comparison. Nothing is run and
+    nothing is added to this machine's history."""
+    from volis import bench, typed
+    from volis.gui.testbench import TestBench
+
+    tb = TestBench(window)
+    tb.resize(1040, 780)
+    tb.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen)
+    tb.show()
+    tb.r_reference.setPlainText("کجا درد می‌کند؟ از دیروز سرم درد می‌کند.")
+    tb.r_sound.label.setText("a recording, 3.8 s")
+    tb.show_record(bench.Record("2026-10-09 10:00", bench.RECOGNIZERS, "Persian, a recording, 3.8 s of speech in 1 part",
+                                bench.RECOGNIZER_COLUMNS, HEARD, ["a", "b"], bench.ERROR_NOTE,
+                                "کجا درد می‌کند؟ از دیروز سرم درد می‌کند."))
+    tb.t_text.setPlainText("کجا درد می‌کند؟")
+    tb.t_reference.setPlainText("Where does it hurt?")
+    tb.show_record(bench.Record("2026-10-09 10:05", bench.TRANSLATORS, "Persian > English, typed, 1 line",
+                                bench.TRANSLATOR_COLUMNS, TRANSLATED, ["a", "b"], typed.SCORE_NOTE, "Where does it hurt?"))
+    tb.sampler.history.append(tb.sampler.sample())
+    tb.refresh_whole()
+    for index, name in enumerate(("recognizers", "translators", "whole-set")):
+        tb.tabs.setCurrentIndex(index)
+        app.processEvents()
+        tb.draw()
+        app.processEvents()
+        path = args.folder / f"{args.prefix}-testbench-{name}.png"
+        tb.grab().save(str(path))
+        print(path)
+    tb.shutdown()
+    tb.close()
 
 
 def main() -> int:
@@ -93,14 +128,7 @@ def main() -> int:
         window.advanced_toggle.setChecked(True)
         shot("advanced")
         window.advanced_toggle.setChecked(False)
-    if hasattr(window, "typed_compare"):  # P15: typed text through two translators, with a reference
-        window.typed_compare.setChecked(True)
-        window.typed_text.setPlainText(COMPARED["text"])
-        window.typed_reference.setPlainText(COMPARED["reference"])
-        window._show_comparison(ev.MtComparison("fa", "en", [COMPARED]))
-        shot("compare")
-        window.typed_compare.setChecked(False)
-        window.typed_text.clear()
+    test_bench(app, window, args)
     # A conversation, as the window would show it while running.
     window.session.begin("es", "en", False, True, False)
     window.pipeline = object()  # "running", without a pipeline: nothing here touches it
