@@ -366,6 +366,43 @@ Eight milestones for non-technical users. Built in order; stop after each.
   checked translation; (3) a near match is shown as a suggestion beside the model's
   translation, never swapped in. `volis-next-features.md` is unchanged: decide this when P19d
   is built.
+- **Glossary ideas (for P19d; the user's decision 2026-10-09: on hold for more thinking).**
+  Discussed, nothing built, nothing tested:
+  - **Kinds of entry.** The plan has one kind: *fixed* ("always translate X as Y"), right for
+    names and technical terms. A word with two meanings needs another. The user's first
+    example was Persian منو, which is "menu" and, far more often, the everyday "me": as a
+    fixed entry it would turn "Do you know me?" into "Do you know the menu?", and the plan's
+    "term not used" flag would mark every correct "me". Proposed: a *hint* ("X can also mean Y
+    here"; chat translators only, the model still decides), and a *watch word* (show both
+    readings, with back-translations, and let a person choose; any translator; ties into
+    P19b). **Whether a hint works is untested.** The test offered and not run: one line added
+    to the instructions ("منو can mean 'menu'"), then the menu sentence and two ordinary "me"
+    sentences through each chat translator. In the user's Test bench runs only the Gemma 4
+    models used restaurant context correctly; three smaller ones invented words instead.
+  - **The glossary as hints to the recognizer** (new, not in the plan): active terms given to
+    Whisper and Gemma 4 before they listen, for names, places and borrowed words. Not MMS.
+    To verify first: how it is done in the installed versions, Whisper's limit on hint text,
+    and that a hinted word isn't "heard" when it wasn't said. So a tick per term for "also
+    hint the recognizer", and few of them.
+  - **An editor for interpreters** (new; the plan has hand-edited files and "Add to
+    glossary"): a Glossary menu opening a window with the glossaries on the left (tick = active)
+    and the chosen one's terms in a table; add from a conversation by right-click; import and
+    export (a colleague's file, a two-column spreadsheet). Guard rails: a warning on a short,
+    common word; conflicts between active glossaries shown; a removed glossary moved aside,
+    not deleted. **Three decisions left with the user:** one row per term across all the
+    languages worked in (proposed; changes the plan's one-direction file layout) or a list per
+    language pair; whether an entry works both ways by default (proposed: yes, with a switch
+    per term); in the menu bar for everyone (proposed) or under Advanced.
+  - **Where terms come from.** Start with 50 to 200 of the user's own: people, places,
+    programs, forms, medicines. Then whatever goes wrong in use. Public sources only to top
+    up a topic, each to be checked for contents and licence before use (named from memory:
+    Wikidata, GeoNames, Translators without Borders glossaries, court and health-agency
+    interpreter glossaries, Microsoft's terminology lists, Wiktionary extracts). Public lists
+    are formal and standard (Iranian Persian, Standard Arabic): every term needs a speaker of
+    the variety in use. For translation a file can be large, since only terms that appear in
+    a sentence are sent; for recognizer hints it must be small.
+  - Not yet answered by the user: the setting this is for, whether the speakers are from Iran
+    or Afghanistan, and who can check terms in Farsi and Iraqi Arabic.
 
 ## Open list (2026-10-02)
 
