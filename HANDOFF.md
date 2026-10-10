@@ -6,7 +6,103 @@
 > below was rewritten with the new names, including the history: read "volis" in an entry
 > dated before the rename as the app then called pyvolis.
 
-Last updated 2026-10-01. Read `CLAUDE.md` first, then `volis-build.md`.
+Last updated 2026-10-10. Read `CLAUDE.md` first, then `volis-next-features.md` (the plan in
+progress, P13 to P20). `volis-build.md` is the first plan, P0 to P12, and is finished.
+**What to do next is under "Priorities", just below.** Everything after it is the record of
+what was built and found.
+
+## Priorities (2026-10-10)
+
+Everything still open, sorted on 2026-10-09 from this file and the plan, and agreed by the user
+to be written here. The sorting is a judgement; where it depends on something not yet known,
+the line says so. Details of an item are where its milestone or the "Later" list has them.
+
+### Must have
+
+Mostly checks, not features: after P0 to P17 the largest unknown is whether what is built holds
+up away from this machine and with real people.
+
+| Item | Who |
+|---|---|
+| **Rebuild the ready-made folder and run it on a second Windows PC** with no Python and no internet (`.\build.ps1`, `scripts\p12_check.py`, then "P12 findings"). Not rebuilt since P12; since then: the rescan, the new window, typed text, the Persian clean-up and its verb list in `config\`, the seq2seq translators, the test bench. | Rebuild and check here: Claude. The second PC: the user |
+| **The two-person modes with real people:** shared machine with two people at normal speaker volume, and two PCs paired. Neither has been used by people. (Pairing drops to "should" if it is not going to be used.) | The user |
+| **A first-time user starts a conversation without opening Advanced** (P14's own check). | The user |
+| **In-app help (P18):** plain-words pages, a ? beside each option, pictures made from the real window. `README.md` doesn't reach someone handed the ready-made folder. | Claude, when the user says go |
+
+### Should have
+
+- **Fixing a sentence (P19a, P19b):** other readings and an edit box for what was heard; other
+  translations, each with its back-translation, which is the only way someone who can't read
+  the target language can catch a wrong one.
+- **Everyday test sentences** for Persian and Iraqi Arabic, checked by a speaker. Everything
+  measured so far is read news (FLEURS). The user's "menu" sentence (below, "Later") was the
+  first colloquial one tried, and all nine translators got it wrong.
+- **The real context test for Persian,** then say in `MODELS.md` which translator to use: in
+  a running conversation with context on, type a restaurant sentence, then
+  میشه منو رو ببینم لطفا؟ as a second line. In the user's Test bench runs only Gemma 4 12B and
+  Gemma 4 E4B used context correctly; NLLB's lead was on news sentences.
+- **Quiet speech straight after loud speech** is missed by the speech detector (found with the
+  test bench): find out how large the difference must be, and try evening out levels.
+- **Saving a live conversation.** Export works only after a file run.
+- **A translator that lacks the chosen language** greyed out beforehand, with the reason
+  (P17's leftover).
+- **Model advice (part of P20):** a "Recommended" marker and "Use recommended".
+- **The GPU translator build published** (GitHub Releases, fetched by `setup.ps1`), so setting
+  up from a clone needs no build tools. Matters less if everyone gets the ready-made folder.
+- **Tidy the documents:** the user removed Qwen3-ASR (2026-10-09): `MODELS.md`, the basic set
+  and the download list still offer it. This file: the sections marked obsolete below.
+- **The corrections log (P19c),** once P19a and P19b exist.
+
+### Nice to have
+
+- Guided tutorials (the other part of P20).
+- CTranslate2 (P17's leftover). It mainly helps a machine with no graphics card, which is not
+  a target, so the proposal is to drop it. **The user hasn't decided.**
+- A graphics-card or processor choice for the translator in the window (now only
+  `[translate] device`).
+- A context box in the test bench: earlier sentences given to the translators as a
+  conversation gives them. Joining two sentences on one line is not the same and spoils the score.
+- One settings file in place of `volis.toml` and `volis-python.toml`, now that nothing else
+  reads `volis.toml`.
+- An automatic check of the Arabic vowel marks (speak test sentences with and without them,
+  transcribe the sound, compare with the text), since no listener has judged them.
+- The plan's own "Later" list: translating the computer's own sound with a caption window, a
+  replay button per row, speaker labels in file mode, a full-screen view for the other person.
+- Small loose ends: the "too slow" warning exists only for a pair already run here; typed text
+  in shared machine mode goes in the main pair's direction; the user's installed models show
+  cleaned folder names until `.\fetch-models.ps1 -Names -Group all`; an English test recording
+  with references; whether the Persian clean-up should be off by default (no measured benefit);
+  `--translate` prints "prompt default" and no fallback note for a seq2seq model; the compare
+  code the window no longer uses (`session.py`'s `comparing`); a real headset plugged in while
+  the app is open; `models\asr\whisper-model-large-hmong` has no `config.json`.
+
+### On hold, by the user's decision
+
+- **Glossaries and the phrasebook (P19d):** the kinds of entry, the glossary as hints to the
+  recognizer, an editor for interpreters, and the phrasebook's matching rule. Both notes are
+  under "Later". Waiting on: the setting this is for, whether the speakers are from Iran or
+  Afghanistan, and who can check terms.
+- **Holding speech for revision** (`[context] hold_speech`): set aside.
+- **Linux,** and **machines without an NVIDIA card.**
+
+### Obsolete
+
+- **Everything about volis-rust.** It is no longer on this machine or a reference. That covers
+  `parity\`, the open item "the GPU wheel's CPU path isn't Rust's", "the same turns through
+  volis-rust side by side", the section "Development models" (the models are no longer hard
+  links to Rust's files), and "Differences from volis-rust" read as an obligation: it stays as
+  the record of why things are as they are.
+- **Done, though an older part of this file still says open:** the rename to volis; building
+  the performance panel; "a download from nothing has not been run" (the user ran it,
+  2026-10-02); the replacement characters after Whisper on Persian (fixed 2026-10-07, and the
+  user reports it fixed on the other machine).
+- **Superseded by the test bench:** the Compare recognizers and Compare translators tick boxes
+  (the P15 entry describes the second as it was), and the performance panel's What if and
+  Benchmarks tabs.
+- **Removed models:** Qwen3-ASR (0.6B and 1.7B) and Voxtral, and the tests still owed on them.
+- **Dropped on evidence:** a "situation" line in the translator's instructions (restaurant,
+  clinic). Given a restaurant sentence, three smaller translators invented words ("my order",
+  "my reservation", "assist me") where they had been literally wrong before.
 
 ## Status
 
@@ -259,8 +355,10 @@ Eight milestones for non-technical users. Built in order; stop after each.
   - **Also learned, the first Persian figures here:** recognition CER is 4.2% (MMS), 4.5%
     (Gemma 4 E4B), 6.6% (Whisper turbo), 20.5% (Qwen3-ASR 0.6B); and on correct text the
     translators score 61.5 to 67.5, Gemma 4 12B highest. `MODELS.md` has them.
-- **P17 in progress: seq2seq translators (MADLAD, NLLB, Marian).** *Built and tested without a
-  model* (`tests/test_seq2seq.py`, stand-in model):
+- **P17 built and measured: seq2seq translators (MADLAD, NLLB, Marian).** Its check is met
+  (both models, from text and from a file, scores in `MODELS.md`); two leftovers are under
+  "Still open" and in "Priorities". First built and tested without a model
+  (`tests/test_seq2seq.py`, stand-in model):
   - `volis/translate/seq2seq.py`: backend `seq2seq` (`AutoModelForSeq2SeqLM`, 4 beams), the
     `NLLB` and `MADLAD` code tables, `code_for` (variety, then language, then ISO 639-3; a
     variety the model lacks falls back with a note), `codes_from_vocab` (the check against the
@@ -404,42 +502,11 @@ Eight milestones for non-technical users. Built in order; stop after each.
   - Not yet answered by the user: the setting this is for, whether the speakers are from Iran
     or Afghanistan, and who can check terms in Farsi and Iraqi Arabic.
 
-## Open list (2026-10-02)
+## Open list (2026-10-02): superseded
 
-Waiting on the user:
-- The built folder on a second Windows PC (rebuild first: `.\build.ps1`), and English
-  recognition with `whisper-large-v3-turbo` on the user's own voice.
-- Two machines paired: when a second Windows machine is available.
-- Vowel marks for Arabic: a linguist's opinion, or an automatic check (proposed: speak test
-  sentences with and without marks, transcribe the audio with the best Arabic recognizers, and
-  compare with the text; fewer errors = more intelligible).
-- Hold-speech for revision: set aside by the user; to come back to.
-
-To build, when the user says:
-- **Done 2026-10-03, see difference 73:** a performance panel (the user's answers, 2026-10-03). A developer's tool, shipped to
-  everyone (it can be switched off in code before a deployment). Purpose: know what volis
-  costs this machine, whether another model combination would leave room for another program
-  (say, a video-over-IP messaging app), and whether something (more context, a long sentence)
-  makes the cost spike.
-  - *Now:* every number that bears on performance, updated about once a second: GPU memory per
-    model, volis's total, other programs' and what is free; system memory the same way; CPU
-    and GPU load; GPU temperature and clock; and per sentence, the time to transcribe,
-    translate (with how much context it carried) and speak, and the delay from the end of
-    speech to the first sound. Amber and red when memory is nearly full or speech falls behind.
-  - *What if:* choose another recognizer, translator and voice and see, without loading
-    anything, the memory it would need, its speed where it has been measured, and whether it
-    fits this machine at all.
-  - *Measure:* "benchmark this combination" runs a test recording; results are kept so the
-    estimates improve.
-  - Closed each time the app starts. Works in every mode (live, file, shared).
-  - Proposed, for the user to confirm: a dockable panel (beside the window, or pulled out as
-    its own window, as browser developer tools are), not an overlay; tabs Now / What if /
-    Benchmarks; a short history graph with marks where sentences ended; the history exportable.
-    Per-process GPU memory needs NVIDIA's NVML library (`nvidia-ml-py`), a new dependency.
-- An English test recording with references, as the Spanish and Arabic ones.
-- A GPU/CPU choice for the translator in the window (now only `[translate] device`).
-
-Later: the rename to volis (and dropping the Rust-compatibility rules); Linux.
+Everything that was listed here is in "Priorities" at the top of this file, or is done. The
+performance panel it asked for was built on 2026-10-03 (difference 73); its What if and
+Benchmarks tabs moved to the test bench on 2026-10-09.
 
 ## Environment, as verified at P0
 
