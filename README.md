@@ -19,14 +19,55 @@ nothing you say leaves the machine.
 - **An internet connection for the setup below only.**
 - **About an hour for the setup**, most of it waiting for downloads. One step (step 3) installs
   two free tools from Microsoft and NVIDIA so that translation runs on the graphics card.
-- **[Git](https://git-scm.com/)**, to get the code.
-- **[uv](https://docs.astral.sh/uv/)**, which installs everything else:
-  `winget install astral-sh.uv` (then open a new PowerShell window).
+- **Two small free tools, Git and uv.** [First, install two tools](#first-install-two-tools) below
+  installs them.
 
 Every command on this page is for **PowerShell**.
 
 If someone gave you a ready-made Volis folder, skip to
 [If you were given a ready-made folder](#if-you-were-given-a-ready-made-folder).
+
+## First, install two tools
+
+About 5 minutes. Git fetches Volis. uv installs
+everything Volis needs. uv has to be **version 0.11.26**: a newer uv refuses to set Volis up,
+so use the line below and not another way of installing it.
+
+1. Open PowerShell. Paste this line and press Enter:
+
+   ```powershell
+   winget install --id Git.Git -e
+   ```
+
+   If Windows asks to allow changes, choose **Yes**. Wait for `Successfully installed`.
+   (If it says Git is already installed, that's fine.)
+
+2. Paste this line and press Enter:
+
+   ```powershell
+   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/0.11.26/install.ps1 | iex"
+   ```
+
+   Wait until it prints `everything's installed!`
+
+3. **Close PowerShell and open a new PowerShell window.** The two tools only work in a window
+   opened after they were installed.
+
+4. In the new window, check both:
+
+   ```powershell
+   git --version
+   ```
+
+   ```powershell
+   uv --version
+   ```
+
+   ✅ The first prints `git version` and a number. The second prints `uv 0.11.26`.
+
+   If the second prints a different number, another uv was installed on this computer
+   earlier. See "`setup.ps1` says uv is the wrong version" under
+   [If something goes wrong](#if-something-goes-wrong).
 
 ## Set it up
 
@@ -58,6 +99,9 @@ If someone gave you a ready-made Volis folder, skip to
    It needs two free tools installed first. Do the four parts in order.
 
    **Part A: install Microsoft's build tools** (about 10 minutes, about 7 GB of disk)
+
+   Skip Part A if this computer already has Visual Studio 2022 or 2026 (the full program or
+   its "Build Tools") with **Desktop development with C++** installed. Either year works.
 
    1. Paste this line into PowerShell and press Enter:
 
@@ -319,6 +363,8 @@ tab.
 | What you see | What to do |
 |---|---|
 | `setup.ps1` stops, or says files are missing | Security software sometimes removes program files. Ask for an exclusion for the Volis folder, then run `.\setup.ps1 -Reinstall`. |
+| `setup.ps1` says uv is not installed, in a window where you just installed it | Close PowerShell and open a new window, then run `.\setup.ps1` again. |
+| `setup.ps1` says uv is the wrong version | Another uv was installed earlier. Run `winget uninstall astral-sh.uv` (it may say nothing was found; that's fine), then `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/0.11.26/install.ps1 | iex"`, then open a new PowerShell window. |
 | `--report` shows a model as `DISABLED` or `broken` | The line under it says which file is missing or what is wrong. Fetch the model again. |
 | You added a model, or plugged in a headset, while Volis was open | Press **Rescan models and devices** (or F5). The lists update without restarting, and a line under the button says what changed. |
 | A model you downloaded isn't in the lists | Run `--report`: every folder Volis found is listed, with the reason if it can't be used. |

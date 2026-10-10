@@ -25,12 +25,19 @@ if (-not [Environment]::Is64BitOperatingSystem -or $env:PROCESSOR_ARCHITECTURE -
     Fail "this needs 64-bit x86 Windows (found $env:PROCESSOR_ARCHITECTURE)."
 }
 if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
-    Fail "uv is not installed. Install it with: winget install astral-sh.uv   (then open a new terminal)"
+    # Not "winget install astral-sh.uv": that installs the newest uv, which this project refuses.
+    Fail ('uv is not installed (or was installed in this window: then close it and open a new one).' + "`n" +
+          'Install version 0.11.26 by pasting this line, then open a new PowerShell window:' + "`n" +
+          '  powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/0.11.26/install.ps1 | iex"')
 }
 $uvVersion = ((uv --version) -split " ")[1]
 $v = [version]$uvVersion
 if ($v -lt [version]"0.11.26" -or $v -ge [version]"0.12") {
-    Fail "uv is $uvVersion; this project is locked with uv 0.11.x (0.11.26 or newer). Install that version: uv self update 0.11.26"
+    # "uv self update" only works for a uv installed by uv's own installer, not by winget or pip.
+    Fail ("uv is $uvVersion; this project needs uv 0.11.x (0.11.26 or newer, below 0.12). Replace it:" + "`n" +
+          '  1. winget uninstall astral-sh.uv      (it may say nothing was found: that is fine)' + "`n" +
+          '  2. powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/0.11.26/install.ps1 | iex"' + "`n" +
+          '  3. Close PowerShell, open a new window, and run .\setup.ps1 again.')
 }
 Write-Host "  uv: $uvVersion"
 
