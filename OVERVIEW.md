@@ -11,10 +11,10 @@ writes down what they said, translates it, shows both on the screen, and says th
 aloud in the other language. Once it is installed it needs no internet connection at all, and
 nothing said in the room is sent anywhere. It is built first for **Arabic**, both Modern
 Standard Arabic and spoken dialects, and for **Farsi (Persian)**, with English and Spanish
-alongside. It also translates recordings and typed text, and it includes tools for testing which
-translation models work best and for checking what a computer can handle.
+alongside. It also translates recordings and typed text, and it includes tools for checking
+translation quality and what a computer can handle.
 
-![A conversation in progress: Farsi on the left, English on the right](docs/images/overview-conversation.png)
+![Illustration: a conversation in progress, Farsi on the left and English on the right](docs/images/overview-conversation.png)
 
 ## Why it exists
 
@@ -27,8 +27,8 @@ Many conversations that need a translator can't use the usual tools:
   poor reception. Volis works the same with the network cable unplugged.
 - **An interpreter isn't available for every conversation.** Volis can cover the routine
   exchanges at a front desk or in an intake interview, and it is available at any hour.
-- **Cost and control.** There is no per-minute fee and no subscription. The organisation chooses
-  which AI models it runs and can test them itself, on its own recordings.
+- **Cost and control.** There is no per-minute fee and no subscription. Volis is set up for each
+  organisation, and its quality can be checked on the organisation's own recordings.
 
 Volis is a help, not a certified interpreter. Machine translation makes mistakes (see
 [Limits to know](#limits-to-know)). For consent, diagnosis, legal statements and similar
@@ -36,41 +36,26 @@ moments, a qualified interpreter is still the right choice.
 
 ## How it works
 
-Every sentence goes through four steps, each done by a separate AI model running on the computer:
+Every sentence goes through four steps, each done by an AI model running on the computer:
 
-| Step | What happens | The model that does it |
-|---|---|---|
-| 1. Listen | Volis notices when someone starts and stops speaking. | The speech detector |
-| 2. Write down | The speech becomes text in the speaker's language. | The **recognizer** |
-| 3. Translate | The text is translated into the other language. | The **translator** |
-| 4. Speak | The translation is read aloud. | The **voice** |
+| Step | What happens |
+|---|---|
+| 1. Listen | Volis notices when someone starts and stops speaking. |
+| 2. Write down | The speech becomes text in the speaker's language. |
+| 3. Translate | The text is translated into the other language. |
+| 4. Speak | The translation is read aloud. |
 
-The models are separate files that can be swapped, much as you would change a printer driver.
-New and better models appear every few months; Volis can use them without being rebuilt, and it
-includes tools to test them (see [Model benchmarking](#model-benchmarking-the-test-bench)).
+**Speed.** On a suitable computer, writing a sentence down takes a fraction of the time it took
+to say, and translating it takes about half a second. In our measured runs the translation began
+to be spoken within about two seconds of the speaker finishing.
 
-**Speed.** With models that fit the computer's graphics card, writing a sentence down takes a
-fraction of the time it took to say, and translating it takes about half a second. In our
-measured runs the translation began to be spoken within about two seconds of the speaker
-finishing.
+### Set up for each customer
 
-### The models in use today
-
-| Job | Models | What each is for |
-|---|---|---|
-| **Recognizers** | Whisper (large-v3-turbo) | The general recognizer: every language here, with punctuation. |
-| | Cohere Transcribe Arabic | Arabic and English only. The most accurate on Arabic in our tests. |
-| | MMS | Many languages, including Farsi. The most accurate on Farsi news in our tests, but it writes no punctuation and is licensed for non-commercial use only. |
-| | Whisper, tuned for Spanish | Spanish only. |
-| **Translators** | Gemma 3 4B, Gemma 4 E4B, TranslateGemma 4B, Aya Expanse 8B | Chat models asked to translate. Gemma 3 4B and TranslateGemma 4B fit an 8 GB graphics card with room to spare. Gemma 4 E4B (the best on Arabic of these four) and Aya Expanse only just fit beside Whisper, and not beside the larger Cohere Transcribe. |
-| | Gemma 4 12B, Gemma 3 12B, TranslateGemma 12B | Larger and somewhat better, Gemma 4 12B best overall. Need a 16 GB card to run at full speed. |
-| | NLLB-200, MADLAD-400 | Made only to translate, covering 200 and 400 languages. NLLB-200 scored best on Farsi news. Neither can use earlier sentences as context, and MADLAD-400 needs more than an 8 GB card beside a recognizer. |
-| **Voices** | English (US); Spanish (Mexico, Spain); Arabic (a Jordanian male voice, an Emirati female voice) | No Farsi voice yet. |
-| **Speech detector** | Silero | Notices when someone starts and stops speaking. |
-
-Whether any particular pairing fits a given computer is what the Test bench's Whole set tab
-works out (see [Machine performance](#machine-performance)). Models we tried and set aside are
-listed, with the reasons, in [MODELS.md](MODELS.md).
+Which AI models do the work is decided when Volis is set up for a customer: by the languages and
+dialects they need, the computers they have, and the licence terms their use allows. The people
+using Volis don't have to deal with models; at most they get a simple choice or two. New and
+better models appear every few months, and a customer's setup can be updated to use them without
+changing how Volis is used.
 
 ## Current focus: Arabic and Farsi
 
@@ -86,46 +71,75 @@ listed, with the reasons, in [MODELS.md](MODELS.md).
 
 - **Standard and dialect.** You tell Volis which Arabic is spoken and which is wanted. Iraqi and
   Jordanian Arabic are named choices today; anything else is treated as Arabic in general.
-  When the translator is asked for Iraqi Arabic, it is told to write the way Iraqis speak. If a
-  translation model has no Iraqi of its own, it writes standard Arabic and says so beside the
-  sentence.
-- **Recognition.** On our test recordings of people reading standard Arabic, Cohere Transcribe
-  Arabic got about two letters in a hundred wrong, and the general Whisper about three. In a
-  trial on another computer, the same sentences spoken in standard Arabic and in Iraqi Arabic
-  gave the same English translations.
-- **Voices.** A male Arabic voice (Jordanian) and a female Emirati voice are available. Arabic
-  is normally written without its short vowels, which makes any voice mispronounce some words. An option adds the vowel marks before a sentence is spoken. Its marks
-  are good but not perfect, and no Arabic speaker has yet judged whether they make the voices
-  clearer.
-- **A recognizer tuned on Arabic dialects** is available. It has not yet been tested on dialect
-  speech.
+  When asked for Iraqi Arabic, Volis translates into everyday Iraqi wording rather than the
+  formal written standard. Where that isn't possible, it writes standard Arabic and says so
+  beside the sentence.
+- **Accuracy.** On test recordings of people reading standard Arabic, the best setup we have
+  tested got about two letters in a hundred wrong when writing the speech down. In a trial, the
+  same sentences spoken in standard Arabic and in Iraqi Arabic gave the same English translations.
+- **Voices.** Male and female Arabic voices are available. Arabic is normally written without
+  its short vowels, which makes any voice mispronounce some words. An option adds the vowel marks
+  before a sentence is spoken. Its marks are good but not perfect, and no Arabic speaker has yet
+  judged whether they make the voices clearer.
+- **Dialect speech.** Recognition tuned for Arabic dialects is available but has not yet been
+  tested on dialect speech.
 
 ### Farsi (Persian)
 
-- **Recognition.** On test recordings of people reading news sentences, MMS got about four
-  letters in a hundred wrong and Whisper about seven. MMS has two drawbacks for conversation: it
-  writes no punctuation, so sentences are cut only where the speaker pauses, and it spells some
-  words by their sound, which can confuse the translator. Its licence is also non-commercial.
-  Whisper has neither drawback. Which suits everyday Farsi best is still to be tested.
-- **Translation.** A translation-only model (NLLB-200) scored best on those news sentences.
-  Everyday spoken Farsi has proved harder (see the case below), and testing on it is the next
-  step.
+- **Accuracy.** See the example below.
 - **A clean-up step** tidies Farsi text before it is translated: letters that look the same in
   Arabic and Farsi but are different characters, and the "half-space" that joins the parts of a
   Farsi word.
-- **Speaking Farsi aloud is not available yet.** No Farsi voice has been tested. Today, speech in
-  Farsi is translated and spoken in English, Arabic or Spanish, and translations *into* Farsi are
-  shown on the screen as text.
-- **Variety.** The models are trained mostly on Iranian Persian. Afghan Dari has not been tested.
+- **Speaking Farsi aloud is not available yet.** No Farsi voice has been tested. Today, Farsi
+  speech is translated and spoken in English, Arabic or Spanish, and translations *into* Farsi are
+  shown on the screen as text. The two-person mode (a key each) needs a voice for both
+  languages, so it can't be used with Farsi until a voice is added.
+- **Variety.** Iranian Persian. Afghan Dari has not been tested.
 
 ### Other languages
 
-German, French, Italian, Portuguese and Russian are named in Volis, and the recognizers and
-translators cover many more. Each language spoken aloud needs a voice for it.
+German, French, Italian, Portuguese and Russian are named in Volis, and the underlying models
+cover many more. Each language spoken aloud needs a voice for it.
+
+## An example: Farsi to English
+
+Picture a reception desk: a Farsi-speaking visitor and an English-speaking member of staff,
+sharing one computer.
+
+**What happens.** The visitor says a sentence in Farsi. Volis writes it down in Farsi, tidies the
+Farsi script, and translates it into English, taking the last few sentences into account. The
+Farsi and the English both appear on the screen, and the English is spoken, about two seconds
+after the visitor stops.
+
+**The reply, today.** Translating the staff member's English into Farsi works, but the Farsi
+appears as text only, since there is no Farsi voice yet. On one computer the reply is also
+clumsy: the conversation has to be stopped and the two languages swapped. The mode built for
+exactly this, two people with a key each, needs a voice for both languages, so for Farsi it waits
+on a Farsi voice. That voice is the most important missing piece for Farsi.
+
+**How accurate it is today.** On test recordings of people reading Farsi news sentences, Volis
+got about four to seven letters in a hundred wrong when writing the speech down, depending on the
+setup. Given the correct Farsi text of those sentences, its translations scored between about 60
+and 70 out of 100 against professional translations (see
+[how to read the scores](#how-to-read-the-scores)).
+
+**Where it falls short: everyday speech.** News sentences are formal. Everyday speech is harder,
+and one test showed how. Asked to translate the everyday Farsi for "Can I look at the menu,
+please?", all nine translation models we tried got it wrong; most said "Can I see you, please?".
+The Farsi word for "menu" is spelled exactly like the everyday word for "me", and every model
+chose "me". Writing "food menu" instead fixed it for all nine. Putting a restaurant sentence
+before it fixed it for two, while three of the smaller models invented words instead ("my order",
+"my reservation").
+
+**What this means.** Published scores, measured on formal text, would never have shown this.
+Testing with the sentences a customer actually uses does, which is what the Test bench is for
+(below). Two planned features address it directly: a way to see other possible translations of a
+sentence, each shown back in Farsi so the speaker can confirm it; and a phrasebook of checked
+translations for common sentences, which is under consideration.
 
 ## Ways to use it
 
-![The main window before a conversation starts](docs/images/overview-main-window.png)
+![The main window as it is today, before a conversation starts](docs/images/overview-main-window.png)
 
 ### Live conversation
 
@@ -157,10 +171,10 @@ conversation as well, and the typed line is translated with the conversation's c
 
 ## Quality and safeguards
 
-- **Errors caught before anyone hears them.** AI recognizers sometimes "hear" stock phrases in
-  silence ("Thanks for watching"). Translators sometimes answer a question instead of translating
-  it, hand the sentence back unchanged, or ramble. Volis drops those sentences rather than show
-  or speak them, and says why.
+- **Errors caught before anyone hears them.** AI models sometimes "hear" stock phrases in
+  silence ("Thanks for watching"), or answer a question instead of translating it, hand the
+  sentence back unchanged, or ramble. Volis drops those sentences rather than show or speak them,
+  and says why.
 - **Earlier sentences as context,** so words like "he", "she" and "it" come out right.
 - **Revision.** A short sentence whose meaning only becomes clear from the next one is corrected
   on the screen.
@@ -169,53 +183,44 @@ conversation as well, and the typed line is translated with the conversation's c
   a headset.)
 - **The Farsi clean-up and the Arabic vowel marks** described above.
 
-## Model benchmarking: the Test bench
+## Checking quality: the Test bench
 
-AI models improve quickly, and a model that tops a published league table may not suit your
-speakers, your vocabulary or your computer. The Test bench (View > Test bench) lets a team member
-compare models on their own material, without technical help. It answers three questions:
+The Test bench (View > Test bench) compares the AI models that can do each step, on real
+material, without technical help. It is how a customer's setup is chosen, and customers can use
+it to check quality for themselves. It answers three questions:
 
 | Tab | The question | What you give it | What you get |
 |---|---|---|---|
-| **Recognizers** | Which one hears our speakers best? | A recording made on the spot, or an audio file. Optionally, what was really said. | What each one wrote, how long it took, the memory it needed, and how many letters and words it got wrong. |
-| **Translators** | Which one translates our sentences best? | Typed or pasted text, or a recording. Optionally, a translation you trust. | Each translation side by side, its time, and how close it came to the trusted one. |
-| **Whole set** | Will this combination run on this computer? | A recognizer, a translator and a voice. | Whether they fit in memory together (worked out without loading anything), and a button that times them on a recording. |
+| **Listening** | Which setup writes our speakers' words down most accurately? | A recording made on the spot, or an audio file. Optionally, what was really said. | What each one wrote, how long it took, the memory it needed, and how many letters and words it got wrong. |
+| **Translating** | Which setup translates our sentences best? | Typed or pasted text, or a recording. Optionally, a translation you trust. | Each translation side by side, its time, and how close it came to the trusted one. |
+| **Whole set** | Will this combination run on this computer? | The models for each step. | Whether they fit in memory together (worked out without loading anything), and a button that times them on a recording. |
 
-![The Test bench comparing translators](docs/images/overview-testbench-translators.png)
+(In the program the first two tabs are called Recognizers and Translators.)
 
-Every comparison is kept and can be copied as a table into a report. Any model in it can be
-made the conversation's choice: click its row, then **Use in the conversation**. A record of every model tested so far, with its
-scores, is in [MODELS.md](MODELS.md).
+![Illustration: the Test bench comparing translations of one Farsi sentence](docs/images/overview-testbench-translators.png)
 
-**How to read the scores.** For recognizers, fewer wrong letters is better. For translators, the
-score (0 to 100) shows how close a translation is to the one you trusted. A high score means
-"close to that wording", not "correct": a good translation in different words scores lower. The
-scores are a guide for comparing models; reading the translations is still the real test.
+Every comparison is kept and can be copied as a table into a report.
 
-### A case from testing: why your own sentences matter
+### How to read the scores
 
-Asked to translate the everyday Farsi for "Can I look at the menu, please?", all nine translators
-we tried got it wrong. Most said "Can I see you, please?". The Farsi word for "menu" is spelled
-exactly like the everyday word for "me", and every model chose "me". Spelling the sentence more
-formally got "menu" from two of the nine. Changing "menu" to "food menu" fixed it for all nine.
-Putting a restaurant sentence before it fixed it for two, while three of the smaller models
-invented words instead ("my order", "my reservation").
-
-None of this shows up in published scores, which are measured on formal text. A few minutes in
-the Test bench with your own phrases does show it.
+- **Writing down:** fewer wrong letters is better. Two in a hundred means one or two slips in a
+  typical sentence.
+- **Translating:** the score (0 to 100) shows how close a translation is to a translation you
+  trust. A high score means "close to that wording", not "correct": a good translation in
+  different words scores lower. The scores are a guide for comparing; reading the translations is
+  still the real test.
 
 ## Machine performance
 
 Volis runs on the computer's graphics card, and the models must fit in its memory. Three things
 help plan for that:
 
-- **A warning before starting.** If the chosen recognizer and translator won't fit together,
-  an orange line under them says so, before anything is loaded.
+- **A warning before starting.** If the chosen models won't fit together, an orange line says
+  so, before anything is loaded.
 - **The Whole set tab** of the Test bench shows how much memory a combination needs and how
   much is free, keeps every timed run on that computer, and so helps decide what hardware to buy.
-  On a laptop with an 8 GB graphics card, the recommended basic set uses about 4.5 GB and leaves
-  about 3.5 GB for other programs. A 16 GB card can run larger models, which translate somewhat
-  better.
+  On a laptop with an 8 GB graphics card, a typical setup uses about 4.5 GB and leaves about
+  3.5 GB for other programs. A 16 GB card can run larger models, which translate somewhat better.
 - **The performance panel** (View > Performance) shows, while a conversation runs, how much of
   the graphics card, memory and processor Volis and other programs are using, how long each
   sentence took at each step, and whether Volis is keeping up with the speaker. It turns amber or
@@ -240,7 +245,7 @@ help plan for that:
 |---|---|
 | **Computer** | Windows 10 or 11, 64-bit |
 | **Graphics card** | NVIDIA, with 8 GB of memory or more (16 GB for the largest models) |
-| **Disk** | About 6 GB for the program, plus the models: about 15 GB in all for a basic set |
+| **Disk** | About 6 GB for the program, plus its models: about 15 GB in all for a typical setup |
 | **Sound** | A microphone and speakers; a headset works best |
 | **Not supported** | Mac, Linux, and computers without an NVIDIA graphics card |
 
@@ -248,23 +253,16 @@ There are two ways to install it:
 
 - **A ready-made folder.** The program and its models are copied onto the computer as one folder.
   Nothing else is installed except the graphics card's driver, and no internet is needed. This
-  is the way to give Volis to people who will only use it. (Being verified on a second computer.)
+  is how Volis reaches the people who will use it. (Being verified on a second computer.)
 - **Full setup** for whoever maintains Volis: about an hour, with an internet connection, as
   described in [README.md](README.md).
 
-## Model licences
+## Licences of the AI models
 
-Each model has its own licence, and some of the best ones forbid commercial use. Before using
-Volis commercially, have the licences reviewed. Read from the models' own descriptions:
-
-| Licence | Models |
-|---|---|
-| Free for commercial use (MIT, Apache 2.0) | Whisper (recognizer); Gemma 4 (translator); MADLAD-400 (translator); Cohere Transcribe Arabic (recognizer; you must accept its terms to download it); Silero (the speech detector) |
-| The maker's own terms (Google's Gemma terms, which allow commercial use under a use policy) | Gemma 3 and TranslateGemma (translators) |
-| **Non-commercial use only** (CC BY-NC 4.0) | NLLB-200 (translator, the best on Farsi news so far); MMS (recognizer); Aya Expanse (translator); one of the Arabic voices |
-
-The voices each carry their own licence; [MODELS.md](MODELS.md) lists where every model comes
-from.
+The AI models Volis runs are made by other companies and research groups, and each comes with
+its own licence. Several otherwise excellent ones allow non-commercial use only. Each customer's
+setup is chosen with the intended use in mind, and the licences should be reviewed before any
+commercial use.
 
 ## Where it stands today
 
@@ -273,7 +271,7 @@ from.
 | A conversation on one computer, taking turns or listening continuously | Two people sharing one computer | Help pages inside the program, with a **?** beside each option |
 | Translating recordings, with export | Two computers paired | Fixing a sentence: other ways it could have been heard or translated, each translation shown back in the speaker's language so someone who can't read the target language can check it |
 | Translating typed text | The ready-made folder on another computer | Saving a live conversation as a document (today only a recording's results can be exported) |
-| The Test bench and the performance panel | | Model recommendations: "use recommended" for each language |
+| The Test bench and the performance panel | | A simple choice or two in place of the model lists |
 | Farsi clean-up; Arabic vowel marks | | Guided tutorials |
 
 **Under consideration:** glossaries of fixed terms and a phrasebook of checked translations for
@@ -290,7 +288,8 @@ shows why a word with two meanings needs care).
   missed.
 - **Dialects.** Iraqi Arabic is a named choice; other dialects are treated as Arabic in general.
   Afghan Dari has not been tested.
-- **Farsi is not yet spoken aloud.**
+- **Farsi is not yet spoken aloud,** and until it is, two people can't hold a Farsi conversation
+  at one computer with a key each.
 - **Windows and NVIDIA graphics cards only.**
 
 ## Further reading
@@ -298,7 +297,7 @@ shows why a word with two meanings needs care).
 | Document | For |
 |---|---|
 | [README.md](README.md) | Installing Volis and using it, step by step |
-| [MODELS.md](MODELS.md) | Which models to start with, how to choose your own, and every test result |
+| [MODELS.md](MODELS.md) | For whoever sets Volis up: the models tested and their scores |
 | [SETTINGS.md](SETTINGS.md) | Every setting |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | For whoever builds and maintains Volis |
 | [HANDOFF.md](HANDOFF.md) | Detailed status, history and priorities |
