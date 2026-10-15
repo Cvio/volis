@@ -4,14 +4,13 @@ What Volis is, what it does well today, what it is still growing into, and what 
 it. Written for people deciding whether and how to use it. To install and use it, see
 [README.md](README.md).
 
-## In one paragraph
+## What it is
 
 Volis is a speech translator that runs entirely on one Windows computer. A person speaks; Volis
 writes down what they said, translates it, shows both on the screen, and says the translation
 aloud in the other language. Once it is installed it needs no internet connection at all, and
 nothing said in the room is sent anywhere. It is built first for **Arabic**, both Modern
-Standard Arabic and spoken dialects, and for **Farsi (Persian)**, with English and Spanish
-alongside. It also translates recordings and typed text, and it includes tools for checking
+Standard Arabic and spoken dialects, and for **Farsi (Persian)**. It also translates recordings and typed text, and it includes tools for checking
 translation quality and what a computer can handle.
 
 ![Illustration: a conversation in progress, Farsi on the left and English on the right](docs/images/overview-conversation.png)
