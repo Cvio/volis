@@ -63,7 +63,7 @@ changing how Volis is used.
 |---|---|---|---|---|
 | **Arabic, Modern Standard** | Yes | Yes | Yes | Measured on test recordings; tried in live conversations |
 | **Arabic, Iraqi** | Yes | Yes, in Iraqi wording | Yes, with a standard Arabic voice | Tried in live conversations; not measured |
-| **Farsi (Iranian Persian)** | Yes | Yes | **Not yet** | Measured on test recordings |
+| **Farsi (Iranian Persian)** | Yes | Yes | Yes (a new voice) | Measured on test recordings; the voice not yet judged by Farsi speakers |
 | **English** | Yes | Yes | Yes | In daily use; not measured |
 | **Spanish** (Mexico, Spain) | Yes | Yes | Yes | Measured on test recordings |
 
@@ -90,16 +90,17 @@ changing how Volis is used.
 - **A clean-up step** tidies Farsi text before it is translated: letters that look the same in
   Arabic and Farsi but are different characters, and the "half-space" that joins the parts of a
   Farsi word.
-- **Speaking Farsi aloud is not available yet.** No Farsi voice has been tested. Today, Farsi
-  speech is translated and spoken in English, Arabic or Spanish, and translations *into* Farsi are
-  shown on the screen as text. The two-person mode (a key each) works with Farsi: the Farsi
-  side of the conversation is shown, and the English side is shown and spoken.
+- **Voice.** A Farsi voice is now available, so translations into Farsi are spoken as well as
+  shown. Farsi, like Arabic, is normally written without its short vowels, so the voice will
+  mispronounce some words. It is new, and no Farsi speaker has yet judged how often that happens.
 - **Variety.** Iranian Persian. Afghan Dari has not been tested.
 
 ### Other languages
 
 German, French, Italian, Portuguese and Russian are named in Volis, and the underlying models
-cover many more. Each language spoken aloud needs a voice for it.
+cover many more. Each language spoken aloud needs a voice for it. Where a computer has no voice
+for a language, translations into it are shown on the screen and the conversation carries on,
+in every mode.
 
 ## An example: Farsi to English
 
@@ -112,10 +113,8 @@ Farsi and the English both appear on the screen, and the English is spoken, abou
 after the visitor stops.
 
 **The reply.** Each person has their own key. The staff member presses theirs and answers in
-English; the answer appears in Farsi on the screen for the visitor to read. It isn't spoken,
-because there is no Farsi voice yet. A Farsi voice is the most important missing piece for
-Farsi. (This two-key mode is built and checked by tests, and is waiting for its first trial with
-two people.)
+English; the answer appears in Farsi on the screen and is spoken in Farsi. (This two-key mode is
+built and checked by tests, and is waiting for its first trial with two people.)
 
 **Afterwards.** The whole conversation, both languages, can be saved as text to read later.
 
@@ -275,7 +274,7 @@ commercial use.
 | Translating recordings, with export | Two computers paired | Fixing a sentence: other ways it could have been heard or translated, each translation shown back in the speaker's language so someone who can't read the target language can check it |
 | Translating typed text; saving a conversation as text | The ready-made folder on another computer | Saving each conversation automatically, as an option |
 | The Test bench and the performance panel | | A simple choice or two in place of the model lists |
-| Farsi clean-up; Arabic vowel marks | | Guided tutorials |
+| Farsi clean-up and the Farsi voice; Arabic vowel marks | | Guided tutorials |
 
 **Under consideration:** glossaries of fixed terms and a phrasebook of checked translations for
 common sentences. Both are being thought through before they are built (the "menu" case above
@@ -291,7 +290,8 @@ shows why a word with two meanings needs care).
   missed.
 - **Dialects.** Iraqi Arabic is a named choice; other dialects are treated as Arabic in general.
   Afghan Dari has not been tested.
-- **Farsi is not yet spoken aloud.** Translations into Farsi are shown on the screen only.
+- **The Farsi voice is new.** No Farsi speaker has yet judged it, and like the Arabic voices it
+  will mispronounce some words written without their short vowels.
 - **Windows and NVIDIA graphics cards only.**
 
 ## Further reading
