@@ -54,6 +54,24 @@ fraction of the time it took to say, and translating it takes about half a secon
 measured runs the translation began to be spoken within about two seconds of the speaker
 finishing.
 
+### The models in use today
+
+| Job | Models | What each is for |
+|---|---|---|
+| **Recognizers** | Whisper (large-v3-turbo) | The general recognizer: every language here, with punctuation. |
+| | Cohere Transcribe Arabic | Arabic and English only. The most accurate on Arabic in our tests. |
+| | MMS | Many languages, including Farsi. The most accurate on Farsi news in our tests, but it writes no punctuation and is licensed for non-commercial use only. |
+| | Whisper, tuned for Spanish | Spanish only. |
+| **Translators** | Gemma 3 4B, Gemma 4 E4B, TranslateGemma 4B, Aya Expanse 8B | Chat models asked to translate. Gemma 3 4B and TranslateGemma 4B fit an 8 GB graphics card with room to spare. Gemma 4 E4B (the best on Arabic of these four) and Aya Expanse only just fit beside Whisper, and not beside the larger Cohere Transcribe. |
+| | Gemma 4 12B, Gemma 3 12B, TranslateGemma 12B | Larger and somewhat better, Gemma 4 12B best overall. Need a 16 GB card to run at full speed. |
+| | NLLB-200, MADLAD-400 | Made only to translate, covering 200 and 400 languages. NLLB-200 scored best on Farsi news. Neither can use earlier sentences as context, and MADLAD-400 needs more than an 8 GB card beside a recognizer. |
+| **Voices** | English (US); Spanish (Mexico, Spain); Arabic (a Jordanian male voice, an Emirati female voice) | No Farsi voice yet. |
+| **Speech detector** | Silero | Notices when someone starts and stops speaking. |
+
+Whether any particular pairing fits a given computer is what the Test bench's Whole set tab
+works out (see [Machine performance](#machine-performance)). Models we tried and set aside are
+listed, with the reasons, in [MODELS.md](MODELS.md).
+
 ## Current focus: Arabic and Farsi
 
 | Language | Understands speech | Translates | Speaks aloud | How well tested |
@@ -71,12 +89,12 @@ finishing.
   When the translator is asked for Iraqi Arabic, it is told to write the way Iraqis speak. If a
   translation model has no Iraqi of its own, it writes standard Arabic and says so beside the
   sentence.
-- **Recognition.** On our test recordings of people reading standard Arabic, the best
-  recognizers got about one or two letters in a hundred wrong. In a trial on another computer,
-  the same sentences spoken in standard Arabic and in Iraqi Arabic gave the same English
-  translations.
-- **Voices.** A male Arabic voice (Jordanian) and a female Emirati voice are available. Arabic is normally written without its short vowels, which makes any voice
-  mispronounce some words. An option adds the vowel marks before a sentence is spoken. Its marks
+- **Recognition.** On our test recordings of people reading standard Arabic, Cohere Transcribe
+  Arabic got about two letters in a hundred wrong, and the general Whisper about three. In a
+  trial on another computer, the same sentences spoken in standard Arabic and in Iraqi Arabic
+  gave the same English translations.
+- **Voices.** A male Arabic voice (Jordanian) and a female Emirati voice are available. Arabic
+  is normally written without its short vowels, which makes any voice mispronounce some words. An option adds the vowel marks before a sentence is spoken. Its marks
   are good but not perfect, and no Arabic speaker has yet judged whether they make the voices
   clearer.
 - **A recognizer tuned on Arabic dialects** is available. It has not yet been tested on dialect
@@ -84,8 +102,11 @@ finishing.
 
 ### Farsi (Persian)
 
-- **Recognition.** On test recordings of people reading news sentences, the best recognizers got
-  about four to five letters in a hundred wrong.
+- **Recognition.** On test recordings of people reading news sentences, MMS got about four
+  letters in a hundred wrong and Whisper about seven. MMS has two drawbacks for conversation: it
+  writes no punctuation, so sentences are cut only where the speaker pauses, and it spells some
+  words by their sound, which can confuse the translator. Its licence is also non-commercial.
+  Whisper has neither drawback. Which suits everyday Farsi best is still to be tested.
 - **Translation.** A translation-only model (NLLB-200) scored best on those news sentences.
   Everyday spoken Farsi has proved harder (see the case below), and testing on it is the next
   step.
@@ -238,7 +259,7 @@ Volis commercially, have the licences reviewed. Read from the models' own descri
 
 | Licence | Models |
 |---|---|
-| Free for commercial use (MIT, Apache 2.0) | Whisper (recognizer); Gemma 4 (recognizer and translator); MADLAD-400 (translator); Cohere Transcribe Arabic (recognizer; you must accept its terms to download it); Silero (the speech detector) |
+| Free for commercial use (MIT, Apache 2.0) | Whisper (recognizer); Gemma 4 (translator); MADLAD-400 (translator); Cohere Transcribe Arabic (recognizer; you must accept its terms to download it); Silero (the speech detector) |
 | The maker's own terms (Google's Gemma terms, which allow commercial use under a use policy) | Gemma 3 and TranslateGemma (translators) |
 | **Non-commercial use only** (CC BY-NC 4.0) | NLLB-200 (translator, the best on Farsi news so far); MMS (recognizer); Aya Expanse (translator); one of the Arabic voices |
 
