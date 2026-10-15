@@ -18,6 +18,8 @@ from __future__ import annotations
 MIN_RECITED_WORDS = 4
 LONG_FLOOR = 80
 LONG_FACTOR = 3
+# volis: the share of a sentence's words found in an earlier one for it to count as said again.
+REPEAT_SHARE = 0.6
 
 
 def normalise(text: str) -> str:
@@ -37,6 +39,18 @@ def leaks_the_prompt(output: str, system_text: str, context: list[str] | None = 
     if recited in normalise(system_text):
         return True
     return any(recited in normalise(text) for text in context or [])
+
+
+def repeats(text: str, earlier: str) -> bool:
+    """volis: is `text` mostly an earlier sentence, said (or typed) again?
+    Then the earlier translation is the right answer, and finding it in the
+    output is no recital. Counted in words, not letters, so a spelling that
+    differs (behaviour, behavior) still counts."""
+    words = normalise(text).split()
+    if not words:
+        return False
+    before = set(normalise(earlier).split())
+    return sum(w in before for w in words) / len(words) >= REPEAT_SHARE
 
 
 def contains_the_wrapper(output: str, wrapper: str) -> bool:

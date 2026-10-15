@@ -460,6 +460,18 @@ Eight milestones for non-technical users. Built in order; stop after each.
   - Tests: `tests/test_no_voice.py` (3), plus one each in `test_shared.py`, `test_session.py`,
     `test_view.py`, `test_shared_window.py`, and two in `test_filemode.py`. Not run end to end
     with real models and two people.
+- **Fixed (2026-10-15): correct translations refused as "recited" when a sentence is said
+  again.** Found by the user: a paragraph typed during a shared-machine conversation became
+  context; the same sentences, then spoken, were all refused ("the model recited its own
+  instructions"). The recital guard counts an output found inside an earlier turn's source or
+  translation as copying the context, which is right for a model that answers a new sentence
+  with the last translation, and wrong for a sentence said again, whose correct translation is
+  the earlier one. Now `translate_checked` leaves out of that check any earlier turn the
+  current sentence repeats (`guards.repeats`: at least 60% of its words in the earlier source,
+  counted in words so "behaviour"/"behavior" still match). Replayed on Gemma 4 E4B with the
+  user's typed paragraph as context: both refused sentences translate; a new sentence answered
+  with an earlier translation is still refused (test). Repetition is ordinary in conversation
+  ("say that again"), so this mattered beyond typed text.
 
 ### Later (noted in `volis-next-features.md`, deliberately not in this round)
 

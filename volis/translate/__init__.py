@@ -132,8 +132,10 @@ def translate_checked(translator, request: TranslationRequest, generate, prompte
     cleaned = guards.clean(raw)
     if cleaned != raw.strip():
         log.debug("translation cleaned from %r to %r", raw, cleaned)
-    # Reciting the instructions, the glossary or the context is no translation.
-    context = [t.source for t in request.context] + [t.translation for t in request.context]
+    # Reciting the instructions, the glossary or the context is no translation. A sentence said
+    # again is the exception: then the earlier translation is the right answer, not a recital.
+    turns = [t for t in request.context if not guards.repeats(text, t.source)]
+    context = [t.source for t in turns] + [t.translation for t in turns]
     wrapper = translator.prompt_file.wrapper(request.source, request.target) if prompted else ""
     context.append(wrapper)
     if prompted and (guards.leaks_the_prompt(cleaned, system_text(translator.prompt_file, request), context)

@@ -163,6 +163,36 @@ def test_recited_context_is_caught_too():
     assert not guards.leaks_the_prompt("I'll drive.", system, context)
 
 
+def test_a_sentence_said_again_is_told_apart_from_a_new_one():
+    typed = ("Other languages: a sentence keeps the no-voice behaviour visible as a strength. Where a computer has "
+             "no voice for a language, translations are shown and the conversation carries on, in every mode.")
+    assert guards.repeats("A sentence keeps the no-voice behavior visible as a strength.", typed), \
+        "said aloud after being typed, with the American spelling"
+    assert guards.repeats("Where a computer has no voice for a language, translations are shown.", typed)
+    assert not guards.repeats("Where is the station?", typed)
+    assert not guards.repeats("I'll drive.", "My car has been in the shop since Tuesday.")
+    assert not guards.repeats("", typed)
+
+
+def test_a_repeated_sentence_may_repeat_its_translation_but_copying_the_context_is_still_refused():
+    from types import SimpleNamespace
+
+    from volis import translate as tr
+
+    earlier = tr.Turn("My car has been in the shop since Tuesday, and I need a lift to work.",
+                      "Mi carro está en el taller desde el martes y necesito que me lleven al trabajo.")
+    translator = SimpleNamespace(device="cpu", prompt_file=PROMPT)
+    copied = "Mi carro está en el taller desde el martes."
+
+    said_again = tr.TranslationRequest("My car has been in the shop since Tuesday.", "en", "es", [earlier])
+    assert tr.translate_checked(translator, said_again, lambda r: copied).text == copied
+
+    new_sentence = tr.TranslationRequest("Where can I catch the bus downtown?", "en", "es", [earlier])
+    with pytest.raises(tr.Refused) as refused:
+        tr.translate_checked(translator, new_sentence, lambda r: copied)
+    assert refused.value.guard == "recited", "a new sentence answered with the last translation is still caught"
+
+
 def test_a_variety_is_named_in_the_prompt_and_reciting_it_is_still_caught():
     prompt = PROMPT.system_text("en", "ar-IQ")
     assert "into Iraqi Arabic" in prompt
