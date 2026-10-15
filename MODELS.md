@@ -40,7 +40,8 @@ general models: none is tuned for a region or dialect.
 .\fetch-model.ps1 unsloth/gemma-4-12b-it-GGUF -Role mt -Include "gemma-4-12b-it-Q4_K_M.gguf"     # 16 GB
 ```
 
-For Arabic, add a voice: `.\fetch-models.ps1 -Only kareem`.
+For Arabic, add a voice: `.\fetch-models.ps1 -Only kareem`. For Persian:
+`.\fetch-models.ps1 -Only amir`.
 
 Why these:
 
@@ -322,6 +323,7 @@ Voices have no score. Each was listened to, and each speaks through Volis.
 | vits-piper-es_ES-carlfm-x_low | use | Spanish (Spain) | 25 MB | |
 | vits-piper-ar_JO-kareem-medium | use | Arabic, male | 64 MB | Mispronounces some words written without vowel marks, as every Arabic Piper voice here does. |
 | arabic-emirati-female-model | use | Arabic (Emirati), female | 127 MB | Published as a raw Piper model, which sherpa-onnx can't load. The script converts it (below). MIT licence. |
+| vits-piper-fa_IR-amir-medium | use | Persian (Iran) | 64 MB | The first Persian voice. CC0 licence (free for any use). Persian, like Arabic, is written without its short vowels, so expect some mispronounced words. |
 | vits-piper-ar_JO-SA_dii-high | tested | Arabic, male | 64 MB | Works. **Its licence is non-commercial**; read its README before using it, which is why it isn't downloaded by default. |
 
 The Arabic voices mispronounce some words, because Arabic is written without its short vowels.

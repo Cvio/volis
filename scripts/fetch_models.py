@@ -213,6 +213,9 @@ LIST = [
     #           "Piper ar_AE Emirati female", "ar", "arabic-emirati-female-model.sherpa.onnx",
     #           note="# The download is a raw Piper model. sherpa-onnx needs a few fields inside the model file,\n"
     #                "# so this is a copy with them added; arabic-emirati-female-model.onnx is the original, untouched.\n")}),
+    Model("tts", "vits-piper-fa_IR-amir-medium", "use", "Piper voice, Persian (Iran); CC0 licence",
+          repo="csukuangfj/vits-piper-fa_IR-amir-medium",
+          write={"engine.toml": piper_engine("Piper fa_IR amir (medium)", "fa", "fa_IR-amir-medium.onnx", "fa-IR")}),
     Model("tts", "vits-piper-ar_JO-SA_dii-high", "tested",
           "Piper voice, Arabic, male. Works, but its licence is non-commercial: read its README before using it",
           repo="csukuangfj/vits-piper-ar_JO-SA_dii-high",
