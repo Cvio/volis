@@ -147,10 +147,10 @@ Pick a mode; you can change it while a conversation is running.
 
 | Mode | How it works | Suits | Status |
 |---|---|---|---|
-| **Take turns** | Press a key, speak, press it again. Only then is the speech translated. | Most meetings: nothing is picked up by accident. | Ready |
-| **Listen continuously** | Hands-free. Every pause ends a sentence. | One person speaking at length. | Ready |
-| **Shared machine** | Two people at one computer, each with their own key and language. What one says is spoken in the other's language. | Across a desk or a counter. | Built; not yet tried by two people |
-| **Pair two computers** | Each person has their own computer. Each translates its own person's speech and sends the text to the other over the local network, never the internet. | Two rooms, or a little distance. | Built; not yet tried on two real computers |
+| **Take turns** | Press a key, speak, press it again. Only then is the speech translated. | Most meetings: nothing is picked up by accident. |
+| **Shared machine** | Two people at one computer, each with their own key and language. What one says is spoken in the other's language. | Across a desk or a counter. |
+| **Pair two computers** | Each person has their own computer. Each translates its own person's speech and sends the text to the other over the local network, never the internet. | Two rooms, or a little distance. |
+| **Listen continuously** | Hands-free. Every pause ends a sentence. | One person speaking at length. |
 
 During a conversation the settings fold away and the text fills the window, in a size you can
 adjust. Arabic and Farsi are laid out right to left. Microphone and speaker **Test** buttons check
