@@ -93,9 +93,10 @@ def test_a_recognizer_missing_one_language_refuses_only_that_side():
         direction(RIGHT, settings(), english_only, "whisper-en", voices())
 
 
-def test_no_voice_for_the_target_language_is_refused():
-    with pytest.raises(SharedError, match='"es"'):
-        direction(LEFT, settings(), [whisper()], "whisper", [voice("piper-en", "en")])
+def test_no_voice_for_the_target_language_is_shown_not_refused():
+    r = direction(LEFT, settings(), [whisper()], "whisper", [voice("piper-en", "en")])
+    assert r.direction.voice == "" and r.direction.target == "es", "the turn goes ahead, with no voice"
+    assert any("shown on the screen but not spoken" in w for w in r.warnings)
 
 
 def test_broken_models_and_bad_settings_are_refused_with_a_reason():

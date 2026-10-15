@@ -43,7 +43,7 @@ up away from this machine and with real people.
   Gemma 4 E4B used context correctly; NLLB's lead was on news sentences.
 - **Quiet speech straight after loud speech** is missed by the speech detector (found with the
   test bench): find out how large the difference must be, and try evening out levels.
-- **Saving a live conversation.** Export works only after a file run.
+- ~~**Saving a live conversation.**~~ Done 2026-10-14 (below, "Two-way with no voice").
 - **A translator that lacks the chosen language** greyed out beforehand, with the reason
   (P17's leftover).
 - **Model advice (part of P20):** a "Recommended" marker and "Use recommended".
@@ -439,6 +439,27 @@ Eight milestones for non-technical users. Built in order; stop after each.
     ![translators](docs/images/testbench-translators.png)
     ![whole set](docs/images/testbench-whole-set.png)
     The main window now, Advanced open: ![main window](docs/images/testbench-main-window.png)
+- **Two-way with no voice, and saving a conversation (2026-10-14, the user's request).** A
+  conversation must work, and be kept, even when it can't be heard.
+  - **Shared machine mode no longer refuses a side whose listener has no voice** (Farsi today).
+    `shared.direction` returns that side with no voice and a warning shown under its column
+    ("shown on the screen but not spoken"). Before, the side's key was refused, so a
+    Farsi/English conversation with a key each was impossible.
+  - **A language with no voice is said once and then shown silently**, in every mode.
+    `tts.choose` raises `tts.NoVoice` (a `TtsError`); `SpeakThread` remembers the language in
+    `voiceless`, emits one plain `Error` ("No voice is installed for Persian: ..."), and from then
+    on a `NotSpoken(id, language)` event per sentence instead of an error per sentence. The
+    session treats `NotSpoken` as it does `SpeakingStarted`, so a turn doesn't wait forever for
+    speech that won't come. The start-up error is cleared by `Listening`, so the window also says
+    it before Start: `view.voice_note`, a grey line under Speak translations.
+  - **Saving a live conversation.** The Export button shows as "Save conversation..." once a
+    sentence is on the screen, in live mode too, and File > Export works for it. Every export
+    now also writes `conversation.txt` (each sentence with its time or "typed", its language and
+    its translation). `export.configuration` names the microphone for a live run. Saving is not
+    automatic, and START clears the screen; an automatic-save option is the next step if wanted.
+  - Tests: `tests/test_no_voice.py` (3), plus one each in `test_shared.py`, `test_session.py`,
+    `test_view.py`, `test_shared_window.py`, and two in `test_filemode.py`. Not run end to end
+    with real models and two people.
 
 ### Later (noted in `volis-next-features.md`, deliberately not in this round)
 

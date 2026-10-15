@@ -1,6 +1,8 @@
-"""The export folder of a file run: what model-bench and a colleague read to
-reproduce and check it.
+"""The export folder of a file run or a live conversation: what a person reads
+later, and what model-bench and a colleague read to reproduce and check it.
 
+  conversation.txt  the conversation to read: each sentence with its time, its
+                    language and its translation
   transcript.txt    one sentence per line, as recognized
   translation.txt   the same lines, translated (empty where not translated)
   source.srt        subtitles of the transcript, with timings
@@ -9,7 +11,8 @@ reproduce and check it.
                     configuration (models with folder names and file hashes,
                     prompt file, every setting), the last the summary.
 
-Default folder: exports\\<file>-<date>\\ inside the app.
+Default folder: exports\\<file>-<date>\\ inside the app, or
+exports\\conversation-<date>\\ for a live conversation.
 """
 
 from __future__ import annotations
@@ -22,13 +25,14 @@ import time
 from dataclasses import asdict
 from pathlib import Path
 
-from . import __version__, paths
+from . import __version__, paths, varieties
 from .events import Configuration, Event, NotTranslated, SentenceMsg, Translated
 
 
-def default_folder(root: Path, audio: Path) -> Path:
+def default_folder(root: Path, audio: Path | None) -> Path:
+    """`audio` is the recording a file run translated; None for a live conversation."""
     stamp = time.strftime("%Y%m%d-%H%M%S")
-    return root / "exports" / f"{audio.stem}-{stamp}"
+    return root / "exports" / f"{audio.stem if audio is not None else 'conversation'}-{stamp}"
 
 
 # ---------------------------------------------------------------- hashes
@@ -71,7 +75,7 @@ def folder_files(folder: Path, root: Path) -> dict[str, str]:
     }
 
 
-def configuration(root: Path, *, audio: Path, config, pyconfig, options, recognizer: str, translator: str,
+def configuration(root: Path, *, audio: Path | None, config, pyconfig, options, recognizer: str, translator: str,
                   prompt_file: Path | None, cli: dict) -> Configuration:
     """The first line of events.jsonl."""
     import importlib.metadata as md
@@ -90,7 +94,8 @@ def configuration(root: Path, *, audio: Path, config, pyconfig, options, recogni
         "python": sys.version.split()[0],
         "platform": platform.platform(),
         "libraries": {n: version(n) for n in ("torch", "transformers", "sherpa-onnx", "llama-cpp-python", "av")},
-        "audio": {"path": str(audio.absolute()), "sha256": sha256(audio, root)},
+        "audio": ({"path": str(audio.absolute()), "sha256": sha256(audio, root)} if audio is not None
+                  else {"source": "microphone", "device": config.audio.input_device}),
         "recognizer": {"folder": recognizer, "files": folder_files(asr_dir, root)} if recognizer else None,
         "translator": {"id": translator, "files": folder_files(mt_path, root)} if mt_path else None,
         "vad": {"file": vad.name, "sha256": sha256(vad, root)},
@@ -123,6 +128,22 @@ def srt(cues: list[tuple[float, float, str]]) -> str:
     return "\n".join(blocks)
 
 
+def conversation_text(sentences: list[SentenceMsg], events: list[Event], translated: dict[str, str]) -> str:
+    """The conversation as a person reads it later: each sentence, when it was
+    said (or that it was typed), in which language, and its translation."""
+    into = {e.id: e.lang for e in events if isinstance(e, Translated)}
+    lines = [f"Volis conversation, saved {time.strftime('%Y-%m-%d %H:%M')}", ""]
+    for s in sentences:
+        when = "typed" if getattr(s, "typed", False) else srt_time(s.start)[:8]
+        lines.append(f"[{when}] {varieties.display_name(s.lang)}: {s.text}")
+        if translated.get(s.id):
+            lines.append(f"{' ' * (len(when) + 3)}{varieties.display_name(into.get(s.id, ''))}: {translated[s.id]}")
+        else:
+            lines.append(f"{' ' * (len(when) + 3)}(not translated)")
+        lines.append("")
+    return "\n".join(lines)
+
+
 def write(folder: Path, events: list[Event], configuration_event: Configuration) -> dict[str, Path]:
     folder.mkdir(parents=True, exist_ok=True)
     sentences = [e for e in events if isinstance(e, SentenceMsg)]
@@ -135,6 +156,7 @@ def write(folder: Path, events: list[Event], configuration_event: Configuration)
         if isinstance(e, NotTranslated):
             translated.setdefault(e.id, "")
     files = {
+        "conversation.txt": conversation_text(sentences, events, translated),
         "transcript.txt": "\n".join(s.text for s in sentences) + "\n",
         "translation.txt": "\n".join(translated.get(s.id, "") for s in sentences) + "\n",
         "source.srt": srt([(s.start, s.end, s.text) for s in sentences]),

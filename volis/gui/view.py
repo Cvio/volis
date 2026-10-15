@@ -51,6 +51,21 @@ def details(rows: list[tuple[str, str]]) -> str:
     return "\n".join(f"{label}: {value}" for label, value in rows if value)
 
 
+def voice_note(speak: bool, targets: list[str], has_voice) -> str:
+    """Before Start, under "Speak translations": the languages translations
+    will go into that no installed voice speaks. They are shown, not spoken."""
+    if not speak:
+        return ""
+    missing = [t for t in dict.fromkeys(targets) if t and not has_voice(t)]
+    if not missing:
+        return ""
+    from .. import varieties
+
+    names = " or ".join(varieties.display_name(t) for t in missing)
+    it = "them" if len(missing) > 1 else "it"
+    return f"No voice is installed for {names}: translations into {it} are shown on the screen but not spoken."
+
+
 def translator_limits(backend: str) -> str:
     """What a dedicated translation model can't do, in plain words; "" for a
     chat model, which can do all of it."""

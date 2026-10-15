@@ -166,6 +166,18 @@ def test_a_side_that_cannot_take_a_turn_says_why_before_anyone_presses(window):
     assert "would not load" in window.sides["right"]["note"].text()
 
 
+def test_a_side_whose_listener_has_no_voice_still_takes_turns_shown_as_text(window):
+    if any(lang.startswith("fa") for v in window.voices for lang in v.languages):
+        pytest.skip("a Persian voice is installed here")
+    pipeline = running(window)
+    combo = window.sides["right"]["language"]
+    combo.setCurrentIndex(combo.findData("fa"))
+    press(window, Qt.Key.Key_Left)
+    assert pipeline.asked[-1][0] == "begin", "the left person's turn starts: their words are shown in Persian"
+    assert "shown on the screen but not spoken" in window.sides["left"]["note"].text()
+    window.config.shared.right_language = "en"
+
+
 def test_changing_a_sides_language_refills_its_pickers_and_prepares_the_recognizers(window):
     pipeline = running(window)
     combo = window.sides["right"]["language"]

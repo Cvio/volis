@@ -92,8 +92,8 @@ changing how Volis is used.
   Farsi word.
 - **Speaking Farsi aloud is not available yet.** No Farsi voice has been tested. Today, Farsi
   speech is translated and spoken in English, Arabic or Spanish, and translations *into* Farsi are
-  shown on the screen as text. The two-person mode (a key each) needs a voice for both
-  languages, so it can't be used with Farsi until a voice is added.
+  shown on the screen as text. The two-person mode (a key each) works with Farsi: the Farsi
+  side of the conversation is shown, and the English side is shown and spoken.
 - **Variety.** Iranian Persian. Afghan Dari has not been tested.
 
 ### Other languages
@@ -111,11 +111,13 @@ Farsi script, and translates it into English, taking the last few sentences into
 Farsi and the English both appear on the screen, and the English is spoken, about two seconds
 after the visitor stops.
 
-**The reply, today.** Translating the staff member's English into Farsi works, but the Farsi
-appears as text only, since there is no Farsi voice yet. On one computer the reply is also
-clumsy: the conversation has to be stopped and the two languages swapped. The mode built for
-exactly this, two people with a key each, needs a voice for both languages, so for Farsi it waits
-on a Farsi voice. That voice is the most important missing piece for Farsi.
+**The reply.** Each person has their own key. The staff member presses theirs and answers in
+English; the answer appears in Farsi on the screen for the visitor to read. It isn't spoken,
+because there is no Farsi voice yet. A Farsi voice is the most important missing piece for
+Farsi. (This two-key mode is built and checked by tests, and is waiting for its first trial with
+two people.)
+
+**Afterwards.** The whole conversation, both languages, can be saved as text to read later.
 
 **How accurate it is today.** On test recordings of people reading Farsi news sentences, Volis
 got about four to seven letters in a hundred wrong when writing the speech down, depending on the
@@ -234,7 +236,8 @@ help plan for that:
 - **No internet after installation.** No cloud service, no account, no usage reporting. Pairing
   two computers uses the local network only.
 - **What stays on the computer:** the settings; a log of each session, which includes what was
-  said and how it was translated; anything you choose to export; and the Test bench's results.
+  said and how it was translated; any conversation you choose to save; and the Test bench's
+  results.
   Treat the computer as holding sensitive records, and delete the logs as your policy requires.
 - **Live conversations are not recorded as audio.** A recording made in the Test bench is held
   in memory only, until Volis is closed.
@@ -270,7 +273,7 @@ commercial use.
 |---|---|---|
 | A conversation on one computer, taking turns or listening continuously | Two people sharing one computer | Help pages inside the program, with a **?** beside each option |
 | Translating recordings, with export | Two computers paired | Fixing a sentence: other ways it could have been heard or translated, each translation shown back in the speaker's language so someone who can't read the target language can check it |
-| Translating typed text | The ready-made folder on another computer | Saving a live conversation as a document (today only a recording's results can be exported) |
+| Translating typed text; saving a conversation as text | The ready-made folder on another computer | Saving each conversation automatically, as an option |
 | The Test bench and the performance panel | | A simple choice or two in place of the model lists |
 | Farsi clean-up; Arabic vowel marks | | Guided tutorials |
 
@@ -288,8 +291,7 @@ shows why a word with two meanings needs care).
   missed.
 - **Dialects.** Iraqi Arabic is a named choice; other dialects are treated as Arabic in general.
   Afghan Dari has not been tested.
-- **Farsi is not yet spoken aloud,** and until it is, two people can't hold a Farsi conversation
-  at one computer with a key each.
+- **Farsi is not yet spoken aloud.** Translations into Farsi are shown on the screen only.
 - **Windows and NVIDIA graphics cards only.**
 
 ## Further reading

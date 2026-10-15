@@ -159,6 +159,18 @@ def test_a_test_sentence_for_each_language_and_its_varieties():
 # ---------------------------------------------------------------- the Translate button
 
 
+def test_the_languages_that_will_be_shown_not_spoken_are_named_before_start():
+    def has(tag):
+        return tag in ("en", "es")
+
+    assert view.voice_note(True, ["en"], has) == ""
+    assert view.voice_note(True, ["fa"], has) == ("No voice is installed for Persian: translations into it are shown "
+                                                  "on the screen but not spoken.")
+    assert "Persian or Arabic" in view.voice_note(True, ["fa", "en", "ar"], has)
+    assert "into them" in view.voice_note(True, ["fa", "ar"], has)
+    assert view.voice_note(False, ["fa"], has) == "", "Speak translations off: nothing to say"
+
+
 def test_the_typed_button_says_it_is_working_and_cannot_be_pressed_again():
     busy = view.typed_control(True, "Loading Gemma 4 12B...")
     assert (busy.label, busy.enabled, busy.working) == ("Working...", False, True)

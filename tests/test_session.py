@@ -213,6 +213,20 @@ def connected(name: str) -> ev.PeerMsg:
     return ev.PeerMsg("connected", name=name, addr="192.168.50.2:47800", speaks="en", sends="es")
 
 
+def test_a_translation_that_no_voice_can_speak_ends_the_turn_when_shown():
+    s = Session()
+    s.begin("en", "fa", False, True)
+    s.apply(ev.Listening())
+    s.apply(ev.Mode("turn"))
+    s.apply(ev.TurnStarted())
+    s.apply(ev.TurnEnded())
+    sid = heard(s, 1, "Hello.", "en")
+    s.apply(ev.Translated(sid, "سلام.", "fa", 300, "cpu", "m"))
+    assert s.turn == ses.PROCESSING, "waiting for it to be spoken"
+    s.apply(ev.NotSpoken(sid, "fa"))
+    assert s.turn == ses.IDLE, "no voice: shown, and the next turn can start"
+
+
 def test_a_paired_turn_waits_for_the_floor_then_runs_as_usual():
     s = Session()
     s.begin("es", "en", False, True, True)

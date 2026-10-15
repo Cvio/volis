@@ -421,6 +421,11 @@ class MainWindow(QMainWindow):
         form.addRow("Speakers", beside(self.output_device, self.test_speakers))
         form.addRow(self.test_status)
         form.addRow(self.speak)
+        self.voice_note = QLabel()  # languages that will be shown, not spoken
+        self.voice_note.setWordWrap(True)
+        self.voice_note.setStyleSheet("color: gray")
+        self.voice_note.setVisible(False)
+        form.addRow(self.voice_note)
         form.addRow("Mode", mode_box)
         form.addRow(reason("mode_shared"))
 
@@ -1432,12 +1437,18 @@ class MainWindow(QMainWindow):
         start, end = span
         self._play(self.file_audio[int(start * SAMPLE_RATE) : int(end * SAMPLE_RATE)])
 
+    def _exported_audio(self) -> Path | None:
+        """The recording the record on screen came from; None for a live conversation."""
+        return self.file_path if self.source is not None else None
+
     def export(self) -> None:
-        if not self.collected.events or self.file_path is None or self.source is None:
-            self.session.last_error = "Nothing to export yet: open a file and run it first."
+        """Save what is on the screen: a file run's results, or a live
+        conversation (with typed lines), as text and subtitles."""
+        if not any(isinstance(e, ev.SentenceMsg) for e in self.collected.events):
+            self.session.last_error = "Nothing to save yet: there is no conversation on the screen."
             self.refresh()
             return
-        default = export.default_folder(self.root, self.file_path)
+        default = export.default_folder(self.root, self._exported_audio())
         default.parent.mkdir(parents=True, exist_ok=True)
         folder = QFileDialog.getExistingDirectory(self, "Export to folder", str(default.parent))
         if folder:
@@ -1448,14 +1459,15 @@ class MainWindow(QMainWindow):
         translator = self.session.models.get("translator")
         recognizer = self.session.models.get("recognizer")
         configuration = export.configuration(
-            self.root, audio=self.file_path, config=self.config, pyconfig=self.pyconfig, options=self.options,
+            self.root, audio=self._exported_audio(), config=self.config, pyconfig=self.pyconfig,
+            options=getattr(self, "options", None) or Options(),  # typed lines only: no run has set them
             recognizer=recognizer.name if recognizer else "", translator=translator.name if translator else "",
             prompt_file=prompt_file if translator else None,
             cli={"window": True, "realtime": self.realtime.isChecked()},
         )
         try:
             export.write(folder, self.collected.events, configuration)
-            self.status.setText(f"Exported to {folder}")
+            self.status.setText(f"Saved to {folder}")
         except OSError as e:
             self.session.last_error = f"cannot write the export to {folder}: {e}"
             self.refresh()
@@ -1506,8 +1518,21 @@ class MainWindow(QMainWindow):
         self._draw_typed()
         self._draw_peer(running)
         self._draw_shared(shared)
-        for widget in (self.realtime, self.fast, self.play_original, self.export_button, self.open_button, self.progress):
+        for widget in (self.realtime, self.fast, self.play_original, self.open_button, self.progress):
             widget.setVisible(file_mode)
+        # A file run's results, or a live conversation once it has a sentence, can be saved.
+        self.export_button.setVisible(file_mode or bool(s.lines))
+        self.export_button.setText("Export..." if file_mode else "Save conversation...")
+        self.export_button.setToolTip("Save the transcript, the translation and subtitles to a folder."
+                                      if file_mode else "Save this conversation as text, to read later.")
+        if shared:
+            targets = [shared_mod.language(side, self.config.shared) for side in shared_mod.SIDES]
+        else:
+            targets = [self.target_lang.currentData() or ""]
+        note = view.voice_note(self.speak.isChecked() and not file_mode, targets,
+                               lambda tag: bool(shared_mod.voices_for(tag, self.voices)))
+        self.voice_note.setText(note)
+        self.voice_note.setVisible(bool(note))
         self.file_label.setVisible(file_mode)
         if self.file_path is not None:
             seconds = len(self.file_audio) / SAMPLE_RATE if self.file_audio is not None else 0

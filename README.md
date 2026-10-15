@@ -236,7 +236,7 @@ Choose one under **Mode**. You can switch while it is running.
 |---|---|
 | **Take turns** | The microphone stays closed until you press Space. Press it, speak, press it again: everything you said is translated and spoken. The easiest mode to start with. |
 | **Listen continuously** | Hands-free. Every pause ends a sentence. |
-| **Shared machine** | Two people, one computer, a key each (the left and right arrow keys). Each side has its own language, and what one says is spoken in the other's. Escape cancels a turn. |
+| **Shared machine** | Two people, one computer, a key each (the left and right arrow keys). Each side has its own language, and what one says is spoken in the other's. Escape cancels a turn. If no voice is installed for one of the languages, that side's translations are shown on the screen but not spoken. |
 | **Pair with another PC** | Two computers, one conversation. Each translates what its own person says and sends the text to the other, which shows and speaks it. Tick the box on both, press Start on both, then type the address the other one shows and press Connect. They must be on the same local network. |
 
 ### Translate a recording
@@ -265,10 +265,23 @@ conversation is running.
 
 To try translators against each other on the same text, use the Test bench (below).
 
+### Save a conversation
+
+Once a sentence is on the screen, a **Save conversation...** button appears at the top (also
+**File > Export**). Choose a folder; Volis saves:
+
+- `conversation.txt`: the conversation to read later, each sentence with its time, its language
+  and its translation;
+- the transcript, the translation and subtitles, as separate files.
+
+Saving is not automatic. Pressing START again clears the screen for a new conversation, so save
+first if you want to keep it.
+
 ### The options in the window
 
 **Speak translations** is with the main settings: it says each translation aloud. Turn it off
-for captions only.
+for captions only. If no voice is installed for a language you translate into, a grey line under
+it says so; those translations are shown but not spoken.
 
 The rest are under **Advanced**, which stays closed until you open it:
 

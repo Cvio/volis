@@ -272,6 +272,15 @@ class SpeakingEnded(Event):
 
 
 @dataclass
+class NotSpoken(Event):
+    """A translation shown but not spoken, because no installed voice speaks
+    its language. Ends the wait for it, as SpeakingStarted would."""
+
+    id: str
+    language: str = ""
+
+
+@dataclass
 class Revised(Event):
     """P8: an earlier sentence's translation, replaced."""
 

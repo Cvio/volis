@@ -84,15 +84,19 @@ class Voice:
         return Speech(samples, int(audio.sample_rate) or self.sample_rate)
 
 
+class NoVoice(TtsError):
+    """No installed voice speaks the language: its translations are shown, not spoken."""
+
+
 def choose(engines: list[Engine], language: str) -> Engine:
-    """The voice for a language or variety: best fit first. Raises TtsError if
+    """The voice for a language or variety: best fit first. Raises NoVoice if
     none speaks it, naming what is installed."""
     ranked = models.rank(language, engines)
     if ranked:
         return ranked[0].engine
     usable = [e for e in engines if e.enabled()]
     found = ", ".join(f"{e.dir_name} ({'/'.join(e.languages)})" for e in usable) or "none"
-    raise TtsError(f'no installed voice speaks "{language}". Voices found: {found}')
+    raise NoVoice(f'no installed voice speaks "{language}". Voices found: {found}')
 
 
 def for_language(engines: list[Engine], language: str) -> Engine:

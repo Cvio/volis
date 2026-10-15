@@ -50,7 +50,8 @@ from .audio import SAMPLE_RATE
 from .config import Config, PythonConfig
 from .asr.streaming import LocalAgreement
 from .events import (  # noqa: F401 - re-exported for consumers
-    ComparisonMsg, Dropped, Error, Event, Final, Held, Level, Listening, Loading, Mode, ModelLoaded, Revised, SharedSide,
+    ComparisonMsg, Dropped, Error, Event, Final, Held, Level, Listening, Loading, Mode, ModelLoaded, NotSpoken, Revised,
+    SharedSide,
     NothingRecognized, NotTranslated, Partial, Progress, SentenceMsg, SpeakingEnded, SpeakingStarted,
     SpeechStarted, Stall, Stopped, Summary, Translated, TurnCancelled, TurnEnded, TurnStarted,
 )
@@ -1386,6 +1387,7 @@ class SpeakThread:
         self.voices = [e for e in models.discover(paths.tts_dir(pipeline.root), models.Role.TTS)
                        if isinstance(e, models.Engine)]
         self.loaded: dict = {}
+        self.voiceless: set[str] = set()  # languages no installed voice speaks: shown, not spoken
         # Arabic vowel marks before the voice ([tts] diacritize); loaded when first needed.
         self.diacritize = bool(pipeline.pyconfig.tts.diacritize)
         self._tashkeel = None
@@ -1396,8 +1398,15 @@ class SpeakThread:
     def prepare(self, language: str, folder: str = "") -> None:
         """Load the voice expected, at start, so the first sentence doesn't wait.
         A language with no voice is reported now, not at the first sentence."""
+        from .tts import NoVoice
+
+        if language in self.voiceless:
+            return
         try:
             self._voice(language, folder)
+        except NoVoice as e:
+            self._no_voice(language, e)
+            return
         except Exception as e:
             log.warning("%s", e)
             self.pipeline.emit(Error(f"translations into {language} will not be spoken: {e}"))
@@ -1419,6 +1428,14 @@ class SpeakThread:
                 log.warning("%s", e)
                 self.pipeline.emit(Error(f"Arabic will be spoken without vowel marks: {e}"))
         return self._tashkeel
+
+    def _no_voice(self, language: str, why: Exception) -> None:
+        """No installed voice speaks `language`: said once, in plain words;
+        after that its translations are shown without a word."""
+        log.warning("%s; translations into %s are shown, not spoken", why, language)
+        self.voiceless.add(language)
+        self.pipeline.emit(Error(f"No voice is installed for {varieties.display_name(language)}: translations "
+                                 "into it are shown on the screen but not spoken."))
 
     def _voice(self, language: str, folder: str = ""):
         """The voice in `folder` (a shared-machine side's choice), or the
@@ -1467,6 +1484,8 @@ class SpeakThread:
         self.player.close()
 
     def _run(self) -> None:
+        from .tts import NoVoice
+
         emit = self.pipeline.emit
         while (job := self.queue.get()) is not None:
             sentence_id, text, language, cut_at, folder, generation = job
@@ -1478,6 +1497,9 @@ class SpeakThread:
             if cancelled():
                 log.info("%s: cancelled; not spoken", label)
                 continue
+            if language in self.voiceless:
+                emit(NotSpoken(sentence_id, language))
+                continue
             try:
                 voice = self._voice(language, folder)
                 began = time.perf_counter()
@@ -1485,6 +1507,10 @@ class SpeakThread:
                     text = marker.run(text)
                     log.info("  %s with vowel marks (%d ms): %s", label, (time.perf_counter() - began) * 1000, text)
                 speech = voice.speak(text)
+            except NoVoice as e:
+                self._no_voice(language, e)
+                emit(NotSpoken(sentence_id, language))
+                continue
             except Exception as e:
                 log.warning("%s was not spoken: %s", label, e)
                 emit(Error(f"{label} was not spoken: {e}"))

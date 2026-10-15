@@ -86,7 +86,8 @@ def test_the_export_writes_every_file(tmp_path):
         Summary({"sentences": 2}),
     ]
     written = export.write(tmp_path, events, Configuration({"volis": "test"}))
-    assert set(written) == {"transcript.txt", "translation.txt", "source.srt", "translation.srt", "events.jsonl"}
+    assert set(written) == {"conversation.txt", "transcript.txt", "translation.txt", "source.srt", "translation.srt",
+                            "events.jsonl"}
     assert (tmp_path / "translation.txt").read_text(encoding="utf-8") == "Where is it?\n\n"
     srt = (tmp_path / "source.srt").read_text(encoding="utf-8")
     assert "00:00:01,000 --> 00:00:02,000\n¿Dónde está?" in srt
@@ -94,6 +95,47 @@ def test_the_export_writes_every_file(tmp_path):
     lines = [json.loads(x) for x in (tmp_path / "events.jsonl").read_text(encoding="utf-8").splitlines()]
     assert lines[0]["t"] == "Configuration" and lines[-1]["t"] == "Summary"
     assert [x["t"] for x in lines[1:-1]] == ["SentenceMsg", "Translated", "SentenceMsg", "NotTranslated"]
+
+
+def test_the_conversation_reads_as_a_conversation(tmp_path):
+    events = [
+        SentenceMsg("1.1", 1, "سلام، از دیروز سرم درد می‌کند.", "fa", 6.0, 8.6),
+        Translated("1.1", "Hello, I've had a headache since yesterday.", "en", 520, "cuda", "m"),
+        SentenceMsg("t1.1", 0, "Do you have a fever?", "en", 0.0, 0.0, False, True),
+        Translated("t1.1", "آیا تب دارید؟", "fa", 400, "cuda", "m"),
+        SentenceMsg("2.1", 2, "Banyana.", "fa", 75.5, 76.0),
+        NotTranslated("2.1", "echo", "echo"),
+    ]
+    export.write(tmp_path, events, Configuration({"volis": "test"}))
+    text = (tmp_path / "conversation.txt").read_text(encoding="utf-8").splitlines()
+    assert text[0].startswith("Volis conversation, saved ")
+    assert text[2:] == [
+        "[00:00:06] Persian: سلام، از دیروز سرم درد می‌کند.",
+        "           English: Hello, I've had a headache since yesterday.",
+        "",
+        "[typed] English: Do you have a fever?",
+        "        Persian: آیا تب دارید؟",
+        "",
+        "[00:01:15] Persian: Banyana.",
+        "           (not translated)",
+    ]
+
+
+def test_a_live_conversation_names_its_microphone_where_a_file_run_names_its_recording():
+    import pytest
+
+    from volis.config import Config, PythonConfig
+    from volis.pipeline import Options
+
+    root = paths.app_root()
+    if not paths.vad_model_file(root).is_file():
+        pytest.skip("needs the speech detector model")
+    config = Config()
+    config.audio.input_device = "Headset"
+    c = export.configuration(root, audio=None, config=config, pyconfig=PythonConfig(), options=Options(),
+                             recognizer="", translator="", prompt_file=None, cli={"window": True})
+    assert c.settings["audio"] == {"source": "microphone", "device": "Headset"}
+    assert export.default_folder(root, None).name.startswith("conversation-")
 
 
 def test_events_serialise_words_and_paths():

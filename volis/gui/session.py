@@ -246,7 +246,7 @@ class Session:
                 self._unspoken.add(event.id)
         elif isinstance(event, ev.NotTranslated):
             self._untranslated.discard(event.id)
-        elif isinstance(event, ev.SpeakingStarted):
+        elif isinstance(event, (ev.SpeakingStarted, ev.NotSpoken)):
             self._unspoken.discard(event.id)
         done = self._recognised and not self._untranslated and not self._unspoken and not self.speaking
         if done:

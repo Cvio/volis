@@ -148,7 +148,10 @@ def direction(side: str, settings: Shared, recognizers: list[Engine], preferred:
     if chosen is None:
         ranked = voices_for(target, voices)
         if not ranked:
-            raise SharedError(f'no installed voice speaks "{target}", so this side\'s words could not be spoken')
+            # Shown, not spoken: the conversation still works, and can still be saved.
+            warnings.append(f"no voice is installed for {varieties.display_name(target)}, so this side's words are "
+                            "shown on the screen but not spoken")
+            return Resolved(Direction(side, recognizer.dir_name, source, target, ""), warnings)
         chosen = ranked[0].engine
         if configured:
             warnings.append(f'the voice "{configured}" is not installed, or does not speak "{target}"; using '
