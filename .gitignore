@@ -30,3 +30,6 @@ __pycache__/
 /build/
 /dist/
 /machine.yaml.pre-rename
+
+# Training runs and downloaded base models (notebooks/train-a-lora.ipynb).
+/training/
