@@ -18,11 +18,13 @@ param([switch]$Cuda)
 $ErrorActionPreference = "Stop"
 $repo = $PSScriptRoot
 $version = "0.3.35"
+
 $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
 if (-not $vs) { Write-Host "STOP: Visual Studio Build Tools (C++) are not installed." -ForegroundColor Red; exit 1 }
 $vcvars = Join-Path $vs "VC\Auxiliary\Build\vcvars64.bat"
 $cmake = Join-Path $vs "Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
 $work = Join-Path $repo ".uv\build"
+
 New-Item -ItemType Directory -Force $work | Out-Null
 $sdist = Join-Path $work "llama_cpp_python-$version.tar.gz"
 if (-not (Test-Path $sdist)) {
