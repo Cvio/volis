@@ -56,6 +56,7 @@ class Row:
     held: bool = False  # a fragment waiting to be joined to what follows
     sent_to: str | None = None  # paired: the PC its translation reached
     side: str = ""  # shared machine: whose words these are ("left" or "right")
+    wall: float = 0.0  # seconds into the run: the only time a typed sentence has
 
     kind = "row"
 
@@ -91,6 +92,7 @@ class RemoteLine:
     text: str
     source_lang: str
     source_text: str
+    wall: float = 0.0
     kind = "remote"
 
 
@@ -120,6 +122,7 @@ class Session:
         self.level_db: float | None = None
         self.has_level = False
         self.lines: list = []
+        self.max_lines: int | None = MAX_LINES  # None: the whole conversation
         self.last_error: str | None = None
         self.languages = ("", "")
         self.comparing = False
@@ -294,7 +297,7 @@ class Session:
                                # Until the translation says what it is in.
                                self.languages[1], event.text, speech_ms=speech_ms, asr_ms=asr_ms,
                                approximate=event.approximate, side="" if event.typed else self.active_side,
-                               typed=event.typed, original=event.original))
+                               typed=event.typed, original=event.original, wall=event.wall))
         elif isinstance(event, ev.Translated):
             if (row := self.row(event.id)) is not None:
                 row.target, row.target_lang, row.translate_ms = event.text, event.lang, event.translate_ms
@@ -320,7 +323,7 @@ class Session:
         elif isinstance(event, ev.ComparisonMsg):
             self._push(ComparisonLine(event.comparison))
         elif isinstance(event, ev.Remote):
-            self._push(RemoteLine(event.sender, event.lang, event.text, event.source_lang, event.source_text))
+            self._push(RemoteLine(event.sender, event.lang, event.text, event.source_lang, event.source_text, event.wall))
         elif isinstance(event, ev.Sent):
             if (row := self.row(event.id)) is not None:
                 row.sent_to = event.to
@@ -415,8 +418,8 @@ class Session:
 
     def _push(self, line) -> None:
         self.lines.append(line)
-        if len(self.lines) > MAX_LINES:
-            del self.lines[: len(self.lines) - MAX_LINES]
+        if self.max_lines is not None and len(self.lines) > self.max_lines:
+            del self.lines[: len(self.lines) - self.max_lines]
 
 
 @dataclass(frozen=True)

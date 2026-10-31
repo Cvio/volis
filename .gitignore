@@ -33,3 +33,6 @@ __pycache__/
 
 # Training runs and downloaded base models (notebooks/train-a-lora.ipynb).
 /training/
+
+# People's saved conversations
+/conversations/

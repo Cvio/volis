@@ -51,6 +51,16 @@ def config_file(root: Path) -> Path:
     return root / "volis.toml"
 
 
+def conversations_dir(root: Path) -> Path:
+    """Saved conversations, one folder each."""
+    return root / "conversations"
+
+
+def in_progress_dir(root: Path) -> Path:
+    """The conversation under way, kept up to date in case of a crash."""
+    return conversations_dir(root) / "in-progress"
+
+
 def python_config_file(root: Path) -> Path:
     """`<root>/volis-python.toml` - settings volis-rust doesn't have."""
     return root / "volis-python.toml"

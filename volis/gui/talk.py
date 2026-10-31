@@ -191,6 +191,19 @@ def no_clip_words(s: ses.Session, side: str) -> str:
     return SPOKEN_ELSEWHERE if s.paired and side == bubbles.RIGHT else NOTHING_TO_PLAY
 
 
+def no_saved_audio(track: str) -> str:
+    if track == "original":
+        return "There's no recording of the original of this sentence."
+    return "There's no spoken translation of this sentence."
+
+
+SAVING_WORDS = {
+    "ask": "When a conversation ends, Volis asks whether to save it.",
+    "always": "Every conversation is saved when it ends, with its audio.",
+    "never": "Nothing is saved, and nothing of a conversation reaches the disk.",
+}
+
+
 def bar_time(position: float, duration: float) -> str:
     return f"{ses.clock(position)} / {ses.clock(duration)}"
 

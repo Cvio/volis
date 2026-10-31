@@ -11,12 +11,12 @@ import pytest  # noqa: E402
 
 pytest.importorskip("PySide6")
 
-from PySide6.QtCore import Qt  # noqa: E402
+from PySide6.QtCore import QRect, Qt  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 import numpy as np  # noqa: E402
 
-from volis import audio, clips, cli, models  # noqa: E402
+from volis import audio, clips, cli, conversations, models, paths  # noqa: E402
 from volis import events as ev  # noqa: E402
 from volis.config import Config, PythonConfig  # noqa: E402
 from volis.gui import app_window, bubbles, sample, talk, theme  # noqa: E402
@@ -216,8 +216,8 @@ def test_loading_then_the_conversation_then_end_then_new(window):
     window.tick()
     assert window.pipeline is None
     assert window.talk_stack.currentIndex() == app_window.CONVERSATION, "the conversation stays to be read"
-    assert not window.new_button.isHidden() and window.speak_left.isHidden()
-    window.new_button.click()
+    assert not window.save_box.isHidden() and window.speak_left.isHidden()
+    window.delete_unsaved.click()
     assert window.talk_stack.currentIndex() == app_window.START
 
 
@@ -523,6 +523,256 @@ def test_a_speaker_that_can_not_open_is_a_problem(window, monkeypatch):
     monkeypatch.setattr(app_window.playback, "Player", broken)
     click(window, "1.1")
     assert window.banner_title.text() == "We can't use your speakers"
+
+
+# ---------------------------------------------------------------- saving
+
+
+def ended(w):
+    """A conversation with a spoken sentence, ended."""
+    with_a_sentence(w)
+    w.clips.put_heard(1, 1.0, np.ones(16000, np.float32) / 2)
+    w.end_button.click()
+    w.tick()
+
+
+def only_saved(w):
+    found, problems = conversations.load_all(w.root)
+    assert len(found) == 1 and not problems
+    return found[0]
+
+
+def saved_one(w, name="Menu"):
+    ended(w)
+    w.save_name.setText(name)
+    w.save_button.click()
+    return only_saved(w)
+
+
+def show_saved(w):
+    w.rail_buttons[app_window.SAVED].click()
+    w.saved_items.setCurrentRow(0)
+    QApplication.processEvents()
+
+
+def test_ending_asks_and_save_keeps_it(window, tmp_path):
+    ended(window)
+    assert not window.save_box.isHidden() and window.new_button.isHidden()
+    window.save_name.setText("Menu")
+    window.save_left.setText("Sara")
+    window.save_button.click()
+    saved = only_saved(window)
+    assert (saved.name, saved.speakers) == ("Menu", {"left": "Sara"}) and saved.has_audio()
+    assert window.save_box.isHidden() and not window.new_button.isHidden() and "Menu" in window.saved_words.text()
+    assert not paths.in_progress_dir(tmp_path).exists()
+
+
+def test_leaving_the_name_empty_uses_the_suggested_one(window):
+    ended(window)
+    window.save_button.click()
+    assert "Persian and English" in only_saved(window).name
+
+
+def test_keeping_no_audio(window):
+    ended(window)
+    window.save_audio.setChecked(False)
+    window.save_button.click()
+    assert not only_saved(window).has_audio()
+
+
+def test_delete_forgets_it_and_goes_back_to_the_start(window, tmp_path):
+    ended(window)
+    window.delete_unsaved.click()
+    assert conversations.load_all(tmp_path) == ([], [])
+    assert not paths.in_progress_dir(tmp_path).exists()
+    assert window.talk_stack.currentIndex() == app_window.START
+
+
+def test_always_save_does_not_ask(make):
+    py = PythonConfig()
+    py.saving.mode = "always"
+    w = make(pyconfig=py)
+    ended(w)
+    assert w.save_box.isHidden() and only_saved(w).has_audio() and not w.new_button.isHidden()
+
+
+def test_never_save_writes_nothing_at_all(make, tmp_path):
+    py = PythonConfig()
+    py.saving.mode = "never"
+    w = make(pyconfig=py)
+    ended(w)
+    assert w.save_box.isHidden() and not w.new_button.isHidden()
+    assert not paths.conversations_dir(tmp_path).exists()
+
+
+def test_nothing_said_nothing_to_ask(window, tmp_path):
+    together(window)
+    window.end_button.click()
+    window.tick()
+    assert window.save_box.isHidden() and not paths.in_progress_dir(tmp_path).exists()
+
+
+def test_the_temporary_copy_keeps_up_during_the_conversation(window, tmp_path, monkeypatch):
+    with_a_sentence(window)
+    window.kept_at = 0.0
+    window.keep_dirty = True
+    window.tick()
+    kept = conversations.load(paths.in_progress_dir(tmp_path))
+    assert kept.sentences()[0]["translation"] == "Hello"
+    assert kept.sentences()[0]["audio_translation"], "the audio is on disk as it goes"
+
+
+def test_a_crash_is_found_when_volis_next_opens(make, tmp_path):
+    w = make()
+    with_a_sentence(w)
+    w.kept_at = 0.0
+    w.keep_dirty = True
+    w.tick()
+    again = make()  # no goodbye: the first never settled it
+    assert not again.start_notice.isHidden() and "recovered" in again.start_notice.text()
+    assert only_saved(again).name == conversations.RECOVERED_NAME
+    w.keeper = None
+
+
+def test_closing_mid_conversation_leaves_it_to_recover(make, tmp_path):
+    w = make()
+    with_a_sentence(w)
+    w.close()
+    assert conversations.recover(tmp_path).sentences()[0]["translation"] == "Hello"
+
+
+def test_a_long_conversation_is_not_cut_off(window):
+    together(window)
+    for n in range(ses.MAX_LINES + 20):
+        window.session.apply(ev.SentenceMsg(f"{n}.1", n, "x", "fa", 0.0, 1.0))
+    assert len(window.session.lines) == ses.MAX_LINES + 20
+
+
+def test_the_saving_choice_is_remembered(window, tmp_path):
+    window.saving_buttons["never"].click()
+    assert PythonConfig.load(tmp_path / "volis-python.toml")[0].saving.mode == "never"
+    assert "Nothing is saved" in window.saving_words.text()
+
+
+# ---------------------------------------------------------------- the Saved page
+
+
+def test_saved_is_empty_at_first(window):
+    window.rail_buttons[app_window.SAVED].click()
+    assert window.saved_items.count() == 0 and window.saved_stack.currentIndex() == 0
+
+
+def test_a_saved_conversation_reopens_with_its_bubbles(window):
+    saved_one(window)
+    show_saved(window)
+    assert window.saved_items.count() == 1 and "Menu" in window.saved_items.item(0).text()
+    assert window.saved_stack.currentIndex() == 1 and window.saved_name.text() == "Menu"
+    row = window.saved_chat.rows["1.1"]
+    assert (row.side, row.original.text(), row.translation.text()) == ("left", "سلام", "Hello")
+
+
+def test_a_long_sentence_is_not_cut_off_on_the_saved_page(window, monkeypatch):
+    """It is first drawn while its page is hidden."""
+    pipeline = together(window)
+    long = "Does this dish have meat? I can't eat meat because of a health problem, and I have to be very careful. " * 3
+    for event in (ev.SentenceMsg("1.1", 1, "سلام", "fa", 1.0, 2.0), ev.Translated("1.1", long, "en", 300, "cuda", "m")):
+        window.events.put(event)
+    window.tick()
+    assert pipeline is window.pipeline
+    window.end_button.click()
+    window.tick()
+    window.save_button.click()
+    show_saved(window)
+    label = window.saved_chat.rows["1.1"].translation
+    flags = Qt.TextFlag.TextWordWrap
+    needed = label.fontMetrics().boundingRect(QRect(0, 0, label.width(), 100000), flags, long).height()
+    assert label.height() == needed
+    assert window.saved_chat.rows["1.1"].bubble.height() >= needed
+
+
+def test_search_narrows_the_list(window):
+    saved_one(window)
+    show_saved(window)
+    window.saved_search.setText("hello")
+    assert window.saved_items.count() == 1
+    window.saved_search.setText("nothing like this")
+    assert window.saved_items.count() == 0 and window.saved_stack.currentIndex() == 0
+    assert "Nothing matches" in window.saved_empty.text()
+
+
+def test_rename_and_name_a_speaker(window):
+    saved_one(window)
+    show_saved(window)
+    window.saved_name.setText("Lunch")
+    window.saved_left.setText("Sara")
+    window.saved_names_changed()
+    saved = only_saved(window)
+    assert (saved.name, saved.speakers) == ("Lunch", {"left": "Sara"})
+    assert "Lunch" in window.saved_items.item(0).text()
+    assert "Sara" in window.saved_chat.rows["1.1"].speaker.text()
+
+
+def test_delete_asks_first(window):
+    folder = saved_one(window).folder
+    show_saved(window)
+    window.saved_delete.click()
+    assert not window.saved_confirm.isHidden() and folder.exists()
+    window.saved_delete_no.click()
+    assert window.saved_confirm.isHidden() and folder.exists()
+    window.saved_delete.click()
+    window.saved_delete_yes.click()
+    assert not folder.exists() and window.saved_items.count() == 0
+
+
+def listening_to_saved(w, monkeypatch):
+    saved_one(w)
+    player = FakePlayer()
+    monkeypatch.setattr(app_window.playback, "Player", lambda device, gate: player)
+    show_saved(w)
+    return player
+
+
+def test_clicking_a_saved_sentence_plays_the_translation(window, monkeypatch):
+    player = listening_to_saved(window, monkeypatch)
+    window.saved_chat.rows["1.1"].bubble.clicked()
+    assert window.saved_replay.key == "1.1" and player.left > 0
+    assert window.saved_chat.rows["1.1"].bubble.property("speaking") is True
+
+
+def test_the_switch_plays_the_original(window, monkeypatch):
+    player = listening_to_saved(window, monkeypatch)
+    window.saved_chat.rows["1.1"].bubble.clicked()
+    window.saved_track_button.click()
+    assert window.saved_track == conversations.ORIGINAL and window.saved_track_button.text() == "Original"
+    assert window.saved_replay.clip.rate == 16000 and window.saved_replay.key == "1.1" and player.left == 16000
+
+
+def test_play_all_goes_through_them_and_stops_at_the_end(window, monkeypatch):
+    player = listening_to_saved(window, monkeypatch)
+    window.saved_all.click()
+    assert window.saved_playing_all and window.saved_replay.key == "1.1" and window.saved_all.text() == "Stop"
+    player.left = 0
+    window.tick()
+    assert not window.saved_playing_all and window.saved_all.text() == "Play all"
+
+
+def test_a_saved_one_can_not_play_during_a_conversation(window, monkeypatch):
+    listening_to_saved(window, monkeypatch)
+    window.rail_buttons[app_window.TALK].click()
+    window.new_button.click()
+    together(window)
+    window.rail_buttons[app_window.SAVED].click()
+    window.saved_items.setCurrentRow(0)
+    window.saved_chat.rows["1.1"].bubble.clicked()
+    assert not window.saved_replay.active() and "End the conversation" in window.saved_bar.note.text()
+
+
+def test_without_audio_it_says_so(window):
+    ended(window)
+    window.save_audio.setChecked(False)
+    window.save_button.click()
+    show_saved(window)
+    assert not window.saved_all.isEnabled() and window.saved_bar.note.text() == "No audio was kept."
 
 
 # ---------------------------------------------------------------- settings

@@ -88,6 +88,12 @@ QProgressBar {{ background: {t.surface}; border: none; border-radius: 4px; max-h
 QProgressBar::chunk {{ background: {t.accent}; border-radius: 4px; }}
 QProgressBar[silent="true"] {{ background: {t.listening}; }}
 
+QWidget#savedList {{ background: {t.rail}; border-right: 1px solid {t.border}; }}
+QListWidget {{ background: transparent; border: none; outline: none; }}
+QListWidget::item {{ padding: 8px; border-radius: 8px; color: {t.text}; }}
+QListWidget::item:hover {{ background: {t.surface}; }}
+QListWidget::item:selected {{ background: {t.accent}; color: {t.on_accent}; }}
+
 QFrame#banner {{ background: {t.surface}; border: 1px solid {t.problem}; border-radius: 10px; }}
 QFrame#peerBox {{ background: {t.rail}; border: 1px solid {t.border}; border-radius: 10px; }}
 QWidget#controls, QWidget#audioBar {{ background: {t.rail}; border-top: 1px solid {t.border}; }}

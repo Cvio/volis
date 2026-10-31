@@ -17,11 +17,11 @@ from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QCheckBox, QComboBox, QDoubleSpinBox, QFrame, QHBoxLayout, QLabel, QLineEdit,
-    QMainWindow, QMessageBox, QProgressBar, QPushButton, QSizePolicy, QSlider, QStackedWidget, QToolButton, QVBoxLayout,
-    QWidget,
+    QListWidget, QListWidgetItem, QMainWindow, QMessageBox, QProgressBar, QPushButton, QSizePolicy, QStackedWidget,
+    QToolButton, QVBoxLayout, QWidget,
 )
 
-from .. import audio, clips, models, paths, playback, typed
+from .. import audio, clips, conversations, models, paths, playback, typed, varieties
 from .. import events as ev
 from .. import peer as peer_mod
 from .. import shared as shared_mod
@@ -29,7 +29,7 @@ from ..config import Config, ConfigError, PythonConfig, save_python_selections
 from ..pipeline import Options, Pipeline
 from . import bubbles, devicetest, talk, theme, view
 from . import session as ses
-from .chat import ChatView
+from .chat import AudioBar, ChatView
 from .window import KEY_SYMBOLS, TurnKeyFilter, qt_key
 
 log = logging.getLogger(__name__)
@@ -39,6 +39,8 @@ START, LOADING, CONVERSATION = 0, 1, 2
 REFRESH_MS = 100
 ICON_SIZE = 24
 PAUSE_RANGE = (0.3, 3.0)  # seconds; [vad].min_silence_ms
+KEEP_EVERY = 2.0  # seconds between updates of the conversation's temporary copy
+SAVING_CHOICES = (("ask", "Always ask"), ("always", "Always save"), ("never", "Never save"))
 
 
 def run(root: Path, config: Config) -> int:
@@ -137,7 +139,16 @@ class AppWindow(QMainWindow):
     def __init__(self, root: Path, config: Config, pyconfig: PythonConfig) -> None:
         super().__init__()
         self.root, self.config, self.pyconfig = root, config, pyconfig
-        self.session = ses.Session()
+        self.session = self._new_session()
+        self.keeper: conversations.Keeper | None = None
+        self.keep_dirty = False
+        self.kept_at = 0.0
+        self.pending_save = False  # ended, and the person hasn't said whether to save it
+        self.saved_list: list[conversations.Conversation] = []
+        self.saved_current: conversations.Conversation | None = None
+        self.saved_replay = clips.Replay()
+        self.saved_track = conversations.TRANSLATION
+        self.saved_playing_all = False
         self.events: queue.Queue = queue.Queue()
         self.pipeline: Pipeline | None = None
         self.ending = False
@@ -175,6 +186,7 @@ class AppWindow(QMainWindow):
         self._timer = QTimer(self)
         self._timer.timeout.connect(self.tick)
         self._timer.start(REFRESH_MS)
+        self._recover()
         self.refresh()
         # Reading the models takes seconds; the window is open meanwhile.
         threading.Thread(target=self._search, name="volis-discover", daemon=True).start()
@@ -216,6 +228,7 @@ class AppWindow(QMainWindow):
         column.addStretch(1)
         self.rail_buttons[TALK].setChecked(True)
         self.rail_group.idClicked.connect(self.pages.setCurrentIndex)
+        self.rail_group.idClicked.connect(self.page_chosen)
         return rail
 
     def _build_top_bar(self) -> QWidget:
@@ -307,6 +320,9 @@ class AppWindow(QMainWindow):
         column = QVBoxLayout()
         column.addStretch(1)
         column.setSpacing(10)
+        self.start_notice = _text("", "status")
+        self.start_notice.hide()
+        column.addWidget(self.start_notice)
         column.addWidget(_text("New conversation", "heading", 18))
         column.addSpacing(10)
         row = QHBoxLayout()
@@ -397,28 +413,43 @@ class AppWindow(QMainWindow):
         return box
 
     def _build_audio_bar(self) -> QWidget:
-        """The one player: play or pause, a bar, and the time. Clicking a bubble fills it."""
-        self.audio_bar = _styled("audioBar")
-        row = QHBoxLayout(self.audio_bar)
-        row.setContentsMargins(16, 8, 16, 8)
-        self.bar_play = QPushButton("Play")
-        self.bar_play.setFixedWidth(76)
+        """Clicking a bubble fills it."""
+        self.audio_bar = AudioBar()
+        self.bar_play, self.bar_slider, self.bar_time = self.audio_bar.play, self.audio_bar.slider, self.audio_bar.time
+        self.bar_note, self.bar_close = self.audio_bar.note, self.audio_bar.close_button
         self.bar_play.clicked.connect(self.bar_play_clicked)
-        self.bar_slider = QSlider(Qt.Orientation.Horizontal)
-        self.bar_slider.setRange(0, 1000)
         self.bar_slider.sliderReleased.connect(self.bar_seek)
-        self.bar_time = _text("", "muted")
-        self.bar_time.setWordWrap(False)
-        self.bar_note = _text("", "muted")
-        self.bar_close = _named(QPushButton("Close"), "link")
         self.bar_close.clicked.connect(self.close_bar)
-        row.addWidget(self.bar_play)
-        row.addWidget(self.bar_slider, 1)
-        row.addWidget(self.bar_time)
-        row.addWidget(self.bar_note, 1)
-        row.addWidget(self.bar_close)
         self.audio_bar.hide()
         return self.audio_bar
+
+    def _build_save_box(self) -> QFrame:
+        """When a conversation ends: what to call it, and whether to keep it."""
+        box = _named(QFrame(), "peerBox")
+        column = QVBoxLayout(box)
+        column.addWidget(_text("Save this conversation?", "heading", 12))
+        self.save_name = QLineEdit()
+        self.save_name.setPlaceholderText("A name for it")
+        column.addWidget(self.save_name)
+        names = QHBoxLayout()
+        self.save_left, self.save_right = QLineEdit(), QLineEdit()
+        names.addWidget(self.save_left)
+        names.addWidget(self.save_right)
+        column.addLayout(names)
+        row = QHBoxLayout()
+        self.save_audio = QCheckBox("Keep the audio")
+        self.save_audio.setChecked(True)
+        row.addWidget(self.save_audio)
+        row.addStretch(1)
+        self.delete_unsaved = QPushButton("Delete")
+        self.delete_unsaved.clicked.connect(self.delete_ended)
+        self.save_button = _named(QPushButton("Save"), "primary")
+        self.save_button.clicked.connect(self.save_ended)
+        row.addWidget(self.delete_unsaved)
+        row.addWidget(self.save_button)
+        column.addLayout(row)
+        box.hide()
+        return box
 
     def _build_controls(self) -> QWidget:
         controls = _styled("controls")
@@ -462,20 +493,95 @@ class AppWindow(QMainWindow):
         self.type_toggle.clicked.connect(self.toggle_typing)
         self.new_button = _named(QPushButton("New conversation"), "primary")
         self.new_button.clicked.connect(self.new_conversation)
+        self.save_box = self._build_save_box()
+        column.addWidget(self.save_box)
+        self.saved_words = _text("", "muted")
+        self.saved_words.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        column.addWidget(self.saved_words)
         column.addWidget(self.type_toggle, 0, Qt.AlignmentFlag.AlignHCenter)
         column.addWidget(self.new_button, 0, Qt.AlignmentFlag.AlignHCenter)
         return controls
 
     def _build_saved(self) -> QWidget:
         page = _named(QWidget(), "page")
-        column = QVBoxLayout(page)
-        column.addStretch(1)
-        for words, name, points in (("Saved conversations", "heading", 16),
-                                    ("Conversations you save will appear here.", "muted", 0)):
-            label = _text(words, name, points)
-            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            column.addWidget(label)
-        column.addStretch(1)
+        whole = QHBoxLayout(page)
+        whole.setContentsMargins(0, 0, 0, 0)
+        whole.setSpacing(0)
+        side = _styled("savedList")
+        side.setFixedWidth(300)
+        column = QVBoxLayout(side)
+        column.setContentsMargins(12, 12, 12, 12)
+        column.addWidget(_text("Saved conversations", "heading", 12))
+        self.saved_search = QLineEdit()
+        self.saved_search.setPlaceholderText("Search")
+        self.saved_search.textChanged.connect(self._draw_saved_list)
+        column.addWidget(self.saved_search)
+        self.saved_items = QListWidget()
+        self.saved_items.currentRowChanged.connect(self.saved_chosen)
+        column.addWidget(self.saved_items, 1)
+        self.saved_problem = _text("", "problem")
+        column.addWidget(self.saved_problem)
+        whole.addWidget(side)
+
+        self.saved_stack = QStackedWidget()
+        empty = _named(QWidget(), "page")
+        empty_column = QVBoxLayout(empty)
+        self.saved_empty = _text("Conversations you save will appear here.", "muted")
+        self.saved_empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_column.addWidget(self.saved_empty)
+        self.saved_stack.addWidget(empty)
+        shown = _named(QWidget(), "page")
+        inner = QVBoxLayout(shown)
+        inner.setContentsMargins(0, 0, 0, 0)
+        inner.setSpacing(0)
+        head = _styled("topBar")
+        rows = QVBoxLayout(head)
+        rows.setContentsMargins(16, 10, 16, 10)
+        first = QHBoxLayout()
+        self.saved_name = QLineEdit()
+        self.saved_name.setToolTip("Its name. Type to rename it.")
+        self.saved_name.editingFinished.connect(self.saved_names_changed)
+        first.addWidget(self.saved_name, 1)
+        self.saved_delete = QPushButton("Delete")
+        self.saved_delete.clicked.connect(self.saved_ask_delete)
+        first.addWidget(self.saved_delete)
+        rows.addLayout(first)
+        second = QHBoxLayout()
+        self.saved_left, self.saved_right = QLineEdit(), QLineEdit()
+        for field in (self.saved_left, self.saved_right):
+            field.editingFinished.connect(self.saved_names_changed)
+            second.addWidget(field)
+        rows.addLayout(second)
+        self.saved_confirm = QWidget()
+        confirm = QHBoxLayout(self.saved_confirm)
+        confirm.setContentsMargins(0, 0, 0, 0)
+        confirm.addWidget(_text("Delete this conversation for good? This can't be undone.", "problem"), 1)
+        self.saved_delete_yes, self.saved_delete_no = QPushButton("Delete it"), QPushButton("Keep it")
+        self.saved_delete_yes.clicked.connect(self.saved_delete_now)
+        self.saved_delete_no.clicked.connect(lambda: self.saved_confirm.hide())
+        confirm.addWidget(self.saved_delete_yes)
+        confirm.addWidget(self.saved_delete_no)
+        self.saved_confirm.hide()
+        rows.addWidget(self.saved_confirm)
+        inner.addWidget(head)
+        self.saved_chat = ChatView()
+        self.saved_chat.bubble_clicked = self.saved_bubble_clicked
+        inner.addWidget(self.saved_chat, 1)
+        self.saved_bar = AudioBar()
+        self.saved_bar.close_button.hide()
+        self.saved_bar.play.clicked.connect(self.saved_play_clicked)
+        self.saved_bar.slider.sliderReleased.connect(self.saved_seek)
+        self.saved_track_button = QPushButton("Translation")
+        self.saved_track_button.setCheckable(True)
+        self.saved_track_button.setToolTip("Which to hear: the spoken translation, or what was first said")
+        self.saved_track_button.clicked.connect(self.saved_track_clicked)
+        self.saved_all = QPushButton("Play all")
+        self.saved_all.clicked.connect(self.saved_play_all)
+        self.saved_bar.extras.insertWidget(0, self.saved_track_button)
+        self.saved_bar.extras.insertWidget(1, self.saved_all)
+        inner.addWidget(self.saved_bar)
+        self.saved_stack.addWidget(shown)
+        whole.addWidget(self.saved_stack, 1)
         return page
 
     def _build_settings(self) -> QWidget:
@@ -534,6 +640,24 @@ class AppWindow(QMainWindow):
         pause_row.addLayout(pause_column)
         self.pause_box.setVisible(talk.WAYS[talk.HANDS_FREE] in self.offered)
         column.addWidget(self.pause_box)
+        column.addSpacing(10)
+        column.addWidget(_text("Saving", "heading", 12))
+        saving = QHBoxLayout()
+        self.saving_group = QButtonGroup(self)
+        self.saving_group.setExclusive(True)
+        self.saving_buttons: dict[str, QPushButton] = {}
+        for mode, words in SAVING_CHOICES:
+            button = QPushButton(words)
+            button.setCheckable(True)
+            button.clicked.connect(lambda _checked, chosen=mode: self.choose_saving(chosen))
+            self.saving_group.addButton(button)
+            self.saving_buttons[mode] = button
+            saving.addWidget(button)
+        saving.addStretch(1)
+        column.addLayout(saving)
+        self.saving_buttons[self.pyconfig.saving.mode].setChecked(True)
+        self.saving_words = _text("", "muted")
+        column.addWidget(self.saving_words)
         column.addSpacing(10)
         column.addWidget(_text("Appearance", "heading", 12))
         column.addWidget(_text("Theme", "muted"))
@@ -649,12 +773,24 @@ class AppWindow(QMainWindow):
         paired = self.way.name == talk.TWO_COMPUTERS
         self.session.begin(first, second, False, True, paired)
         self.session.clear()
+        self.saved_replay.stop()
+        self._close_review_player()
         self.side_notes = {}
         self.ending = False
         self.mic_watch = talk.MicWatch()
         self.close_bar()
         self._close_review_player()
         self.clips = clips.Clips()
+        self.saved_words.setText("")
+        self.start_notice.hide()
+        self.pending_save = False
+        self.keeper = None
+        if self.pyconfig.saving.mode != "never":
+            try:
+                conversations.recover(self.root)  # never overwrite one that wasn't settled
+                self.keeper = conversations.Keeper(self.root, (first, second), self.way.name, self.clips)
+            except conversations.ConversationError as e:
+                self.session.last_error = str(e)
         ev.restart_clock()
         self.events = queue.Queue()
         self.preferred_asr = talk.recognizer_choice(first, self.engines, self.config.asr.engine)
@@ -677,6 +813,7 @@ class AppWindow(QMainWindow):
         self.close_bar()
         self.clips = clips.Clips()
         self.session.clear()
+        self.saved_words.setText("")
         self.session.last_error = None
         self.refresh()
 
@@ -707,6 +844,12 @@ class AppWindow(QMainWindow):
         if self.replay.active():
             self.replay.update()
             self._draw_audio_bar()
+        if self.saved_replay.active():
+            self._follow_saved_replay()
+        if changed:
+            self.keep_dirty = True
+        if self.keep_dirty and time.monotonic() - self.kept_at >= KEEP_EVERY:
+            self._keep()
         if self.test_message is not None:
             self.test_status.setText(self.test_message)
             self.test_message = None
@@ -718,6 +861,307 @@ class AppWindow(QMainWindow):
         if self.pipeline is not None:
             self.pipeline.join(2.0)
         self.pipeline, self.ending = None, False
+        self._keep()
+        self._settle()
+
+    # -------------------------------------------------------------- saving
+
+    @staticmethod
+    def _new_session() -> ses.Session:
+        session = ses.Session()
+        session.max_lines = None  # the whole conversation, however long
+        return session
+
+    def _recover(self) -> None:
+        """A conversation left unsettled by a crash is in Saved now."""
+        self.start_notice.hide()
+        try:
+            found = conversations.recover(self.root)
+        except conversations.ConversationError as e:
+            self.session.last_error = str(e)
+            return
+        if found is not None:
+            self.start_notice.setText("Volis closed before your last conversation was saved. It has been recovered: "
+                                      "you'll find it in Saved.")
+            self.start_notice.show()
+
+    def _keep(self) -> None:
+        """The temporary copy, up to date."""
+        self.keep_dirty, self.kept_at = False, time.monotonic()
+        if self.keeper is None:
+            return
+        try:
+            self.keeper.update(bubbles.lines_from(self.session))
+        except conversations.ConversationError as e:
+            log.warning("%s", e)
+            self.session.last_error = str(e)
+
+    def _settle(self) -> None:
+        """A conversation has ended: ask, save or forget, as Settings says."""
+        if self.keeper is None:
+            return
+        if not self.session.lines:
+            self._discard_keeper()
+        elif self.pyconfig.saving.mode == "always":
+            self._save_keeper(self._default_name(), True, {})
+        else:
+            self.pending_save = True
+            self.save_name.setText("")
+            self.save_name.setPlaceholderText(self._default_name())
+            self.save_left.setText("")
+            self.save_right.setText("")
+            first, second = (bubbles.native_name(t) for t in self.session.languages)
+            self.save_left.setPlaceholderText(f"The name of who speaks {first} (optional)")
+            self.save_right.setPlaceholderText(f"The name of who speaks {second} (optional)")
+            self.save_right.setVisible(self.way.name != talk.HANDS_FREE)
+            self.save_audio.setChecked(True)
+
+    def _default_name(self) -> str:
+        return conversations.default_name(self.session.languages, self.keeper.conversation.created, varieties.display_name)
+
+    def _discard_keeper(self) -> None:
+        try:
+            conversations.discard(self.root)
+        except conversations.ConversationError as e:
+            self.session.last_error = str(e)
+        self.keeper = None
+
+    def _save_keeper(self, name: str, keep_audio: bool, speakers: dict[str, str]) -> None:
+        try:
+            saved = self.keeper.save(name, keep_audio, speakers)
+        except conversations.ConversationError as e:
+            self.session.last_error = str(e)
+            return
+        self.keeper, self.pending_save = None, False
+        self.saved_words.setText(f"Saved as {saved.name}")
+
+    def save_ended(self) -> None:
+        self._save_keeper(self.save_name.text() or self.save_name.placeholderText(), self.save_audio.isChecked(),
+                          {"left": self.save_left.text(), "right": self.save_right.text()})
+        self.refresh()
+
+    def delete_ended(self) -> None:
+        self._discard_keeper()
+        self.pending_save = False
+        self.new_conversation()
+
+    def choose_saving(self, mode: str) -> None:
+        self.pyconfig.saving.mode = mode
+        self.save()
+        self.refresh()
+
+    # -------------------------------------------------------------- the Saved page
+
+    def page_chosen(self, page: int) -> None:
+        if page == SAVED:
+            self.load_saved()
+        else:
+            self._stop_saved()
+
+    def load_saved(self) -> None:
+        wanted = self.saved_current.folder if self.saved_current is not None else None
+        self.saved_list, problems = conversations.load_all(self.root)
+        self.saved_problem.setText("\n".join(problems))
+        self.saved_problem.setVisible(bool(problems))
+        self.saved_current = next((c for c in self.saved_list if c.folder == wanted), None)
+        self._draw_saved_list()
+
+    def _shown_conversations(self) -> list:
+        return [c for c in self.saved_list if c.matches(self.saved_search.text())]
+
+    def _draw_saved_list(self) -> None:
+        shown = self._shown_conversations()
+        self.saved_items.blockSignals(True)
+        self.saved_items.clear()
+        for c in shown:
+            count = len(c.sentences())
+            item = QListWidgetItem(f"{c.name}\n{c.created}  ·  {count} sentence{'' if count == 1 else 's'}")
+            self.saved_items.addItem(item)
+        if self.saved_current not in shown:  # searched away
+            self._stop_saved()
+            self.saved_current = None
+        row = shown.index(self.saved_current) if self.saved_current is not None else -1
+        self.saved_items.setCurrentRow(row)
+        self.saved_items.blockSignals(False)
+        if not self.saved_list:
+            self.saved_empty.setText("Conversations you save will appear here.")
+        elif not shown:
+            self.saved_empty.setText("Nothing matches that search.")
+        else:
+            self.saved_empty.setText("Choose a conversation.")
+        self._draw_saved()
+
+    def saved_chosen(self, row: int) -> None:
+        self._stop_saved()
+        shown = self._shown_conversations()
+        self.saved_current = shown[row] if 0 <= row < len(shown) else None
+        self.saved_confirm.hide()
+        self._draw_saved()
+
+    def _draw_saved(self) -> None:
+        c = self.saved_current
+        self.saved_stack.setCurrentIndex(1 if c is not None else 0)
+        if c is None:
+            return
+        for field, words in ((self.saved_name, c.name), (self.saved_left, c.speakers.get("left", "")),
+                             (self.saved_right, c.speakers.get("right", ""))):
+            if field.text() != words:
+                field.setText(words)
+        first, second = (bubbles.native_name(t) for t in c.languages)
+        self.saved_left.setPlaceholderText(f"The name of who speaks {first}")
+        self.saved_right.setPlaceholderText(f"The name of who speaks {second}")
+        self.saved_right.setVisible(c.way != talk.HANDS_FREE)
+        self._draw_saved_chat()
+        has_audio = c.has_audio()
+        self.saved_all.setEnabled(has_audio)
+        self.saved_track_button.setEnabled(has_audio)
+        original = self.saved_track == conversations.ORIGINAL
+        self.saved_track_button.setChecked(original)
+        self.saved_track_button.setText("Original" if original else "Translation")
+        self.saved_all.setText("Stop" if self.saved_playing_all else "Play all")
+        if not self.saved_replay.active() and not self.saved_bar.note.text():
+            self.saved_bar.note.setText("Click a sentence to hear it." if has_audio else "No audio was kept.")
+        self.saved_bar.draw(self.saved_replay)
+
+    def _draw_saved_chat(self) -> None:
+        self.saved_chat.show_items(bubbles.saved_items(self.saved_current, self.saved_replay.key),
+                                   self.pyconfig.window.text_size)
+
+    def saved_names_changed(self) -> None:
+        c = self.saved_current
+        if c is None:
+            return
+        name = self.saved_name.text().strip() or c.name
+        speakers = {side: f.text().strip() for side, f in (("left", self.saved_left), ("right", self.saved_right))
+                    if f.text().strip()}
+        if (name, speakers) == (c.name, c.speakers):
+            return
+        c.name, c.speakers = name, speakers
+        try:
+            c.save_names()
+        except conversations.ConversationError as e:
+            self.saved_problem.setText(str(e))
+            self.saved_problem.show()
+        self.saved_chat.show_items([], self.pyconfig.window.text_size)  # the speakers' names change on every row
+        self._draw_saved_list()
+
+    def saved_ask_delete(self) -> None:
+        self.saved_confirm.show()
+
+    def saved_delete_now(self) -> None:
+        c = self.saved_current
+        if c is None:
+            return
+        self._stop_saved()
+        try:
+            conversations.remove(c.folder)
+        except conversations.ConversationError as e:
+            self.saved_problem.setText(str(e))
+            self.saved_problem.show()
+            return
+        self.saved_current = None
+        self.saved_confirm.hide()
+        self.saved_chat.show_items([], self.pyconfig.window.text_size)
+        self.load_saved()
+
+    def _saved_play_line(self, line: dict) -> bool:
+        """Play one sentence in the chosen track. False, saying why, if it can't."""
+        if self.pipeline is not None:
+            self._saved_note("End the conversation to listen to a saved one.")
+            return False
+        try:
+            clip = self.saved_current.clip(line, self.saved_track)
+            if clip is None:
+                self._saved_note(talk.no_saved_audio(self.saved_track))
+                return False
+            player = self.review_player
+            if player is None:
+                player = self.review_player = playback.Player(self.config.audio.output_device, playback.Gate(False))
+            self.saved_replay.play(line["key"], clip, player)
+        except (conversations.ConversationError, playback.PlaybackError) as e:
+            self._saved_note(talk.problem_for(str(e)).title)
+            log.warning("%s", e)
+            return False
+        self.saved_bar.note.setText("")
+        self._draw_saved()
+        row = self.saved_chat.rows.get(line["key"])
+        if row is not None:
+            self.saved_chat.ensureWidgetVisible(row)
+        return True
+
+    def _saved_note(self, words: str) -> None:
+        self.saved_replay.stop()
+        self.saved_playing_all = False
+        self.saved_bar.note.setText(words)
+        self._draw_saved()
+
+    def _saved_line(self, key: str) -> dict | None:
+        return next((l for l in self.saved_current.sentences() if l["key"] == key), None)
+
+    def saved_bubble_clicked(self, key: str) -> None:
+        line = self._saved_line(key)
+        if line is not None:
+            self.saved_playing_all = False
+            self._saved_play_line(line)
+
+    def saved_play_clicked(self) -> None:
+        self.saved_replay.toggle()
+        self.saved_bar.draw(self.saved_replay)
+
+    def saved_seek(self) -> None:
+        if self.saved_replay.active():
+            self.saved_replay.seek(self.saved_bar.slider.value() / 1000 * self.saved_replay.clip.seconds)
+            self.saved_bar.draw(self.saved_replay)
+
+    def saved_track_clicked(self) -> None:
+        """Which to hear. A sentence playing starts again in the other."""
+        self.saved_track = conversations.ORIGINAL if self.saved_track == conversations.TRANSLATION \
+            else conversations.TRANSLATION
+        key, playing_all = self.saved_replay.key, self.saved_playing_all
+        line = self._saved_line(key) if key else None
+        if line is None:
+            self._draw_saved()
+            return
+        self._saved_play_line(line)
+        self.saved_playing_all = playing_all
+        self._draw_saved()
+
+    def saved_play_all(self) -> None:
+        """Every sentence in turn; pressed again, stop."""
+        if self.saved_playing_all:
+            self._stop_saved()
+            self._draw_saved()
+            return
+        self.saved_playing_all = True
+        if not self._play_next_saved(""):
+            self.saved_playing_all = False
+        self._draw_saved()
+
+    def _play_next_saved(self, after: str) -> bool:
+        """The next sentence after `after` ("" = the first) that has audio in this track."""
+        lines = self.saved_current.sentences()
+        keys = [l["key"] for l in lines]
+        begin = keys.index(after) + 1 if after in keys else 0
+        for line in lines[begin:]:
+            if self.saved_current.audio_path(line, self.saved_track) is not None:
+                playing_all = self.saved_playing_all
+                played = self._saved_play_line(line)
+                self.saved_playing_all = playing_all and played
+                return played
+        return False
+
+    def _follow_saved_replay(self) -> None:
+        r = self.saved_replay
+        r.update()
+        if r.finished and self.saved_playing_all and not self._play_next_saved(r.key):
+            self.saved_playing_all = False
+            self._draw_saved()
+        self.saved_bar.draw(r)
+
+    def _stop_saved(self) -> None:
+        self.saved_replay.stop()
+        self.saved_playing_all = False
+        self.saved_bar.note.setText("")
 
     def shared_keys_active(self) -> bool:
         return self.pipeline is not None and self.session.mode == "shared" and self.session.state == ses.LISTENING
@@ -1020,6 +1464,7 @@ class AppWindow(QMainWindow):
             elif self.replay.active():
                 self.audio_bar.show()
                 self._draw_audio_bar()
+        self.saving_words.setText(talk.SAVING_WORDS[self.pyconfig.saving.mode])
         self.settings_busy.setVisible(running)
         for widget in (self.input_device, self.output_device, self.headset, self.pause, self.test_microphone,
                        self.test_speakers):
@@ -1071,7 +1516,9 @@ class AppWindow(QMainWindow):
         self.hands_free.setVisible(running and name == talk.HANDS_FREE)
         self.type_toggle.setVisible(running)
         self.type_box.setVisible(self.type_box.isVisible() and running)
-        self.new_button.setVisible(not running)
+        self.save_box.setVisible(self.pending_save and not running)
+        self.new_button.setVisible(not running and not self.pending_save)
+        self.saved_words.setVisible(bool(self.saved_words.text()))
         if together:
             for side, button, typing in (("left", self.speak_left, self.type_left),
                                          ("right", self.speak_right, self.type_right)):
@@ -1102,8 +1549,10 @@ class AppWindow(QMainWindow):
         if self.pipeline is not None:
             self.pipeline.stop()
             self.pipeline.join(5.0)
+            self._keep()  # left for the next opening to recover
         self._timer.stop()
         self.replay.stop()
+        self.saved_replay.stop()
         self._close_review_player()
         QApplication.instance().removeEventFilter(self._key_filter)
         event.accept()

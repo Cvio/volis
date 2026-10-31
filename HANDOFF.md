@@ -36,6 +36,11 @@ P20.** The old window stays the default until U6; the new one opens with `--new-
   gate keeps hands-free from hearing its replay; afterwards through a player of the window's own. Speech
   is now synthesised with the sound off too, so it can be listened to later. On two computers, a
   person's own sentences have no translation audio here until U7 swaps it.
+- **U4 built:** `conversations.py`: `Keeper` updates `conversations\\in-progress` every 2 s (never with
+  `[saving] mode = "never"`); `recover` turns whatever a crash left there into an ordinary conversation
+  when Volis opens, rather than prompting. Saved page: list, search, rename, speakers, delete with a
+  confirmation, the same bubbles, a Translation/Original switch and Play all. Renaming changes the name
+  shown and the text file, not the folder. `Session.max_lines = None` in the new window: nothing is cut off.
 
 ## Priorities (2026-10-10)
 

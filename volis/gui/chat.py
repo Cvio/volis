@@ -4,9 +4,9 @@ It only draws; every rule about what appears, and where, is in bubbles.py."""
 from __future__ import annotations
 
 from PySide6.QtCore import QRect, Qt, QTimer
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSlider, QVBoxLayout, QWidget
 
-from . import bubbles
+from . import bubbles, talk
 from .session import has_rtl
 
 MAX_BUBBLE_WIDTH = 680
@@ -37,6 +37,7 @@ def _fit(label: QLabel, text: str, points: int, width: int) -> None:
     if not text:
         return
     label.setText(text)
+    label.ensurePolished()  # or a page not shown yet is measured in the wrong font
     font = label.font()
     font.setPointSize(points)
     label.setFont(font)
@@ -186,8 +187,54 @@ class ChatView(QScrollArea):
                 self._column.addWidget(row)
             row.draw(item, points, width)
 
+    def showEvent(self, event) -> None:  # noqa: N802 - Qt's name
+        """Everything measured while hidden is measured again, for real."""
+        super().showEvent(event)
+        for row in self.rows.values():
+            row._drawn = None
+        self.show_items(self._items, self._points)
+
     def resizeEvent(self, event) -> None:  # noqa: N802 - Qt's name
         super().resizeEvent(event)
         margin = max(20, (self.viewport().width() - MAX_COLUMN_WIDTH) // 2)
         self._column.setContentsMargins(margin, 16, margin, 16)
         self.show_items(self._items, self._points)
+
+
+class AudioBar(QWidget):
+    """The one player: play or pause, a bar, and the time, or a line saying
+    why there is nothing to play. `extras` is for what only one page has."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.setObjectName("audioBar")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
+        self.extras = QHBoxLayout(self)
+        self.extras.setContentsMargins(16, 8, 16, 8)
+        self.play = QPushButton("Play")
+        self.play.setFixedWidth(76)
+        self.slider = QSlider(Qt.Orientation.Horizontal)
+        self.slider.setRange(0, 1000)
+        self.time = QLabel()
+        self.time.setObjectName("muted")
+        self.note = _label("muted")
+        self.close_button = QPushButton("Close")
+        self.close_button.setObjectName("link")
+        self.extras.addWidget(self.play)
+        self.extras.addWidget(self.slider, 1)
+        self.extras.addWidget(self.time)
+        self.extras.addWidget(self.note, 1)
+        self.extras.addWidget(self.close_button)
+
+    def draw(self, replay) -> None:
+        for widget in (self.play, self.slider, self.time):
+            widget.setVisible(replay.active())
+        self.note.setVisible(not replay.active())
+        self.note.setWordWrap(True)
+        if not replay.active():
+            return
+        self.play.setText("Pause" if replay.playing() else "Play")
+        position, duration = replay.position(), replay.clip.seconds
+        if not self.slider.isSliderDown():
+            self.slider.setValue(1000 if replay.finished else int(1000 * position / (duration or 1.0)))
+        self.time.setText(talk.bar_time(position, duration))

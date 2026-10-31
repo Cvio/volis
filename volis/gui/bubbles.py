@@ -3,7 +3,7 @@ this file: `chat.py` only draws what `items` returns."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 from ..clips import remote_key
 from . import session as ses
@@ -77,10 +77,10 @@ def _row_bubble(s: ses.Session, row: ses.Row, playing: str) -> Bubble:
         status = WAITING_FOR_MORE
     elif row.target is None and row.problem is None:
         status = TRANSLATING
-    return Bubble(row.id, _side(s, row), native_name(row.source_lang), ses.clock(row.start), row.source,
-                  row.target or "", status, row.problem or "", row.note,
+    return Bubble(row.id, _side(s, row), native_name(row.source_lang), ses.clock(row.wall if row.typed else row.start),
+                  row.source, row.target or "", status, row.problem or "", row.note,
                   (s.speaking and s.speaking_id == row.id) or playing == row.id, row.id if row.target else "",
-                  row.utterance, row.start, row.end)
+                  -1 if row.typed else row.utterance, row.start, row.end)
 
 
 def _live_bubble(s: ses.Session) -> Bubble:
@@ -99,14 +99,43 @@ def items(s: ses.Session, playing: str = "") -> list:
             shown.append(_row_bubble(s, line, playing))
         elif isinstance(line, ses.RemoteLine):
             speech = remote_key(line.lang, line.text)
-            shown.append(Bubble(f"remote-{id(line)}", LEFT, native_name(line.source_lang), original=line.source_text,
-                                translation=line.text, speaking=playing == speech, speech=speech))
+            shown.append(Bubble(f"remote-{id(line)}", LEFT, native_name(line.source_lang), ses.clock(line.wall),
+                                line.source_text, line.text, speaking=playing == speech, speech=speech))
         elif isinstance(line, ses.Nothing):
             shown.append(Note(f"nothing-{line.index}", NO_WORDS))
         elif isinstance(line, ses.DroppedLine):
             shown.append(Note(f"dropped-{line.index}", UNSURE))
     if s.provisional is not None:
         shown.append(_live_bubble(s))
+    return shown
+
+
+def lines_from(s: ses.Session) -> list[dict]:
+    """What to keep of a conversation, as plain data. Nothing still being
+    spoken, and no word of how far along each sentence was."""
+    lines = []
+    for item in items(s):
+        if item.key == "live":
+            continue
+        data = asdict(item)
+        data["kind"] = item.kind
+        data.pop("status", None)
+        data.pop("speaking", None)
+        lines.append(data)
+    return lines
+
+
+def saved_items(conversation, playing: str = "") -> list:
+    """A saved conversation, the way it looked."""
+    shown: list = []
+    for line in conversation.lines:
+        if line.get("kind") == "note":
+            shown.append(Note(line["key"], line["text"]))
+        else:
+            shown.append(Bubble(line["key"], line.get("side", LEFT), conversation.speaker(line), line.get("when", ""),
+                                line.get("original", ""), line.get("translation", ""),
+                                problem=line.get("problem", ""), note=line.get("note", ""),
+                                speaking=playing == line["key"]))
     return shown
 
 

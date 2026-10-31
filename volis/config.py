@@ -105,6 +105,7 @@ ENUMS: dict[tuple[str, str], tuple[str, ...]] = {
     ("context", "mode"): ("off", "carry", "revision"),  # volis-python.toml
     ("window", "theme"): ("graphite", "midnight", "warm-charcoal"),  # volis-python.toml
     ("setup", "ways"): ("together", "two-computers", "hands-free"),  # volis-python.toml
+    ("saving", "mode"): ("ask", "always", "never"),  # volis-python.toml
 }
 
 
@@ -282,6 +283,13 @@ class PyWindow:
 
 
 @dataclass
+class PySaving:
+    # When a conversation ends: "ask", "always" or "never". Never also means no
+    # temporary copy, so nothing of a conversation reaches the disk.
+    mode: str = "ask"
+
+
+@dataclass
 class PySetup:
     # What this customer's copy offers. Written when the copy is prepared, never
     # by the window. Empty = everything installed.
@@ -329,6 +337,7 @@ class PythonConfig:
     window: PyWindow = field(default_factory=PyWindow)
     text: PyText = field(default_factory=PyText)
     setup: PySetup = field(default_factory=PySetup)
+    saving: PySaving = field(default_factory=PySaving)
 
     @classmethod
     def load(cls, path: Path) -> tuple[PythonConfig, bool]:
@@ -382,6 +391,7 @@ def save_python_selections(path: Path, pyconfig: PythonConfig) -> None:
     _set(doc, "window", "advanced_open", pyconfig.window.advanced_open)
     _set(doc, "window", "text_size", pyconfig.window.text_size)
     _set(doc, "window", "theme", pyconfig.window.theme)
+    _set(doc, "saving", "mode", pyconfig.saving.mode)
     try:
         path.write_text(tomlkit.dumps(doc), encoding="utf-8", newline="")
     except OSError as e:

@@ -104,6 +104,10 @@ advanced_open = false   # whether the Advanced section is open
 text_size = 12          # the conversation's text size, in points (the A- and A+ buttons)
 theme = "graphite"      # the new window's colours: "graphite", "midnight" or "warm-charcoal"
 
+[saving]
+mode = "ask"         # when a conversation ends: "ask", "always" or "never"; never also keeps no
+                     # temporary copy, so nothing of a conversation reaches the disk
+
 [setup]              # what this customer's copy offers, written when it is prepared
 ways = []            # "together", "two-computers", "hands-free"; empty = all three
 languages = []       # language tags, e.g. ["fa", "en"]; empty = every language installed
