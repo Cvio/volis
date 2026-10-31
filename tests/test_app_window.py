@@ -687,7 +687,14 @@ def test_a_long_sentence_is_not_cut_off_on_the_saved_page(window, monkeypatch):
     flags = Qt.TextFlag.TextWordWrap
     needed = label.fontMetrics().boundingRect(QRect(0, 0, label.width(), 100000), flags, long).height()
     assert label.height() == needed
-    assert window.saved_chat.rows["1.1"].bubble.height() >= needed
+    for size in (1000, 800, 1300):  # and the bubble keeps up when the text has to wrap afresh
+        window.resize(size, 700)
+        for _ in range(3):
+            QApplication.processEvents()
+        row = window.saved_chat.rows["1.1"]
+        row.bubble.layout().activate()
+        QApplication.processEvents()
+        assert row.bubble.height() >= row.bubble.layout().minimumSize().height(), size
 
 
 def test_search_narrows_the_list(window):

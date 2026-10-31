@@ -113,6 +113,12 @@ class BubbleRow(QWidget):
             # Each line sits on the side its own script starts from.
             right = line.layoutDirection() == Qt.LayoutDirection.RightToLeft
             self._lines.setAlignment(line, ON_RIGHT if right else ON_LEFT)
+        # Fixed sizes changing don't reach the layouts above on their own: the
+        # bubble would keep its old height and cut off the last line.
+        self._lines.invalidate()
+        self.bubble.updateGeometry()
+        self.layout().invalidate()
+        self.updateGeometry()
         if self.bubble.property("speaking") != item.speaking:
             self.bubble.setProperty("speaking", item.speaking)
             self.bubble.style().unpolish(self.bubble)
