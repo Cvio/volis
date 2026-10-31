@@ -1,0 +1,80 @@
+"""The window's colours and its style sheet. No Qt in this file: it is plain
+text, unit-tested (including that the words stay readable on every background),
+and `app_window.py` hands it to Qt."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class Theme:
+    name: str  # as [window].theme in volis-python.toml
+    title: str  # as shown in Settings
+    background: str  # the conversation, behind everything
+    rail: str  # the icon rail and the top bar
+    surface: str  # buttons, and the bubbles on the left
+    bubble: str  # the bubbles on the right
+    border: str
+    text: str
+    muted: str  # originals, labels, anything secondary
+    disabled: str  # controls that can't be used yet
+    accent: str
+    on_accent: str  # words on the accent colour
+    problem: str  # a sentence with no translation, a silent microphone
+
+
+GRAPHITE = Theme("graphite", "Graphite", "#111214", "#17181B", "#1E1F23", "#1B2F52", "#2A2B30",
+                 "#E8E9EC", "#A6A8AE", "#85878E", "#4C8DFF", "#0B1220", "#FF8A80")
+MIDNIGHT = Theme("midnight", "Midnight", "#0F172A", "#131C31", "#1E293B", "#134E4A", "#2B3A52",
+                 "#E2E8F0", "#B4C2D3", "#8393A8", "#2DD4BF", "#06201D", "#FDA4AF")
+WARM_CHARCOAL = Theme("warm-charcoal", "Warm charcoal", "#171412", "#1D1916", "#26211D", "#4A3413", "#3A332C",
+                      "#F0EAE2", "#C8BCAE", "#94897D", "#F5A524", "#231602", "#FFA08A")
+
+THEMES: dict[str, Theme] = {t.name: t for t in (GRAPHITE, MIDNIGHT, WARM_CHARCOAL)}
+
+
+def style_sheet(t: Theme) -> str:
+    """The whole window's style. Sizes of text aren't here: a style sheet's
+    font would override the text size the user chose."""
+    return f"""
+QMainWindow, QStackedWidget, QWidget#page, QWidget#chatBody, QScrollArea {{
+    background: {t.background}; border: none;
+}}
+QWidget {{ color: {t.text}; }}
+QToolTip {{ background: {t.surface}; color: {t.text}; border: 1px solid {t.border}; }}
+
+QWidget#rail {{ background: {t.rail}; border-right: 1px solid {t.border}; }}
+QToolButton#railButton {{
+    background: transparent; border: none; border-radius: 10px; color: {t.muted}; padding: 8px 2px;
+}}
+QToolButton#railButton:hover {{ background: {t.surface}; }}
+QToolButton#railButton:checked {{ background: {t.surface}; color: {t.accent}; }}
+
+QWidget#topBar {{ background: {t.rail}; border-bottom: 1px solid {t.border}; }}
+QLabel#languages {{ font-weight: 600; }}
+QPushButton {{
+    background: {t.surface}; border: 1px solid {t.border}; border-radius: 8px; padding: 6px 12px;
+}}
+QPushButton:hover {{ border-color: {t.accent}; }}
+QPushButton:checked {{ background: {t.accent}; border-color: {t.accent}; color: {t.on_accent}; }}
+QPushButton:disabled {{ background: transparent; color: {t.disabled}; }}
+
+QLabel#heading {{ font-weight: 600; }}
+QLabel#muted, QLabel#speaker, QLabel#original, QLabel#note {{ color: {t.muted}; }}
+QLabel#status {{ color: {t.accent}; }}
+QLabel#problem {{ color: {t.problem}; }}
+
+QFrame#bubbleLeft, QFrame#bubbleRight {{
+    border-radius: 12px; border: 1.5px solid transparent;
+}}
+QFrame#bubbleLeft {{ background: {t.surface}; }}
+QFrame#bubbleRight {{ background: {t.bubble}; }}
+QFrame#bubbleLeft[speaking="true"], QFrame#bubbleRight[speaking="true"] {{ border-color: {t.accent}; }}
+
+QScrollBar:vertical {{ background: transparent; width: 10px; margin: 2px; }}
+QScrollBar::handle:vertical {{ background: {t.border}; border-radius: 3px; min-height: 30px; }}
+QScrollBar::handle:vertical:hover {{ background: {t.muted}; }}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: transparent; }}
+"""

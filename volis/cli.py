@@ -24,6 +24,7 @@ USAGE:
 
 COMMANDS:
     (none)              Open the window
+    --new-window        Open the new window, while it is being built
     --report            Print the discovered models and exit
     --report --load     Also load each usable model in turn and print where it
                         runs, its memory (GPU and system) and its load time
@@ -110,6 +111,9 @@ def parse(args: list[str]) -> Command:
             return Command("report", load=True)
         _reject_extra(rest)
         return Command("report")
+    if first == "--new-window":
+        _reject_extra(rest)
+        return Command("new-window")
     if first == "--devices":
         _reject_extra(rest)
         return Command("devices")
@@ -230,6 +234,10 @@ def run(args: list[str], root: Path) -> int:
         from .gui import window
 
         return window.run(root, config)
+    if command.name == "new-window":
+        from .gui import app_window
+
+        return app_window.run(root, config)
     if command.name == "listen":
         from . import listen
         from .pipeline import Options

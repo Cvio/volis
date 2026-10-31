@@ -102,6 +102,7 @@ persian_cleanup = true  # Persian: before translating, replace Arabic look-alike
 [window]             # what the window remembers about itself
 advanced_open = false   # whether the Advanced section is open
 text_size = 12          # the conversation's text size, in points (the A- and A+ buttons)
+theme = "graphite"      # the new window's colours: "graphite", "midnight" or "warm-charcoal"
 
 [fragments]
 hold = true         # join a few words with no full stop to what follows

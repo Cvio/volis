@@ -103,6 +103,7 @@ ENUMS: dict[tuple[str, str], tuple[str, ...]] = {
     ("mode", "kind"): ("continuous", "turn", "shared"),
     ("mode", "turn_style"): ("toggle", "hold"),
     ("context", "mode"): ("off", "carry", "revision"),  # volis-python.toml
+    ("window", "theme"): ("graphite", "midnight", "warm-charcoal"),  # volis-python.toml
 }
 
 
@@ -275,6 +276,7 @@ class PyWindow:
     # What the window remembers about itself (P14).
     advanced_open: bool = False  # the Advanced section, as the user left it
     text_size: int = 12  # the transcript's text size, in points (A- / A+)
+    theme: str = "graphite"  # the new window's colours
 
 
 @dataclass
@@ -368,6 +370,7 @@ def save_python_selections(path: Path, pyconfig: PythonConfig) -> None:
     _set(doc, "tts", "diacritize", pyconfig.tts.diacritize)
     _set(doc, "window", "advanced_open", pyconfig.window.advanced_open)
     _set(doc, "window", "text_size", pyconfig.window.text_size)
+    _set(doc, "window", "theme", pyconfig.window.theme)
     try:
         path.write_text(tomlkit.dumps(doc), encoding="utf-8", newline="")
     except OSError as e:

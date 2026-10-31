@@ -11,6 +11,18 @@ progress, P13 to P20). `volis-build.md` is the first plan, P0 to P12, and is fin
 **What to do next is under "Priorities", just below.** Everything after it is the record of
 what was built and found.
 
+**In progress (2026-10-31): the new window, `volis-ui-plan.md`, stages U1 to U7, ahead of P18 to
+P20.** The old window stays the default until U6; the new one opens with `--new-window`.
+
+- **U1 done:** `gui/theme.py` (three themes, `[window].theme`, a test that every word stays readable),
+  `gui/bubbles.py` (what the conversation shows, no Qt), `gui/chat.py` (draws it),
+  `gui/app_window.py` (rail, top bar, pages), `gui/sample.py` (a conversation as real events, shown
+  until U2), `scripts/app_shots.py` (pictures). `Session.speaking_id` says which sentence to outline.
+  Sound, Microphone and "..." are greyed out until U2. Found while building: a Qt layout mirrors
+  left and right for a right-to-left widget unless `AlignAbsolute` is set, and a wrapped label's own
+  height estimate can add a blank line, so `chat._fit` measures it. `Session.MAX_LINES` still cuts a
+  conversation at 200 lines; U4 has to end that.
+
 ## Priorities (2026-10-10)
 
 Everything still open, sorted on 2026-10-09 from this file and the plan, and agreed by the user

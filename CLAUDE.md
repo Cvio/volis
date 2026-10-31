@@ -12,7 +12,8 @@ modes, what to do when something goes wrong; **no milestones, no volis-rust, no 
 detail**), `MODELS.md` (which models to start with, choosing your own, then every model tested
 and its scores), `SETTINGS.md` (every setting and command-line option), `DEVELOPMENT.md` (the
 translator build, the ready-made folder, the checks, volis-rust compatibility), `HANDOFF.md`
-(status, history, and every difference from volis-rust with its reason), this file
+(status, history, and every difference from volis-rust with its reason), `volis-ui-plan.md`
+(the new window: the agreed design and its stages), this file
 (constraints and working rules). Rust's documents cover the wire protocol, varieties and
 dialects; link to them, don't copy them.
 

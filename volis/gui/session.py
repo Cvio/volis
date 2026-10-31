@@ -116,6 +116,7 @@ class Session:
         self.state = STOPPED
         self.loading = ""  # what is being loaded, while STARTING
         self.speaking = False
+        self.speaking_id = ""  # the sentence being spoken
         self.level_db: float | None = None
         self.has_level = False
         self.lines: list = []
@@ -311,11 +312,11 @@ class Session:
         elif isinstance(event, ev.Dropped):
             self._push(DroppedLine(event.index, event.text, event.reasons, event.start))
         elif isinstance(event, ev.SpeakingStarted):
-            self.speaking = True
+            self.speaking, self.speaking_id = True, event.id
             if (row := self.row(event.id)) is not None:
                 row.first_audio_ms, row.spoken = event.first_audio_ms, True
         elif isinstance(event, ev.SpeakingEnded):
-            self.speaking = False
+            self.speaking, self.speaking_id = False, ""
         elif isinstance(event, ev.ComparisonMsg):
             self._push(ComparisonLine(event.comparison))
         elif isinstance(event, ev.Remote):
@@ -354,7 +355,7 @@ class Session:
             self.last_error = event.message
         elif isinstance(event, ev.Stopped):
             self.state, self.loading = STOPPED, ""
-            self.speaking = False
+            self.speaking, self.speaking_id = False, ""
             self.level_db, self.has_level = None, False
             self.mode = None
             self.provisional = None
