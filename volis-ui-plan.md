@@ -110,7 +110,8 @@ theme and text size can be chosen and is remembered; Farsi reads right to left.
 
 The start screen; the real pipeline; the moments above; the three ways of talking; microphone
 level and sound; typing; loading and problem screens. Check for a customer's setup deciding what
-appears. The two-computers way uses today's typed address until U7.
+appears. The two-computers way uses today's typed address until U7. The "..." menu waits until it
+has something to hold (U4); End conversation has its own button.
 
 **Check:** a real conversation in each of the three ways, through bubbles.
 
@@ -140,7 +141,8 @@ Share.
 ### U6: Developer mode, then removing the old window
 
 The developer shortcut; Models, Test bench, Performance and Developer settings as pages. Every
-option in the old window has a home. Then the old window goes, the new one opens by default, and
+option in the old window has a home. Voice and Faster | More accurate join Settings, for setups that
+include those choices. Then the old window goes, the new one opens by default, and
 `README.md` and its pictures are rewritten for it.
 
 **Check:** every old setting can be found; the customer version has no route to developer pages.

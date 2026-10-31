@@ -86,6 +86,7 @@ class Command:
     direction: object = None  # shared.Direction, for begin_shared_turn
     shared: object = None  # config.Shared, for prepare_shared
     lines: tuple = ()  # for "typed": the lines typed in (P15)
+    # "typed", and "direction" set: whose words they are on a shared machine.
 
 
 @dataclass(frozen=True)
@@ -287,6 +288,7 @@ class Pipeline:
         self.generation = 0
         self.peer = None
         self._speaker_thread = None  # set once the voice is loaded
+        self.muted = False  # the window's Sound button: translations are shown, not spoken
         self._stop = threading.Event()
         self._commands: queue.Queue = queue.Queue()
         self._thread = threading.Thread(target=self._run, name="volis-pipeline", daemon=True)
@@ -340,11 +342,12 @@ class Pipeline:
         """Throw away the turn in progress, or stop what it is producing."""
         self.send(Command("cancel"))
 
-    def translate_typed(self, lines: list[str]) -> None:
+    def translate_typed(self, lines: list[str], direction=None) -> None:
         """Text typed in (P15): each line goes to the translator as a sentence
         of its own, behind whatever is already waiting. It is shown, spoken
-        and (when paired) sent exactly as a spoken sentence is."""
-        self._commands.put(Command("typed", lines=tuple(lines)))
+        and (when paired) sent exactly as a spoken sentence is. On a shared
+        machine, `direction` says which person typed it."""
+        self._commands.put(Command("typed", lines=tuple(lines), direction=direction))
 
     def prepare_shared(self, settings) -> None:
         """Shared machine: the sides' settings changed. Load and prepare each
@@ -626,15 +629,17 @@ class Pipeline:
                     if command.name == "typed":
                         if translation is not None:
                             typed_batches += 1
+                            typed_from = command.direction.source if command.direction else language
+                            typed_route = (Route(command.direction.target, command.direction.voice, self.generation)
+                                           if command.direction else Route(generation=self.generation))
                             for k, line in enumerate(command.lines, 1):
-                                cleaned = self.clean_text(line, language)
+                                cleaned = self.clean_text(line, typed_from)
                                 sentence = sentences.Sentence(f"t{typed_batches}.{k}", 0, cleaned.text, 0.0, 0.0,
                                                               False)
                                 self.stats.sentences += 1
-                                self.emit(SentenceMsg(sentence.id, 0, cleaned.text, language, 0.0, 0.0, False, True,
+                                self.emit(SentenceMsg(sentence.id, 0, cleaned.text, typed_from, 0.0, 0.0, False, True,
                                                       cleaned.original if cleaned.changed else ""))
-                                translation.submit(sentence, language, time.monotonic(),
-                                                   Route(generation=self.generation))
+                                translation.submit(sentence, typed_from, time.monotonic(), typed_route)
                         continue
                     if not live:
                         continue  # a file has no turns and one mode
@@ -1497,7 +1502,7 @@ class SpeakThread:
             if cancelled():
                 log.info("%s: cancelled; not spoken", label)
                 continue
-            if language in self.voiceless:
+            if language in self.voiceless or self.pipeline.muted:
                 emit(NotSpoken(sentence_id, language))
                 continue
             try:

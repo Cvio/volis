@@ -22,14 +22,15 @@ class Theme:
     accent: str
     on_accent: str  # words on the accent colour
     problem: str  # a sentence with no translation, a silent microphone
+    listening: str  # the speak button while the microphone is open; white words on it
 
 
 GRAPHITE = Theme("graphite", "Graphite", "#111214", "#17181B", "#1E1F23", "#1B2F52", "#2A2B30",
-                 "#E8E9EC", "#A6A8AE", "#85878E", "#4C8DFF", "#0B1220", "#FF8A80")
+                 "#E8E9EC", "#A6A8AE", "#85878E", "#4C8DFF", "#0B1220", "#FF8A80", "#B3261E")
 MIDNIGHT = Theme("midnight", "Midnight", "#0F172A", "#131C31", "#1E293B", "#134E4A", "#2B3A52",
-                 "#E2E8F0", "#B4C2D3", "#8393A8", "#2DD4BF", "#06201D", "#FDA4AF")
+                 "#E2E8F0", "#B4C2D3", "#8393A8", "#2DD4BF", "#06201D", "#FDA4AF", "#B3261E")
 WARM_CHARCOAL = Theme("warm-charcoal", "Warm charcoal", "#171412", "#1D1916", "#26211D", "#4A3413", "#3A332C",
-                      "#F0EAE2", "#C8BCAE", "#94897D", "#F5A524", "#231602", "#FFA08A")
+                      "#F0EAE2", "#C8BCAE", "#94897D", "#F5A524", "#231602", "#FFA08A", "#B3261E")
 
 THEMES: dict[str, Theme] = {t.name: t for t in (GRAPHITE, MIDNIGHT, WARM_CHARCOAL)}
 
@@ -59,6 +60,37 @@ QPushButton {{
 QPushButton:hover {{ border-color: {t.accent}; }}
 QPushButton:checked {{ background: {t.accent}; border-color: {t.accent}; color: {t.on_accent}; }}
 QPushButton:disabled {{ background: transparent; color: {t.disabled}; }}
+
+QPushButton#speak {{ border-radius: 12px; padding: 14px; font-weight: 600; }}
+QPushButton#speak[tone="ready"], QPushButton#primary {{
+    background: {t.accent}; border-color: {t.accent}; color: {t.on_accent};
+}}
+QPushButton#primary {{ font-weight: 600; padding: 9px 24px; }}
+QPushButton#primary:disabled {{ background: {t.surface}; border-color: {t.border}; color: {t.muted}; }}
+QPushButton#speak[tone="listening"] {{ background: {t.listening}; border-color: {t.listening}; color: #FFFFFF; }}
+QPushButton#speak:disabled {{ background: {t.rail}; border-color: {t.border}; color: {t.muted}; }}
+QPushButton#way {{ padding: 14px; text-align: left; }}
+QPushButton#link {{ background: transparent; border: none; color: {t.muted}; padding: 4px; }}
+QPushButton#link:hover {{ color: {t.accent}; }}
+
+QComboBox, QLineEdit, QDoubleSpinBox {{
+    background: {t.surface}; border: 1px solid {t.border}; border-radius: 8px; padding: 6px 10px;
+    selection-background-color: {t.accent}; selection-color: {t.on_accent};
+}}
+QComboBox:disabled, QDoubleSpinBox:disabled, QLineEdit:disabled {{ color: {t.muted}; background: {t.rail}; }}
+QComboBox QAbstractItemView {{
+    background: {t.surface}; border: 1px solid {t.border};
+    selection-background-color: {t.accent}; selection-color: {t.on_accent};
+}}
+QCheckBox {{ spacing: 8px; }}
+
+QProgressBar {{ background: {t.surface}; border: none; border-radius: 4px; max-height: 8px; }}
+QProgressBar::chunk {{ background: {t.accent}; border-radius: 4px; }}
+QProgressBar[silent="true"] {{ background: {t.listening}; }}
+
+QFrame#banner {{ background: {t.surface}; border: 1px solid {t.problem}; border-radius: 10px; }}
+QFrame#peerBox {{ background: {t.rail}; border: 1px solid {t.border}; border-radius: 10px; }}
+QWidget#controls {{ background: {t.rail}; border-top: 1px solid {t.border}; }}
 
 QLabel#heading {{ font-weight: 600; }}
 QLabel#muted, QLabel#speaker, QLabel#original, QLabel#note {{ color: {t.muted}; }}

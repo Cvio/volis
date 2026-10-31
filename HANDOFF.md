@@ -22,6 +22,14 @@ P20.** The old window stays the default until U6; the new one opens with `--new-
   left and right for a right-to-left widget unless `AlignAbsolute` is set, and a wrapped label's own
   height estimate can add a blank line, so `chat._fit` measures it. `Session.MAX_LINES` still cuts a
   conversation at 200 lines; U4 has to end that.
+- **U2 built:** `gui/talk.py` (what the Talk page offers and says, no Qt) and the real pipeline in
+  `gui/app_window.py`: the start screen, loading, the three ways of talking with their keys, typing,
+  Sound, the microphone meter and its silence warning, plain problems with Details, and Settings' Sound
+  and Hands-free. `[setup]` in `volis-python.toml` limits the ways and languages for a customer. The
+  models are read on a thread, so the window opens at once. Engine changes: `translate_typed` takes a
+  direction, so either person on a shared machine can type; `Pipeline.muted` lets Sound apply during a
+  conversation; `[vad].min_silence_ms` is now saved. `TurnKeyFilter`, `qt_key` and `KEY_SYMBOLS` are
+  imported from `window.py` and must move when it goes at U6.
 
 ## Priorities (2026-10-10)
 

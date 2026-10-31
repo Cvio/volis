@@ -104,6 +104,7 @@ ENUMS: dict[tuple[str, str], tuple[str, ...]] = {
     ("mode", "turn_style"): ("toggle", "hold"),
     ("context", "mode"): ("off", "carry", "revision"),  # volis-python.toml
     ("window", "theme"): ("graphite", "midnight", "warm-charcoal"),  # volis-python.toml
+    ("setup", "ways"): ("together", "two-computers", "hands-free"),  # volis-python.toml
 }
 
 
@@ -184,6 +185,7 @@ class Config:
         _set(doc, "audio", "output_device", self.audio.output_device)
         _set(doc, "mode", "kind", self.mode.kind)
         _set(doc, "mode", "turn_style", self.mode.turn_style)
+        _set(doc, "vad", "min_silence_ms", self.vad.min_silence_ms)
         _set(doc, "tts", "enabled", self.tts.enabled)
         _set(doc, "tts", "half_duplex", self.tts.half_duplex)
         _set(doc, "peer", "enabled", self.peer.enabled)
@@ -280,6 +282,14 @@ class PyWindow:
 
 
 @dataclass
+class PySetup:
+    # What this customer's copy offers. Written when the copy is prepared, never
+    # by the window. Empty = everything installed.
+    ways: list[str] = field(default_factory=list)  # "together", "two-computers", "hands-free"
+    languages: list[str] = field(default_factory=list)  # language tags, as in [languages]
+
+
+@dataclass
 class PyFragments:
     # Hold a short sentence with no final punctuation and join it to the next.
     hold: bool = True
@@ -318,6 +328,7 @@ class PythonConfig:
     tts: PyTts = field(default_factory=PyTts)
     window: PyWindow = field(default_factory=PyWindow)
     text: PyText = field(default_factory=PyText)
+    setup: PySetup = field(default_factory=PySetup)
 
     @classmethod
     def load(cls, path: Path) -> tuple[PythonConfig, bool]:
@@ -394,7 +405,14 @@ def _fill(section_name: str, section: Any, values: dict[str, Any]) -> Any:
 
 def _check_type(section: str, key: str, default: Any, value: Any) -> Any:
     where = f"[{section}].{key}"
-    if isinstance(default, bool):
+    if isinstance(default, list):
+        if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+            raise ConfigError(f"{where} must be a list of strings, not {value!r}")
+        allowed = ENUMS.get((section, key))
+        wrong = [v for v in value if allowed and v not in allowed]
+        if wrong:
+            raise ConfigError(f"{where} has {wrong[0]!r}; expected any of: {', '.join(allowed)}")
+    elif isinstance(default, bool):
         if not isinstance(value, bool):
             raise ConfigError(f"{where} must be true or false, not {value!r}")
     elif isinstance(default, int):

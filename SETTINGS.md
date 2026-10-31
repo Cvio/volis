@@ -104,6 +104,10 @@ advanced_open = false   # whether the Advanced section is open
 text_size = 12          # the conversation's text size, in points (the A- and A+ buttons)
 theme = "graphite"      # the new window's colours: "graphite", "midnight" or "warm-charcoal"
 
+[setup]              # what this customer's copy offers, written when it is prepared
+ways = []            # "together", "two-computers", "hands-free"; empty = all three
+languages = []       # language tags, e.g. ["fa", "en"]; empty = every language installed
+
 [fragments]
 hold = true         # join a few words with no full stop to what follows
 min_words = 4       # shorter than this is a fragment
