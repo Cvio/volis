@@ -81,7 +81,7 @@ def speaker(monkeypatch, tmp_path, diacritize: bool, marker=Marker()):
     py = PythonConfig()
     py.tts.diacritize = diacritize
     seen: queue.Queue = queue.Queue()
-    pipeline = SimpleNamespace(root=tmp_path, pyconfig=py, emit=seen.put, generation=0, muted=False)
+    pipeline = SimpleNamespace(root=tmp_path, pyconfig=py, emit=seen.put, generation=0, muted=False, clips=None)
     player = SimpleNamespace(play=lambda samples, rate: None, queued=lambda: 0, close=lambda: None)
     thread = SpeakThread(pipeline, player)
     said: list[str] = []

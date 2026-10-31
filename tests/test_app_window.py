@@ -14,7 +14,9 @@ pytest.importorskip("PySide6")
 from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
-from volis import audio, cli, models  # noqa: E402
+import numpy as np  # noqa: E402
+
+from volis import audio, clips, cli, models  # noqa: E402
 from volis import events as ev  # noqa: E402
 from volis.config import Config, PythonConfig  # noqa: E402
 from volis.gui import app_window, bubbles, sample, talk, theme  # noqa: E402
@@ -377,6 +379,150 @@ def test_a_silent_microphone_turns_red_and_clears_when_heard(window, monkeypatch
     window.events.put(ev.Level(-20.0))
     window.tick()
     assert window.banner.isHidden() and window.level.property("silent") is False
+
+
+# ---------------------------------------------------------------- listening again
+
+
+class FakePlayer:
+    device_rate = 1000
+
+    def __init__(self):
+        self.left, self.closed = 0, False
+
+    def clear(self):
+        self.left = 0
+
+    def play(self, samples, rate):
+        self.left += len(samples)
+
+    def queued(self):
+        return self.left
+
+    def close(self):
+        self.closed = True
+
+
+def with_a_sentence(w):
+    """A conversation with one spoken sentence, and its speech kept."""
+    pipeline = together(w)
+    w.player = FakePlayer()
+    pipeline.output = lambda: w.player
+    for event in (ev.SentenceMsg("1.1", 1, "سلام", "fa", 1.0, 2.0), ev.Translated("1.1", "Hello", "en", 300, "cuda", "m")):
+        w.events.put(event)
+    w.tick()
+    pipeline.options.clips.put_spoken("1.1", np.ones(2000, np.float32) / 2, 1000)
+    return pipeline
+
+
+def click(w, key):
+    w.chat.rows[key].bubble.clicked()
+
+
+def test_clicking_a_bubble_plays_it_on_the_shared_bar(window):
+    with_a_sentence(window)
+    assert window.audio_bar.isHidden()
+    click(window, "1.1")
+    assert not window.audio_bar.isHidden() and window.replay.key == "1.1" and window.player.left == 2000
+    assert window.bar_play.text() == "Pause" and window.bar_time.text() == "0:00 / 0:02"
+    assert window.chat.rows["1.1"].bubble.property("speaking") is True
+    window.player.left = 1000
+    window.tick()
+    assert window.bar_time.text() == "0:01 / 0:02" and window.bar_slider.value() == 500
+
+
+def test_it_stops_at_the_end_and_can_be_played_again(window):
+    with_a_sentence(window)
+    click(window, "1.1")
+    window.player.left = 0
+    window.tick()
+    assert window.replay.finished and window.bar_play.text() == "Play" and window.bar_slider.value() == 1000
+    window.bar_play.click()
+    assert window.replay.playing() and window.player.left == 2000
+
+
+def test_pause_and_the_bar_move_it(window):
+    with_a_sentence(window)
+    click(window, "1.1")
+    window.bar_play.click()
+    assert window.player.left == 0 and window.bar_play.text() == "Play"
+    window.bar_slider.setValue(500)
+    window.bar_seek()
+    assert window.replay.paused and window.replay.position() == 1.0
+    window.bar_play.click()
+    assert window.player.left == 1000
+
+
+def test_no_replay_during_a_turn_and_taking_a_turn_stops_it(window):
+    pipeline = with_a_sentence(window)
+    click(window, "1.1")
+    window.speak_left.click()
+    assert not window.replay.active() and window.audio_bar.isHidden() and pipeline.asked[-1] == ("begin", "left")
+    window.events.put(ev.TurnStarted("left"))
+    window.tick()
+    click(window, "1.1")
+    assert not window.replay.active() and window.bar_note.text() == talk.WAIT_TO_LISTEN
+
+
+def test_a_new_sentence_being_spoken_takes_over(window):
+    with_a_sentence(window)
+    click(window, "1.1")
+    window.player.play(np.ones(300), 1000)  # the new sentence, queued before the event says so
+    window.events.put(ev.SpeakingStarted("2.1", 900))
+    window.tick()
+    assert not window.replay.active() and window.player.left == 2300, "the new sentence must survive"
+
+
+def test_your_own_words_on_two_computers_say_where_they_were_spoken(window):
+    window.way_buttons[talk.TWO_COMPUTERS].click()
+    window.start_button.click()
+    for event in (ev.Listening(), ev.Mode("turn"), ev.SentenceMsg("1.1", 1, "سلام", "fa", 0.0, 1.0),
+                  ev.Translated("1.1", "Hello", "en", 300, "cuda", "m")):
+        window.events.put(event)
+    window.tick()
+    click(window, "1.1")
+    assert window.bar_note.text() == talk.SPOKEN_ELSEWHERE and not window.bar_note.isHidden()
+
+
+def test_what_arrived_from_the_other_computer_can_be_replayed(window):
+    window.way_buttons[talk.TWO_COMPUTERS].click()
+    window.start_button.click()
+    pipeline = window.pipeline
+    window.player = FakePlayer()
+    pipeline.output = lambda: window.player
+    for event in (ev.Listening(), ev.Mode("turn"), ev.Remote("Desk", "fa", "سلام", "en", "Hello")):
+        window.events.put(event)
+    window.tick()
+    pipeline.options.clips.put_spoken(clips.remote_key("fa", "سلام"), np.ones(500, np.float32), 1000)
+    click(window, next(iter(window.chat.rows)))
+    assert window.replay.active() and window.player.left == 500
+
+
+def test_after_the_end_it_still_plays_through_its_own_player(window, monkeypatch):
+    with_a_sentence(window)
+    made = FakePlayer()
+    monkeypatch.setattr(app_window.playback, "Player", lambda device, gate: made)
+    click(window, "1.1")
+    window.end_button.click()
+    window.tick()
+    assert window.pipeline is None and not window.replay.active()
+    click(window, "1.1")
+    assert window.replay.player is made and made.left == 2000
+    window.new_button.click()
+    assert not window.replay.active() and window.clips.spoken("1.1") is None
+
+
+def test_a_speaker_that_can_not_open_is_a_problem(window, monkeypatch):
+    with_a_sentence(window)
+    window.end_button.click()
+    window.tick()
+
+    def broken(device, gate):
+        raise app_window.playback.PlaybackError('cannot open output device "x"')
+
+    monkeypatch.setattr(app_window.playback, "Player", broken)
+    click(window, "1.1")
+    assert window.banner_title.text() == "We can't use your speakers"
 
 
 # ---------------------------------------------------------------- settings

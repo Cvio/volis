@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ..clips import remote_key
 from . import session as ses
 
 LEFT, RIGHT = "left", "right"
@@ -31,7 +32,11 @@ class Bubble:
     status: str = ""  # what is happening to it, until there is a translation
     problem: str = ""  # why there won't be a translation
     note: str = ""
-    speaking: bool = False  # being spoken now: outlined
+    speaking: bool = False  # being spoken or replayed now: outlined
+    speech: str = ""  # its spoken translation, in clips.Clips
+    utterance: int = -1
+    start: float = 0.0
+    end: float = 0.0
 
     kind = "bubble"
 
@@ -66,7 +71,7 @@ def _side(s: ses.Session, row: ses.Row) -> str:
     return RIGHT if base(row.source_lang) == base(s.languages[1]) else LEFT
 
 
-def _row_bubble(s: ses.Session, row: ses.Row) -> Bubble:
+def _row_bubble(s: ses.Session, row: ses.Row, playing: str) -> Bubble:
     status = ""
     if row.held:
         status = WAITING_FOR_MORE
@@ -74,7 +79,8 @@ def _row_bubble(s: ses.Session, row: ses.Row) -> Bubble:
         status = TRANSLATING
     return Bubble(row.id, _side(s, row), native_name(row.source_lang), ses.clock(row.start), row.source,
                   row.target or "", status, row.problem or "", row.note,
-                  s.speaking and s.speaking_id == row.id)
+                  (s.speaking and s.speaking_id == row.id) or playing == row.id, row.id if row.target else "",
+                  row.utterance, row.start, row.end)
 
 
 def _live_bubble(s: ses.Session) -> Bubble:
@@ -85,15 +91,16 @@ def _live_bubble(s: ses.Session) -> Bubble:
     return Bubble("live", side, native_name(speaker), original=" ".join(p for p in (pending, guess) if p), status=HEARING)
 
 
-def items(s: ses.Session) -> list:
-    """Everything to show, oldest first."""
+def items(s: ses.Session, playing: str = "") -> list:
+    """Everything to show, oldest first. `playing` is the speech being replayed."""
     shown: list = []
     for line in s.lines:
         if isinstance(line, ses.Row):
-            shown.append(_row_bubble(s, line))
+            shown.append(_row_bubble(s, line, playing))
         elif isinstance(line, ses.RemoteLine):
+            speech = remote_key(line.lang, line.text)
             shown.append(Bubble(f"remote-{id(line)}", LEFT, native_name(line.source_lang), original=line.source_text,
-                                translation=line.text))
+                                translation=line.text, speaking=playing == speech, speech=speech))
         elif isinstance(line, ses.Nothing):
             shown.append(Note(f"nothing-{line.index}", NO_WORDS))
         elif isinstance(line, ses.DroppedLine):

@@ -47,6 +47,7 @@ from . import compare, models, paths, persian, sentences, varieties
 from . import translate as tr
 from .asr import guards as guards_mod
 from .audio import SAMPLE_RATE
+from .clips import remote_key
 from .config import Config, PythonConfig
 from .asr.streaming import LocalAgreement
 from .events import (  # noqa: F401 - re-exported for consumers
@@ -126,6 +127,8 @@ class Options:
     asr: str = ""
     mt: str = ""
     prompt: str = ""
+    # A conversation's audio is kept here (clips.Clips); None = not kept.
+    clips: object = None
 
 
 # ---------------------------------------------------------------- sources
@@ -289,6 +292,7 @@ class Pipeline:
         self.peer = None
         self._speaker_thread = None  # set once the voice is loaded
         self.muted = False  # the window's Sound button: translations are shown, not spoken
+        self.clips = options.clips
         self._stop = threading.Event()
         self._commands: queue.Queue = queue.Queue()
         self._thread = threading.Thread(target=self._run, name="volis-pipeline", daemon=True)
@@ -323,6 +327,11 @@ class Pipeline:
         if speaker is None:
             return "off"
         return "ok" if speaker.submit_remote(text, lang) else "full"
+
+    def output(self):
+        """The player this conversation speaks through, once it is loaded. Replaying
+        a sentence goes through it too, so hands-free can't hear its own replay."""
+        return self._speaker_thread.player if self._speaker_thread is not None else None
 
     def set_glossary(self, terms: list[str]) -> None:
         """Names and terms to keep exactly, from the next sentence on."""
@@ -1068,6 +1077,8 @@ class AsrWorker:
             stream = None  # a different utterance: its passes don't apply
         utterance = self.ring.push(segment.start_ms(), segment.samples)
         start = segment.start_sample / SAMPLE_RATE
+        if pipeline.options.clips is not None:
+            pipeline.options.clips.put_heard(utterance.index, start, segment.samples)
         end = start + len(segment.samples) / SAMPLE_RATE
         log.info("utterance %d: %d ms .. %d ms (%d ms)", utterance.index, segment.start_ms(),
                  segment.end_ms(), segment.duration_ms())
@@ -1502,9 +1513,10 @@ class SpeakThread:
             if cancelled():
                 log.info("%s: cancelled; not spoken", label)
                 continue
-            if language in self.voiceless or self.pipeline.muted:
+            if language in self.voiceless:
                 emit(NotSpoken(sentence_id, language))
                 continue
+            clip_key = sentence_id or remote_key(language, text)
             try:
                 voice = self._voice(language, folder)
                 began = time.perf_counter()
@@ -1527,6 +1539,12 @@ class SpeakThread:
             synthesised_ms = int((time.perf_counter() - began) * 1000)
             if cancelled():  # cancelled while it was being synthesised
                 log.info("%s: cancelled; not spoken", label)
+                continue
+            # Kept with the sound off too: it can still be listened to afterwards.
+            if self.pipeline.clips is not None:
+                self.pipeline.clips.put_spoken(clip_key, speech.samples, speech.sample_rate)
+            if self.pipeline.muted:
+                emit(NotSpoken(sentence_id, language))
                 continue
             self.player.play(speech.samples, speech.sample_rate)
             # From the moment the utterance was cut, through recognition,

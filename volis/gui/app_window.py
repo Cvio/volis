@@ -17,10 +17,11 @@ from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QCheckBox, QComboBox, QDoubleSpinBox, QFrame, QHBoxLayout, QLabel, QLineEdit,
-    QMainWindow, QMessageBox, QProgressBar, QPushButton, QSizePolicy, QStackedWidget, QToolButton, QVBoxLayout, QWidget,
+    QMainWindow, QMessageBox, QProgressBar, QPushButton, QSizePolicy, QSlider, QStackedWidget, QToolButton, QVBoxLayout,
+    QWidget,
 )
 
-from .. import audio, models, paths, typed
+from .. import audio, clips, models, paths, playback, typed
 from .. import events as ev
 from .. import peer as peer_mod
 from .. import shared as shared_mod
@@ -140,6 +141,9 @@ class AppWindow(QMainWindow):
         self.events: queue.Queue = queue.Queue()
         self.pipeline: Pipeline | None = None
         self.ending = False
+        self.clips = clips.Clips()
+        self.replay = clips.Replay()
+        self.review_player = None  # for listening once the conversation's own player has gone
         self.mic_watch = talk.MicWatch()
         self.mic_silent = False
         self.engines: list = []
@@ -288,7 +292,9 @@ class AppWindow(QMainWindow):
         inner.setContentsMargins(0, 0, 0, 0)
         inner.setSpacing(0)
         self.chat = ChatView()
+        self.chat.bubble_clicked = self.bubble_clicked
         inner.addWidget(self.chat, 1)
+        inner.addWidget(self._build_audio_bar())
         inner.addWidget(self._build_controls())
         self.talk_stack.addWidget(conversation)
         column.addWidget(self.talk_stack, 1)
@@ -389,6 +395,30 @@ class AppWindow(QMainWindow):
         row.addWidget(self.connect_button)
         column.addLayout(row)
         return box
+
+    def _build_audio_bar(self) -> QWidget:
+        """The one player: play or pause, a bar, and the time. Clicking a bubble fills it."""
+        self.audio_bar = _styled("audioBar")
+        row = QHBoxLayout(self.audio_bar)
+        row.setContentsMargins(16, 8, 16, 8)
+        self.bar_play = QPushButton("Play")
+        self.bar_play.setFixedWidth(76)
+        self.bar_play.clicked.connect(self.bar_play_clicked)
+        self.bar_slider = QSlider(Qt.Orientation.Horizontal)
+        self.bar_slider.setRange(0, 1000)
+        self.bar_slider.sliderReleased.connect(self.bar_seek)
+        self.bar_time = _text("", "muted")
+        self.bar_time.setWordWrap(False)
+        self.bar_note = _text("", "muted")
+        self.bar_close = _named(QPushButton("Close"), "link")
+        self.bar_close.clicked.connect(self.close_bar)
+        row.addWidget(self.bar_play)
+        row.addWidget(self.bar_slider, 1)
+        row.addWidget(self.bar_time)
+        row.addWidget(self.bar_note, 1)
+        row.addWidget(self.bar_close)
+        self.audio_bar.hide()
+        return self.audio_bar
 
     def _build_controls(self) -> QWidget:
         controls = _styled("controls")
@@ -622,11 +652,14 @@ class AppWindow(QMainWindow):
         self.side_notes = {}
         self.ending = False
         self.mic_watch = talk.MicWatch()
+        self.close_bar()
+        self._close_review_player()
+        self.clips = clips.Clips()
         ev.restart_clock()
         self.events = queue.Queue()
         self.preferred_asr = talk.recognizer_choice(first, self.engines, self.config.asr.engine)
         self.addresses = talk.addresses_to_show(peer_mod.local_addresses()) if paired else []
-        options = Options(speak=True, pair=paired, asr=self.preferred_asr)
+        options = Options(speak=True, pair=paired, asr=self.preferred_asr, clips=self.clips)
         self.pipeline = Pipeline(self.root, dataclasses.replace(self.config), options, self.events, None,
                                  self.pyconfig)
         self.pipeline.muted = not self.config.tts.enabled
@@ -636,10 +669,13 @@ class AppWindow(QMainWindow):
     def end_conversation(self) -> None:
         if self.pipeline is not None:
             self.ending = True
+            self.close_bar()  # its player goes with the conversation
             self.pipeline.stop()
             self.refresh()
 
     def new_conversation(self) -> None:
+        self.close_bar()
+        self.clips = clips.Clips()
         self.session.clear()
         self.session.last_error = None
         self.refresh()
@@ -660,11 +696,17 @@ class AppWindow(QMainWindow):
             self.session.apply(event)
             if isinstance(event, ev.Level):
                 self.mic_watch.heard(event.db, time.monotonic())
+            elif isinstance(event, ev.SpeakingStarted):
+                self.replay.forget()  # a new sentence is queued: closing the bar mustn't clear it
+                self.close_bar()
             elif isinstance(event, ev.Stopped):
                 self._finished()
         silent = self.mic_watch.silent(talk.microphone_open(self.session), time.monotonic())
         if silent != self.mic_silent:
             self.mic_silent, changed = silent, True
+        if self.replay.active():
+            self.replay.update()
+            self._draw_audio_bar()
         if self.test_message is not None:
             self.test_status.setText(self.test_message)
             self.test_message = None
@@ -701,6 +743,7 @@ class AppWindow(QMainWindow):
         else:
             direction = self._direction(which)
             if direction is not None:
+                self.close_bar()
                 self.pipeline.begin_shared_turn(direction)
         self.refresh()
 
@@ -730,6 +773,7 @@ class AppWindow(QMainWindow):
         if self.session.turn in (ses.RECORDING, ses.WAITING):
             self.pipeline.end_turn()
         else:
+            self.close_bar()
             self.pipeline.begin_turn()
 
     def connect_peer(self) -> None:
@@ -774,6 +818,83 @@ class AppWindow(QMainWindow):
         self.pipeline.translate_typed(lines, direction)
         self.type_text.clear()
 
+    # -------------------------------------------------------------- listening again
+
+    def _output(self):
+        """What to play through: the conversation's player, or our own after it."""
+        if self.pipeline is not None:
+            return self.pipeline.output()
+        if self.review_player is None:
+            self.review_player = playback.Player(self.config.audio.output_device, playback.Gate(False))
+        return self.review_player
+
+    def _close_review_player(self) -> None:
+        if self.review_player is not None:
+            self.review_player.close()
+            self.review_player = None
+
+    def bubble_clicked(self, key: str) -> None:
+        item = next((i for i in bubbles.items(self.session) if i.key == key), None)
+        if item is None or not item.translation:
+            return
+        if not talk.can_replay(self.session):
+            self._show_bar_note(talk.WAIT_TO_LISTEN)
+            return
+        clip = self.clips.spoken(item.speech)
+        if clip is None:
+            self.replay.stop()
+            self._show_bar_note(talk.no_clip_words(self.session, item.side))
+            self.draw_conversation()
+            return
+        try:
+            player = self._output()
+            if player is None:
+                self._show_bar_note(talk.NOTHING_TO_PLAY)
+                return
+            self.replay.play(item.speech, clip, player)
+        except playback.PlaybackError as e:
+            self.session.last_error = str(e)
+        self.refresh()
+
+    def _show_bar_note(self, words: str) -> None:
+        self.bar_note.setText(words)
+        self.audio_bar.show()
+        self._draw_audio_bar()
+
+    def _draw_audio_bar(self) -> None:
+        r = self.replay
+        for widget in (self.bar_play, self.bar_slider, self.bar_time):
+            widget.setVisible(r.active())
+        self.bar_note.setVisible(not r.active())
+        if not r.active():
+            return
+        was = r.key
+        self.bar_play.setText("Pause" if r.playing() else "Play")
+        duration = r.clip.seconds or 1.0
+        position = r.position()
+        if not self.bar_slider.isSliderDown():
+            self.bar_slider.setValue(int(1000 * position / duration))
+        self.bar_time.setText(talk.bar_time(position, r.clip.seconds))
+        if was and r.finished:
+            self.bar_slider.setValue(1000)
+
+    def bar_play_clicked(self) -> None:
+        self.replay.toggle()
+        self._draw_audio_bar()
+
+    def bar_seek(self) -> None:
+        if self.replay.active():
+            self.replay.seek(self.bar_slider.value() / 1000 * self.replay.clip.seconds)
+            self._draw_audio_bar()
+
+    def close_bar(self) -> None:
+        had = self.replay.active()
+        self.replay.stop()
+        self.audio_bar.hide()
+        self.bar_note.setText("")
+        if had:
+            self.draw_conversation()
+
     # -------------------------------------------------------------- problems
 
     def current_problem(self) -> talk.Problem | None:
@@ -803,6 +924,8 @@ class AppWindow(QMainWindow):
         c.audio.output_device = self.output_device.currentData() or ""
         c.tts.half_duplex = not self.headset.isChecked()
         c.vad.min_silence_ms = round(self.pause.value() * 1000)
+        self.close_bar()
+        self._close_review_player()  # it may be playing to the old speakers
         self.save()
 
     def _run_test(self, work) -> None:
@@ -874,7 +997,7 @@ class AppWindow(QMainWindow):
     # -------------------------------------------------------------- drawing
 
     def draw_conversation(self) -> None:
-        self.chat.show_items(bubbles.items(self.session), self.pyconfig.window.text_size)
+        self.chat.show_items(bubbles.items(self.session, self.replay.key), self.pyconfig.window.text_size)
 
     def refresh(self) -> None:
         s = self.session
@@ -892,6 +1015,11 @@ class AppWindow(QMainWindow):
             self._draw_top_bar(running)
             self._draw_controls(running)
             self.draw_conversation()
+            if not self.audio_bar.isHidden():
+                self._draw_audio_bar()
+            elif self.replay.active():
+                self.audio_bar.show()
+                self._draw_audio_bar()
         self.settings_busy.setVisible(running)
         for widget in (self.input_device, self.output_device, self.headset, self.pause, self.test_microphone,
                        self.test_speakers):
@@ -975,5 +1103,7 @@ class AppWindow(QMainWindow):
             self.pipeline.stop()
             self.pipeline.join(5.0)
         self._timer.stop()
+        self.replay.stop()
+        self._close_review_player()
         QApplication.instance().removeEventFilter(self._key_filter)
         event.accept()

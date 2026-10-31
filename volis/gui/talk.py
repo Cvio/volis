@@ -172,6 +172,29 @@ def loading_words(what: str) -> str:
     return LOADING_WORDS.get(what.split(" ")[0], "Getting ready...")
 
 
+# ---------------------------------------------------------------- the shared bar
+
+
+WAIT_TO_LISTEN = "You can listen again when the turn has finished."
+SPOKEN_ELSEWHERE = "This translation was spoken on the other computer."
+NOTHING_TO_PLAY = "There's no spoken translation of this sentence."
+
+
+def can_replay(s: ses.Session) -> bool:
+    """Not while anyone is speaking, and not while Volis is working on a turn."""
+    return s.turn == ses.IDLE and not s.speaking
+
+
+def no_clip_words(s: ses.Session, side: str) -> str:
+    """Why a sentence has nothing to play. Your own words on two computers
+    were spoken on the other one."""
+    return SPOKEN_ELSEWHERE if s.paired and side == bubbles.RIGHT else NOTHING_TO_PLAY
+
+
+def bar_time(position: float, duration: float) -> str:
+    return f"{ses.clock(position)} / {ses.clock(duration)}"
+
+
 # ---------------------------------------------------------------- two computers
 
 

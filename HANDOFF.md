@@ -30,6 +30,12 @@ P20.** The old window stays the default until U6; the new one opens with `--new-
   direction, so either person on a shared machine can type; `Pipeline.muted` lets Sound apply during a
   conversation; `[vad].min_silence_ms` is now saved. `TurnKeyFilter`, `qt_key` and `KEY_SYMBOLS` are
   imported from `window.py` and must move when it goes at U6.
+- **U3 built:** `clips.py` keeps each sentence's spoken translation and each utterance's original in
+  memory (`Options.clips`), and `Replay` plays one through a `Player`. A click on a bubble fills the
+  shared bar. During a conversation it plays through the conversation's own player, so the half-duplex
+  gate keeps hands-free from hearing its replay; afterwards through a player of the window's own. Speech
+  is now synthesised with the sound off too, so it can be listened to later. On two computers, a
+  person's own sentences have no translation audio here until U7 swaps it.
 
 ## Priorities (2026-10-10)
 

@@ -48,15 +48,27 @@ def _fit(label: QLabel, text: str, points: int, width: int) -> None:
     label.setFixedSize(used, tall)
 
 
+class ClickableBubble(QFrame):
+    def __init__(self, clicked) -> None:
+        super().__init__()
+        self.clicked = clicked
+
+    def mouseReleaseEvent(self, event) -> None:  # noqa: N802 - Qt's name
+        if event.button() == Qt.MouseButton.LeftButton and self.rect().contains(event.position().toPoint()):
+            self.clicked()
+        super().mouseReleaseEvent(event)
+
+
 class BubbleRow(QWidget):
     """A speaker's label and their bubble, on their side of the conversation."""
 
-    def __init__(self, side: str) -> None:
+    def __init__(self, side: str, clicked=lambda key: None) -> None:
         super().__init__()
         self.side = side
+        self.key = ""
         self._drawn = None
         self.speaker = _label("speaker")
-        self.bubble = QFrame()
+        self.bubble = ClickableBubble(lambda: clicked(self.key))
         self.bubble.setObjectName("bubbleLeft" if side == bubbles.LEFT else "bubbleRight")
         self.original = _label("original")
         self.translation = _label("translation")
@@ -85,6 +97,8 @@ class BubbleRow(QWidget):
         if self._drawn == (item, points, width):
             return
         self._drawn = (item, points, width)
+        self.key = item.key
+        self.bubble.setCursor(Qt.CursorShape.PointingHandCursor if item.translation else Qt.CursorShape.ArrowCursor)
         inner = width - 2 * PADDING_X
         small = max(points - 2, 8)
         _fit(self.speaker, LRM + "  ·  ".join(p for p in (item.speaker, item.when) if p),
@@ -135,6 +149,7 @@ class ChatView(QScrollArea):
         self._column.addStretch(1)  # a short conversation sits at the bottom, by the controls
         self.setWidget(body)
         self.rows: dict[str, QWidget] = {}
+        self.bubble_clicked = lambda key: None  # the window's
         self._items: list = []
         self._points = 12
         self.verticalScrollBar().rangeChanged.connect(self._range_changed)
@@ -166,7 +181,7 @@ class ChatView(QScrollArea):
         for item in items:
             row = self.rows.get(item.key)
             if row is None:
-                row = BubbleRow(item.side) if item.kind == "bubble" else NoteRow()
+                row = BubbleRow(item.side, lambda key: self.bubble_clicked(key)) if item.kind == "bubble" else NoteRow()
                 self.rows[item.key] = row
                 self._column.addWidget(row)
             row.draw(item, points, width)

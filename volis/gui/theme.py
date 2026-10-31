@@ -90,7 +90,10 @@ QProgressBar[silent="true"] {{ background: {t.listening}; }}
 
 QFrame#banner {{ background: {t.surface}; border: 1px solid {t.problem}; border-radius: 10px; }}
 QFrame#peerBox {{ background: {t.rail}; border: 1px solid {t.border}; border-radius: 10px; }}
-QWidget#controls {{ background: {t.rail}; border-top: 1px solid {t.border}; }}
+QWidget#controls, QWidget#audioBar {{ background: {t.rail}; border-top: 1px solid {t.border}; }}
+QSlider::groove:horizontal {{ background: {t.surface}; height: 6px; border-radius: 3px; }}
+QSlider::sub-page:horizontal {{ background: {t.accent}; height: 6px; border-radius: 3px; }}
+QSlider::handle:horizontal {{ background: {t.text}; width: 14px; margin: -4px 0; border-radius: 7px; }}
 
 QLabel#heading {{ font-weight: 600; }}
 QLabel#muted, QLabel#speaker, QLabel#original, QLabel#note {{ color: {t.muted}; }}
