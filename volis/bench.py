@@ -270,6 +270,13 @@ class History:
 
     def add(self, record: Record) -> None:
         self.records = (self.records + [record])[-KEPT:]
+        self._write()
+
+    def remove(self, record: Record) -> None:
+        self.records = [r for r in self.records if r is not record]
+        self._write()
+
+    def _write(self) -> None:
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             self.path.write_text(json.dumps({"comparisons": [asdict(r) for r in self.records]}, ensure_ascii=False,
@@ -280,6 +287,78 @@ class History:
     def of(self, kind: str) -> list[Record]:
         """This kind's comparisons, newest first."""
         return [r for r in reversed(self.records) if r.kind == kind]
+
+
+# ---------------------------------------------------------------- a comparison as cards
+
+
+@dataclass
+class Card:
+    """One model's result in a comparison, as the bench shows it."""
+
+    ident: str
+    name: str
+    lines: list[tuple[str, str]]  # (what it was given, if it was given text; what it wrote)
+    score: str = ""
+    facts: list[str] = field(default_factory=list)
+    best: bool = False  # nearest to the text given, among two or more scored
+    failed: bool = False
+
+
+def _number(text: str) -> float | None:
+    try:
+        return float(text.rstrip("%"))
+    except ValueError:
+        return None
+
+
+def _milliseconds(cells: list[dict]) -> str:
+    times = [int(c["Time"].removesuffix(" ms")) for c in cells if c.get("Time", "").endswith(" ms")]
+    return f"{sum(times)} ms" if times else ""
+
+
+def cards(record: Record) -> list[Card]:
+    """Each model's card, nearest to the given text first. With nothing to
+    compare against they stay in the order they ran: no order would be fair.
+    Read from the rows as they are kept, so old comparisons show the same way."""
+    rows = [dict(zip(record.columns, row)) for row in record.rows]
+    groups: dict[str, list[dict]] = {}
+    for n, row in enumerate(rows):
+        ident = record.ids[n] if n < len(record.ids) else ""
+        groups.setdefault(ident or row.get("Recognizer") or row.get("Translator", ""), []).append(row)
+    made: list[tuple[Card, float | None]] = []
+    for ident, cells in groups.items():
+        first = cells[0]
+        failed = not any(c.get("Time") for c in cells)
+        facts = [_milliseconds(cells), first.get("Speed", ""), first.get("Runs on", ""), first.get("Memory", "")]
+        facts += list(dict.fromkeys(c["Notes"] for c in cells if c.get("Notes")))
+        if record.kind == RECOGNIZERS:
+            lines = [("", first["What it heard"])]
+            value = _number(first.get("Letters wrong", ""))
+            words = first.get("Words wrong", "")
+            score = f"Letters wrong {first['Letters wrong']}, words wrong {words}" if value is not None else ""
+            rank = value
+        else:
+            lines = [(c["Text"], c["Translation"]) for c in cells]
+            scores = [v for v in (_number(c.get("Score", "")) for c in cells) if v is not None]
+            value = sum(scores) / len(scores) if scores else None
+            score = "" if value is None else f"Score {value:.1f}"
+            rank = None if value is None else -value  # for a score, higher is nearer
+        made.append((Card(ident, first.get("Recognizer") or first["Translator"], lines, score, [f for f in facts if f],
+                          failed=failed), rank))
+    ranks = [rank for _card, rank in made if rank is not None]
+    if ranks:
+        made.sort(key=lambda pair: (pair[1] is None, pair[1] if pair[1] is not None else 0))
+    if len(ranks) > 1 and len(set(ranks)) > 1:
+        for card, rank in made:
+            card.best = rank == min(ranks)
+    return [card for card, _rank in made]
+
+
+def tested_text(record: Record) -> str:
+    """The sentence every model was given, when it was one sentence."""
+    given = list(dict.fromkeys(dict(zip(record.columns, row)).get("Text", "") for row in record.rows))
+    return given[0] if len(given) == 1 else ""
 
 
 # ---------------------------------------------------------------- can it start?
@@ -317,6 +396,25 @@ def ready(kind: str, running: bool = False, busy: bool = False, recording: bool 
     if ticked < 1:
         return Ready(False, f"Tick at least one {'recognizer' if kind == RECOGNIZERS else 'translator'} in the list.")
     return Ready(True, "")
+
+
+DONE, NOW, LATER, OPTIONAL = "done", "now", "later", "optional"
+
+
+def step_states(filled: list[bool | None]) -> list[str]:
+    """What each numbered step looks like, so that one is always the one to do.
+    `filled` has an entry for each step before the last, which is always the
+    action: True done, False still needed, None optional and left empty."""
+    states, found = [], False
+    for value in filled:
+        if value:
+            states.append(DONE)
+        elif value is None:
+            states.append(OPTIONAL)
+        else:
+            states.append(LATER if found else NOW)
+            found = True
+    return states + [LATER if found else NOW]
 
 
 # ---------------------------------------------------------------- the thread

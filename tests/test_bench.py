@@ -284,3 +284,54 @@ def test_cancelling_ends_the_job_and_empties_the_queue(worker):
     while not w.outcomes.empty():
         outcomes.append(w.outcomes.get())
     assert len(outcomes) <= 1, "the second job never ran"
+
+
+# ---------------------------------------------------------------- cards and steps
+
+
+def _heard(*rows):
+    return bench.Record("2026-10-31 10:00", bench.RECOGNIZERS, "t", bench.RECOGNIZER_COLUMNS, [list(r) for r in rows],
+                        [r[0] for r in rows])
+
+
+def test_cards_put_the_fewest_letters_wrong_first_and_a_failure_last():
+    made = bench.cards(_heard(("bad", "x", "10 ms", "", "", "", "9.0%", "9.0%", ""),
+                              ("broke", "could not be loaded: no", "", "", "", "", "", "", ""),
+                              ("good", "y", "20 ms", "", "processor", "1.0 GB", "1.0%", "2.0%", "")))
+    assert [c.name for c in made] == ["good", "bad", "broke"]
+    assert made[0].best and not made[1].best and made[2].failed and made[2].score == ""
+    assert made[0].score == "Letters wrong 1.0%, words wrong 2.0%"
+    assert made[0].facts == ["20 ms", "processor", "1.0 GB"]
+
+
+def test_cards_with_nothing_to_compare_against_stay_in_the_order_they_ran():
+    made = bench.cards(_heard(("first", "x", "10 ms", "", "", "", "", "", ""), ("second", "y", "5 ms", "", "", "", "", "", "")))
+    assert [c.name for c in made] == ["first", "second"] and not any(c.best for c in made)
+
+
+def test_a_translators_lines_share_one_card_with_the_highest_mean_score_first():
+    rows = [["a", "One", "A1", "10 ms", "", "50.0", ""], ["a", "Two", "A2", "10 ms", "", "90.0", ""],
+            ["b", "One", "B1", "10 ms", "", "70.0", ""], ["b", "Two", "B2", "10 ms", "", "80.0", ""]]
+    record = bench.Record("w", bench.TRANSLATORS, "t", bench.TRANSLATOR_COLUMNS, rows, ["1", "2", "1", "2"])
+    made = bench.cards(record)
+    assert [c.name for c in made] == ["Two", "One"] and made[0].score == "Score 85.0" and made[0].best
+    assert made[0].lines == [("a", "A2"), ("b", "B2")] and made[0].facts == ["20 ms"]
+    assert bench.tested_text(record) == ""
+
+
+def test_exactly_one_step_is_the_one_to_do():
+    assert bench.step_states([False, False, None]) == ["now", "later", "optional", "later"]
+    assert bench.step_states([True, False, None]) == ["done", "now", "optional", "later"]
+    assert bench.step_states([True, True, None]) == ["done", "done", "optional", "now"]
+    assert bench.step_states([True, True, True]) == ["done", "done", "done", "now"]
+    assert bench.step_states([False, True]) == ["now", "done", "later"]
+
+
+def test_a_comparison_can_be_removed_and_stays_removed(tmp_path):
+    history = bench.History.load(tmp_path)
+    one, two = _heard(("a", "x", "1 ms", "", "", "", "", "", "")), _heard(("b", "y", "1 ms", "", "", "", "", "", ""))
+    history.add(one)
+    history.add(two)
+    history.remove(one)
+    assert [r.ids for r in bench.History.load(tmp_path).records] == [["b"]]
+

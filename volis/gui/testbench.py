@@ -1,8 +1,9 @@
-"""The test bench: View > Test bench (Ctrl+Shift+T).
+"""The test bench: a page in developer mode (Ctrl+Shift+T).
 
-A window of its own, for whoever is choosing models or checking a change.
-Nothing in it is needed to hold a conversation, which is why it is not in
-Models. Three tabs, each answering one question:
+For whoever is choosing models or checking a change. Nothing in it is needed
+to hold a conversation, which is why it is not in Models. Each tab has numbered
+steps on the left, with the one to do next lit, and the answer on the right.
+Three tabs, each answering one question:
 
 * Recognizers: which one hears this best? A recording or an audio file
   through each ticked recognizer, scored against the correct text if given.
@@ -17,7 +18,8 @@ One rule covers all three: the bench needs the memory a conversation uses, so
 it works only while none is running. The line at the top says so and offers
 to stop it; while the bench is working the same line says what it is doing.
 
-What can start, and why not, is decided in `bench.ready`; the work itself is
+What can start, and why not, is decided in `bench.ready`; which step is next in
+`bench.step_states`; the results as cards in `bench.cards`; the work itself is
 `bench.Worker`. This file only lays the controls out and paints.
 """
 
@@ -30,33 +32,177 @@ import threading
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import QEvent, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtWidgets import (QApplication, QButtonGroup, QComboBox, QFileDialog, QFormLayout, QHBoxLayout, QLabel,
-                               QListWidget, QListWidgetItem, QPlainTextEdit, QProgressBar, QPushButton, QRadioButton, QStyledItemDelegate,
-                               QTableWidget, QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QButtonGroup, QComboBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QLineEdit,
+                               QListWidget, QListWidgetItem, QPlainTextEdit, QProgressBar, QPushButton, QRadioButton,
+                               QStackedWidget, QStyledItemDelegate, QTableWidget, QTableWidgetItem, QTabWidget,
+                               QVBoxLayout, QWidget)
 
 from .. import bench, models, perf, typed
 from .. import events as ev
 from ..audio import SAMPLE_RATE
 from . import view
+from .chat import scrolled
 from .session import has_rtl
 
 log = logging.getLogger(__name__)
 
 AUDIO_FILES = "Audio (*.wav *.mp3 *.m4a *.flac *.ogg *.mp4);;All files (*)"
 COLORS = {"ok": "", "amber": "#d08c00", "red": "#d03030", "fits": "#2e8b57", "tight": "#d08c00", "no": "#d03030"}
-GRAY = "color: gray"
+SETUP_WIDTH = 420
+MOST_ROWS = 6  # a longer list of models scrolls
 
 
 def gb(n: int) -> str:
     return f"{n / 1e9:.1f} GB"
 
 
-def _checklist(height: int = 110) -> QListWidget:
+class WholeRowTicks(QStyledItemDelegate):
+    """Clicking anywhere on a model's row ticks it, not only in the small box.
+    Every row is one height, so the list can be made exactly as tall as its rows."""
+
+    def sizeHint(self, option, index) -> QSize:  # noqa: N802 - Qt's name
+        return QSize(super().sizeHint(option, index).width(), option.fontMetrics.height() + 14)
+
+    def editorEvent(self, event, model, option, index) -> bool:  # noqa: N802 - Qt's name
+        if event.type() == QEvent.Type.MouseButtonRelease:
+            if event.button() == Qt.MouseButton.LeftButton and option.rect.contains(event.position().toPoint()):
+                ticked = Qt.CheckState(index.data(Qt.ItemDataRole.CheckStateRole)) == Qt.CheckState.Checked
+                wanted = Qt.CheckState.Unchecked if ticked else Qt.CheckState.Checked
+                model.setData(index, wanted.value, Qt.ItemDataRole.CheckStateRole)
+            return True
+        if event.type() in (QEvent.Type.MouseButtonPress, QEvent.Type.MouseButtonDblClick):
+            return True
+        return super().editorEvent(event, model, option, index)
+
+
+def _checklist() -> QListWidget:
     box = QListWidget()
-    box.setMinimumHeight(height)
+    box.setSelectionMode(QListWidget.SelectionMode.NoSelection)
+    box.setItemDelegate(WholeRowTicks(box))
     return box
+
+
+def _fit_rows(box: QListWidget) -> None:
+    """As tall as its models, so that a short list leaves no empty space."""
+    rows = sum(box.sizeHintForRow(i) for i in range(min(box.count(), MOST_ROWS)))
+    box.setFixedHeight(rows + 2 * box.frameWidth() + 2)
+
+
+def _text(name: str = "muted") -> QLabel:
+    label = QLabel()
+    label.setObjectName(name)
+    label.setWordWrap(True)
+    label.setTextFormat(Qt.TextFormat.PlainText)  # what a model wrote is never markup
+    return label
+
+
+def _said(label: QLabel, text: str) -> None:
+    """Words in either direction, laid out from their own side."""
+    label.setText(text)
+    label.setLayoutDirection(Qt.LayoutDirection.RightToLeft if has_rtl(text) else Qt.LayoutDirection.LeftToRight)
+    label.setAlignment(Qt.AlignmentFlag.AlignLeading | Qt.AlignmentFlag.AlignTop)
+
+
+def _narrow(combo: QComboBox) -> QComboBox:
+    """A long model name mustn't widen the column it sits in."""
+    combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+    combo.setMinimumContentsLength(10)
+    return combo
+
+
+def _repolish(widget: QWidget) -> None:
+    style = widget.style()
+    style.unpolish(widget)
+    style.polish(widget)
+
+
+class Step(QFrame):
+    """One numbered step. The step to do next is lit; none is ever locked."""
+
+    def __init__(self, number: int, title: str, hint: str = "") -> None:
+        super().__init__()
+        self.setObjectName("step")
+        self.number_text = str(number)
+        self.state = ""
+        self.number = QLabel(self.number_text)
+        self.number.setObjectName("stepNumber")
+        self.number.setFixedSize(24, 24)
+        self.number.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.title = QLabel(title)
+        self.title.setObjectName("stepTitle")
+        self.title.setWordWrap(True)
+        top = QHBoxLayout()
+        top.addWidget(self.number)
+        top.addWidget(self.title, 1)
+        self.body = QVBoxLayout(self)
+        self.body.setContentsMargins(12, 10, 12, 12)
+        self.body.setSpacing(8)
+        self.body.addLayout(top)
+        if hint:
+            words = _text()
+            words.setText(hint)
+            self.body.addWidget(words)
+        self.set_state(bench.LATER)
+
+    def set_state(self, state: str) -> None:
+        if state == self.state:
+            return
+        self.state = state
+        self.setProperty("state", state)
+        self.number.setText("\u2713" if state == bench.DONE else self.number_text)
+        for widget in (self, self.number, self.title):
+            _repolish(widget)
+
+
+class CardView(QFrame):
+    """One model's result: what it wrote, how near and how fast, and the way to use it."""
+
+    def __init__(self, card: bench.Card, show_given: bool, use) -> None:
+        super().__init__()
+        self.setObjectName("card")
+        self.setProperty("best", card.best)
+        self.card = card
+        column = QVBoxLayout(self)
+        column.setContentsMargins(16, 12, 16, 12)
+        column.setSpacing(8)
+        top = QHBoxLayout()
+        self.name = _text("heading")
+        self.name.setText(card.name)
+        top.addWidget(self.name, 1)
+        if card.best:
+            badge = QLabel("Closest to your text")
+            badge.setObjectName("badge")
+            top.addWidget(badge)
+        column.addLayout(top)
+        self.score = _text("status")
+        self.score.setText(card.score)
+        self.score.setVisible(bool(card.score))
+        column.addWidget(self.score)
+        self.wrote: list[QLabel] = []
+        for given, wrote in card.lines:
+            if show_given and given:
+                line = _text()
+                _said(line, given)
+                column.addWidget(line)
+            line = _text("problem" if card.failed else "written")
+            font = line.font()
+            font.setPointSizeF(font.pointSizeF() + 2)
+            line.setFont(font)
+            line.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            _said(line, wrote)
+            column.addWidget(line)
+            self.wrote.append(line)
+        bottom = QHBoxLayout()
+        self.facts = _text()
+        self.facts.setText("  \u00b7  ".join(card.facts))
+        bottom.addWidget(self.facts, 1)
+        self.use = QPushButton("Use in the conversation")
+        self.use.setVisible(not card.failed)
+        self.use.clicked.connect(lambda _checked=False: use(card.ident))
+        bottom.addWidget(self.use)
+        column.addLayout(bottom)
 
 
 def _ticked(box: QListWidget) -> list[str]:
@@ -99,28 +245,12 @@ def _choices(combo: QComboBox, items: list[str], selected) -> None:
     combo.blockSignals(False)
 
 
-class DirectionDelegate(QStyledItemDelegate):
-    """Lays a cell out right to left when its text is Arabic, Persian or
-    Hebrew. Alignment alone isn't enough: with a left-to-right base direction
-    the final full stop lands on the wrong side, and English words or numbers
-    inside the sentence fall in the wrong order."""
-
-    def initStyleOption(self, option, index) -> None:  # noqa: N802 - Qt's name
-        super().initStyleOption(option, index)
-        if has_rtl(option.text):
-            option.direction = Qt.LayoutDirection.RightToLeft
-            option.displayAlignment = Qt.AlignmentFlag.AlignLeading | Qt.AlignmentFlag.AlignTop
-
-
-def _table() -> QTableWidget:
-    table = QTableWidget(0, 0)
-    table.setWordWrap(True)
+def _table(columns: list[str]) -> QTableWidget:
+    table = QTableWidget(0, len(columns))
+    table.setHorizontalHeaderLabels(columns)
     table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-    table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-    table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
     table.verticalHeader().setVisible(False)
-    table.setItemDelegate(DirectionDelegate(table))
-    table.setMinimumHeight(170)
+    table.horizontalHeader().setStretchLastSection(True)
     return table
 
 
@@ -150,18 +280,20 @@ class ClipInput(QWidget):
         self.record_button = QPushButton("Record")
         self.record_button.setToolTip("Record from the microphone chosen in Models. Press again to stop.")
         self.record_button.clicked.connect(self.toggle_record)
-        self.file_button = QPushButton("Choose an audio file...")
+        self.file_button = QPushButton("Choose a file...")
         self.file_button.clicked.connect(self.choose_file)
         self.play_button = QPushButton("Play")
         self.play_button.setToolTip("Play the sound through the speakers chosen in Models.")
         self.play_button.clicked.connect(self.play)
-        self.label = QLabel("No sound yet.")
-        self.label.setStyleSheet(GRAY)
-        row = QHBoxLayout(self)
-        row.setContentsMargins(0, 0, 0, 0)
+        self.label = _text()
+        self.label.setText("No sound yet.")
+        column = QVBoxLayout(self)
+        column.setContentsMargins(0, 0, 0, 0)
+        row = QHBoxLayout()
         for widget in (self.record_button, self.file_button, self.play_button):
             row.addWidget(widget)
-        row.addWidget(self.label, 1)
+        column.addLayout(row)
+        column.addWidget(self.label)
         self._draw()
 
     # ---- state
@@ -263,9 +395,10 @@ class TestBench(QWidget):
         self._ticks = 0
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 12, 16, 12)
         banner = QHBoxLayout()
         self.banner = QLabel(bench.STOP_FIRST)
-        self.banner.setStyleSheet("font-weight: bold; color: #d08c00")
+        self.banner.setObjectName("problem")
         self.stop_button = QPushButton("Stop the conversation")
         self.stop_button.clicked.connect(window.stop)
         banner.addWidget(self.banner, 1)
@@ -277,7 +410,7 @@ class TestBench(QWidget):
         self.busy_bar.setTextVisible(False)
         self.busy_bar.setFixedSize(160, 10)
         self.busy_label = QLabel()
-        self.busy_label.setStyleSheet("font-weight: bold")
+        self.busy_label.setObjectName("heading")
         self.cancel_button = QPushButton("Cancel")
         self.cancel_button.setToolTip("Stop after the model that is running now. Nothing more is loaded.")
         self.cancel_button.clicked.connect(self.cancel)
@@ -285,9 +418,7 @@ class TestBench(QWidget):
         working.addWidget(self.busy_label, 1)
         working.addWidget(self.cancel_button)
         layout.addLayout(working)
-        self.said = QLabel()  # what the last press did, when it isn't in a table
-        self.said.setWordWrap(True)
-        self.said.setStyleSheet(GRAY)
+        self.said = _text("status")  # what the last press did, when it isn't in the results
         self.tabs = QTabWidget()
         self.tabs.addTab(self._recognizers_tab(), "Recognizers")
         self.tabs.addTab(self._translators_tab(), "Translators")
@@ -306,81 +437,170 @@ class TestBench(QWidget):
 
     # -------------------------------------------------------------- tabs
 
-    def _results(self, kind: str, use_tip: str) -> tuple[QVBoxLayout, dict]:
-        """The part under each comparison: the table, what the numbers mean,
-        and what can be done with a row."""
-        box = QVBoxLayout()
-        earlier = QComboBox()
-        earlier.setToolTip("Every comparison made here is kept. Choose one to see it again.")
-        earlier.currentIndexChanged.connect(lambda index, k=kind: self._show_earlier(k, index))
-        table = _table()
-        table.itemSelectionChanged.connect(self.draw)
-        note = QLabel()
-        note.setWordWrap(True)
-        note.setStyleSheet("color: gray; font-size: 8pt")
-        use = QPushButton("Use in the conversation")
-        use.setToolTip(use_tip)
-        use.clicked.connect(lambda _checked=False, k=kind: self.use_selected(k))
+    def _split(self, setup: QWidget, answer: QWidget) -> QWidget:
+        page = QWidget()
+        page.setObjectName("page")
+        row = QHBoxLayout(page)
+        row.setSpacing(16)
+        setup.setFixedWidth(SETUP_WIDTH)
+        row.addWidget(setup)
+        row.addWidget(answer, 1)
+        return page
+
+    def _setup(self, question: str, steps: list[Step], earlier: QWidget | None = None) -> QWidget:
+        """The left of a tab: its question, its steps, and what was done before.
+        The last step, the button, stays in sight however long the others are."""
+        panel = QWidget()
+        panel.setObjectName("page")
+        column = QVBoxLayout(panel)
+        column.setContentsMargins(0, 0, 0, 0)
+        heading = _text("heading")
+        heading.setText(question)
+        column.addWidget(heading)
+        inner = QWidget()
+        stack = QVBoxLayout(inner)
+        stack.setContentsMargins(0, 0, 0, 0)
+        stack.setSpacing(8)
+        for step in steps[:-1]:
+            stack.addWidget(step)
+        stack.addStretch(1)
+        column.addWidget(scrolled(inner), 1)
+        column.addWidget(steps[-1])
+        if earlier is not None:
+            column.addWidget(earlier)
+        return panel
+
+    def _action(self, number: int, title: str, words: str, run) -> tuple[Step, QPushButton, QLabel]:
+        """The last step: the button, and beside it why it can't be pressed yet."""
+        step = Step(number, title)
+        button = QPushButton(words)
+        button.setObjectName("primary")
+        button.clicked.connect(lambda _checked=False: run())
+        reason = _text()
+        step.body.addWidget(button)
+        step.body.addWidget(reason)
+        return step, button, reason
+
+    def _earlier(self, kind: str) -> tuple[QWidget, dict]:
+        """Every comparison of this kind: to look at again, to find, to delete."""
+        panel = QWidget()
+        panel.setObjectName("page")
+        panel.setFixedHeight(190)
+        column = QVBoxLayout(panel)
+        column.setContentsMargins(0, 4, 0, 0)
+        column.setSpacing(6)
+        top = QHBoxLayout()
+        heading = _text("heading")
+        heading.setText("Earlier comparisons")
+        delete = QPushButton("Delete")
+        delete.setToolTip("Delete the comparison on the right.")
+        delete.clicked.connect(lambda _checked=False, k=kind: self._ask_delete(k))
+        top.addWidget(heading, 1)
+        top.addWidget(delete)
+        column.addLayout(top)
+        search = QLineEdit()
+        search.setPlaceholderText("Search")
+        search.textChanged.connect(lambda _text_now, k=kind: self._search(k))
+        column.addWidget(search)
+        listed = QListWidget()
+        listed.setWordWrap(True)
+        listed.setTextElideMode(Qt.TextElideMode.ElideNone)
+        listed.setVerticalScrollMode(QListWidget.ScrollMode.ScrollPerPixel)
+        listed.currentRowChanged.connect(lambda row, k=kind: self._show_earlier(k, row))
+        column.addWidget(listed, 1)
+        none = _text()
+        none.setText("Nothing compared yet.")
+        none.setAlignment(Qt.AlignmentFlag.AlignLeading | Qt.AlignmentFlag.AlignTop)
+        column.addWidget(none, 1)
+        confirm = QWidget()
+        confirm_row = QHBoxLayout(confirm)
+        confirm_row.setContentsMargins(0, 0, 0, 0)
+        ask = _text("problem")
+        ask.setText("Delete this for good?")
+        yes, no = QPushButton("Delete it"), QPushButton("Keep it")
+        yes.clicked.connect(lambda _checked=False, k=kind: self.delete_shown(k))
+        no.clicked.connect(lambda _checked=False: confirm.hide())
+        confirm_row.addWidget(ask, 1)
+        confirm_row.addWidget(yes)
+        confirm_row.addWidget(no)
+        confirm.hide()
+        column.addWidget(confirm)
+        return panel, {"earlier": listed, "search": search, "delete": delete, "none": none, "confirm": confirm,
+                       "delete_yes": yes, "delete_no": no}
+
+    def _results(self, kind: str) -> tuple[QWidget, dict]:
+        """The right of a tab: what the next step is until there is an answer,
+        then a card for each model."""
+        panel = QWidget()
+        panel.setObjectName("page")
+        column = QVBoxLayout(panel)
+        column.setContentsMargins(0, 0, 0, 0)
+        top = QHBoxLayout()
+        title = _text("heading")
         copy = QPushButton("Copy as a table")
         copy.setToolTip("Copy this comparison as a Markdown table, to paste into notes.")
         copy.clicked.connect(lambda _checked=False, k=kind: self.copy_table(k))
-        top = QHBoxLayout()
-        top.addWidget(QLabel("Results"))
-        top.addWidget(earlier, 1)
-        box.addLayout(top)
-        box.addWidget(table, 1)
-        box.addWidget(note)
-        buttons = QHBoxLayout()
-        buttons.addWidget(use)
-        buttons.addWidget(copy)
-        buttons.addStretch(1)
-        box.addLayout(buttons)
-        return box, {"earlier": earlier, "table": table, "note": note, "use": use, "copy": copy}
+        top.addWidget(title, 1)
+        top.addWidget(copy)
+        column.addLayout(top)
+        tested = _text()
+        column.addWidget(tested)
+        stack = QStackedWidget()
+        empty = _text()
+        empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        stack.addWidget(empty)
+        inner = QWidget()
+        body = QVBoxLayout(inner)
+        body.setContentsMargins(0, 0, 12, 0)
+        body.setSpacing(10)
+        body.addStretch(1)
+        stack.addWidget(scrolled(inner))
+        column.addWidget(stack, 1)
+        hint = _text()
+        hint.setText("Read what each one wrote, then press Use in the conversation on the one you prefer.")
+        column.addWidget(hint)
+        note = _text()
+        font = note.font()
+        font.setPointSizeF(font.pointSizeF() - 1)
+        note.setFont(font)
+        column.addWidget(note)
+        return panel, {"title": title, "copy": copy, "tested": tested, "stack": stack, "empty": empty, "body": body,
+                       "hint": hint, "note": note, "cards": []}
 
     def _recognizers_tab(self) -> QWidget:
-        page = QWidget()
-        layout = QVBoxLayout(page)
-        form = QFormLayout()
-        self.r_language = QComboBox()
+        self.r_language = _narrow(QComboBox())
         self.r_language.currentIndexChanged.connect(lambda _i: self._fill_recognizers())
         self.r_sound = ClipInput(self)
         self.r_sound.changed.connect(self.draw)
+        sound = Step(1, "The speech to test", "Choose the language spoken, then record it or choose a file.")
+        sound.body.addWidget(self.r_language)
+        sound.body.addWidget(self.r_sound)
         self.r_models = _checklist()
         self.r_models.itemChanged.connect(lambda _item: self.draw())
+        chosen = Step(2, "The recognizers to compare", "Tick the ones to compare. They run one at a time.")
+        chosen.body.addWidget(self.r_models)
         self.r_reference = QPlainTextEdit()
-        self.r_reference.setPlaceholderText("Optional: type or paste what was really said. Each recognizer is then "
-                                            "scored against it.")
-        self.r_reference.setFixedHeight(64)
-        form.addRow("Language spoken", self.r_language)
-        form.addRow("Sound", self.r_sound)
-        form.addRow("Recognizers", self.r_models)
-        form.addRow("Correct text", self.r_reference)
-        layout.addLayout(form)
-        row = QHBoxLayout()
-        self.r_run = QPushButton("Compare recognizers")
-        self.r_run.setMinimumHeight(34)
-        self.r_run.clicked.connect(self.run_recognizers)
-        self.r_reason = QLabel()
-        self.r_reason.setStyleSheet(GRAY)
-        row.addWidget(self.r_run)
-        row.addWidget(self.r_reason, 1)
-        layout.addLayout(row)
-        results, self.r = self._results(bench.RECOGNIZERS, "Choose this recognizer in Models.")
-        layout.addLayout(results, 1)
-        return page
+        self.r_reference.setPlaceholderText("What was really said. Each recognizer is then scored against it.")
+        self.r_reference.setFixedHeight(52)
+        self.r_reference.textChanged.connect(self.draw)
+        correct = Step(3, "The correct text (optional)")
+        correct.body.addWidget(self.r_reference)
+        action, self.r_run, self.r_reason = self._action(4, "Compare", "Compare recognizers", self.run_recognizers)
+        self.r_steps = [sound, chosen, correct, action]
+        earlier, parts = self._earlier(bench.RECOGNIZERS)
+        answer, self.r = self._results(bench.RECOGNIZERS)
+        self.r.update(parts)
+        return self._split(self._setup("Which recognizer hears this best?", self.r_steps, earlier), answer)
 
     def _translators_tab(self) -> QWidget:
-        page = QWidget()
-        layout = QVBoxLayout(page)
-        form = QFormLayout()
-        self.t_source, self.t_target = QComboBox(), QComboBox()
+        self.t_source, self.t_target = _narrow(QComboBox()), _narrow(QComboBox())
         self.t_source.currentIndexChanged.connect(lambda _i: self._fill_recognizer_choice())
         languages = QHBoxLayout()
         languages.addWidget(self.t_source, 1)
         languages.addWidget(QLabel("into"))
         languages.addWidget(self.t_target, 1)
         self.t_from_text = QRadioButton("Text")
-        self.t_from_sound = QRadioButton("Speech: a recording or an audio file")
+        self.t_from_sound = QRadioButton("Speech")
         self.t_from_text.setChecked(True)
         self._t_kind = QButtonGroup(self)
         for button in (self.t_from_text, self.t_from_sound):
@@ -396,96 +616,83 @@ class TestBench(QWidget):
         self.t_text.textChanged.connect(self.draw)
         self.t_sound = ClipInput(self)
         self.t_sound.changed.connect(self.draw)
-        self.t_recognizer = QComboBox()
+        self.t_recognizer = _narrow(QComboBox())
         self.t_recognizer.setToolTip("The sound is turned into text by this recognizer first; every translator is "
                                      "then given the same text.")
         self.t_sound_box = QWidget()
-        sound = QHBoxLayout(self.t_sound_box)
+        sound = QVBoxLayout(self.t_sound_box)
         sound.setContentsMargins(0, 0, 0, 0)
-        sound.addWidget(self.t_sound, 2)
-        sound.addWidget(QLabel("heard by"))
-        sound.addWidget(self.t_recognizer, 1)
+        sound.addWidget(self.t_sound)
+        heard = QHBoxLayout()
+        heard.addWidget(QLabel("Heard by"))
+        heard.addWidget(self.t_recognizer, 1)
+        sound.addLayout(heard)
+        given = Step(1, "What to translate", "Choose the languages, then type some text or give it speech.")
+        given.body.addLayout(languages)
+        given.body.addLayout(kind)
+        given.body.addWidget(self.t_text)
+        given.body.addWidget(self.t_sound_box)
         self.t_models = _checklist()
         self.t_models.itemChanged.connect(lambda _item: self.draw())
+        chosen = Step(2, "The translators to compare", "Tick the ones to compare. They run one at a time.")
+        chosen.body.addWidget(self.t_models)
         self.t_reference = QPlainTextEdit()
-        self.t_reference.setPlaceholderText("Optional: a reference translation to score each one against (Google's, "
-                                            "or a person's). One line per line of the text.")
-        self.t_reference.setFixedHeight(64)
-        form.addRow("Translate from", languages)
-        form.addRow("Test with", kind)
-        form.addRow("Text", self.t_text)
-        form.addRow("Sound", self.t_sound_box)
-        form.addRow("Translators", self.t_models)
-        form.addRow("Reference", self.t_reference)
-        self._t_form = form
-        layout.addLayout(form)
-        row = QHBoxLayout()
-        self.t_run = QPushButton("Compare translators")
-        self.t_run.setMinimumHeight(34)
-        self.t_run.clicked.connect(self.run_translators)
-        self.t_reason = QLabel()
-        self.t_reason.setStyleSheet(GRAY)
-        row.addWidget(self.t_run)
-        row.addWidget(self.t_reason, 1)
-        layout.addLayout(row)
-        results, self.t = self._results(bench.TRANSLATORS, "Choose this translator in Models.")
-        layout.addLayout(results, 1)
-        return page
+        self.t_reference.setPlaceholderText("A translation you trust, one line per line of the text")
+        self.t_reference.setFixedHeight(52)
+        self.t_reference.textChanged.connect(self.draw)
+        trusted = Step(3, "A translation to score against (optional)")
+        trusted.body.addWidget(self.t_reference)
+        action, self.t_run, self.t_reason = self._action(4, "Compare", "Compare translators", self.run_translators)
+        self.t_steps = [given, chosen, trusted, action]
+        earlier, parts = self._earlier(bench.TRANSLATORS)
+        answer, self.t = self._results(bench.TRANSLATORS)
+        self.t.update(parts)
+        return self._split(self._setup("Which translator translates this best?", self.t_steps, earlier), answer)
 
     def _whole_tab(self) -> QWidget:
-        page = QWidget()
-        layout = QVBoxLayout(page)
-        intro = QLabel("Choose a recognizer, a translator and a voice to see whether they fit in this computer's "
-                       "memory together. Nothing is loaded to work that out. Then measure the set on a recording.")
-        intro.setWordWrap(True)
-        layout.addWidget(intro)
-        form = QFormLayout()
-        self.w_asr, self.w_asr2, self.w_mt, self.w_voice = QComboBox(), QComboBox(), QComboBox(), QComboBox()
-        form.addRow("Recognizer", self.w_asr)
-        form.addRow("Second recognizer (shared machine)", self.w_asr2)
-        form.addRow("Translator", self.w_mt)
-        form.addRow("Voice", self.w_voice)
-        layout.addLayout(form)
-        row = QHBoxLayout()
+        self.w_asr, self.w_asr2 = _narrow(QComboBox()), _narrow(QComboBox())
+        self.w_mt, self.w_voice = _narrow(QComboBox()), _narrow(QComboBox())
+        chosen = Step(1, "The models to run together", "The answer appears on the right at once. Nothing is loaded.")
         self.w_fill = QPushButton("Take the conversation's choice")
-        self.w_fill.setToolTip("Set the lists above to what is chosen in Models.")
+        self.w_fill.setToolTip("Set the lists below to what is chosen in Models.")
         self.w_fill.clicked.connect(self.fill_from_window)
+        chosen.body.addWidget(self.w_fill)
+        for words, combo in (("Recognizer", self.w_asr), ("Second recognizer (two people, one computer)", self.w_asr2),
+                             ("Translator", self.w_mt), ("Voice", self.w_voice)):
+            label = _text()
+            label.setText(words)
+            chosen.body.addWidget(label)
+            chosen.body.addWidget(combo)
+        action, self.w_run, self.w_reason = self._action(2, "Measure them (optional)", "Measure on a recording...",
+                                                         self.measure)
+        self.w_run.setToolTip("Runs an audio file through this recognizer and translator, without speaking, as fast "
+                              "as the models allow, and keeps the speeds and the memory it took.")
+        self.w_steps = [chosen, action]
+        answer = QWidget()
+        answer.setObjectName("page")
+        column = QVBoxLayout(answer)
+        column.setContentsMargins(0, 0, 0, 0)
+        self.verdict_label = QLabel()
+        self.verdict_label.setWordWrap(True)
+        column.addWidget(self.verdict_label)
+        self.estimate_table = _table(["Model", "On", "GPU", "System", "From"])
+        self.estimate_table.setMaximumHeight(150)
+        column.addWidget(self.estimate_table)
+        self.speed_label = _text()
+        column.addWidget(self.speed_label)
         self.w_apply = QPushButton("Use this set in the conversation")
         self.w_apply.setToolTip("Choose this recognizer and translator on the Models page.")
         self.w_apply.clicked.connect(self.apply_set)
-        row.addWidget(self.w_fill)
-        row.addWidget(self.w_apply)
-        row.addStretch(1)
-        layout.addLayout(row)
-        self.verdict_label = QLabel()
-        self.verdict_label.setWordWrap(True)
-        layout.addWidget(self.verdict_label)
-        self.estimate_table = QTableWidget(0, 5)
-        self.estimate_table.setHorizontalHeaderLabels(["Model", "On", "GPU", "System", "From"])
-        self.estimate_table.setMaximumHeight(150)
-        layout.addWidget(self.estimate_table)
-        self.speed_label = QLabel()
-        self.speed_label.setWordWrap(True)
-        layout.addWidget(self.speed_label)
-        measure = QHBoxLayout()
-        self.w_run = QPushButton("Measure this set on a recording...")
-        self.w_run.setMinimumHeight(34)
-        self.w_run.setToolTip("Runs an audio file through this recognizer and translator, without speaking, as fast "
-                              "as the models allow, and keeps the speeds and the memory it took.")
-        self.w_run.clicked.connect(lambda _checked=False: self.measure())
-        self.w_reason = QLabel()
-        self.w_reason.setStyleSheet(GRAY)
-        measure.addWidget(self.w_run)
-        measure.addWidget(self.w_reason, 1)
-        layout.addLayout(measure)
-        layout.addWidget(QLabel("Every run measured on this computer (kept in logs\\performance.json):"))
-        self.runs_table = QTableWidget(0, 8)
-        self.runs_table.setHorizontalHeaderLabels(["When", "Recognizer", "Translator", "Mode", "ASR RTF",
-                                                   "Translate ms", "First sound ms", "Peak GPU"])
-        layout.addWidget(self.runs_table, 1)
+        column.addWidget(self.w_apply, 0, Qt.AlignmentFlag.AlignLeft)
+        runs = _text("heading")
+        runs.setText("Every run measured on this computer")
+        column.addWidget(runs)
+        self.runs_table = _table(["When", "Recognizer", "Translator", "Mode", "ASR RTF", "Translate ms", "First sound ms",
+                                  "Peak GPU"])
+        column.addWidget(self.runs_table, 1)
         for combo in (self.w_asr, self.w_asr2, self.w_mt, self.w_voice):
             combo.currentIndexChanged.connect(lambda _i: self.refresh_whole())
-        return page
+        return self._split(self._setup("Will these run together on this computer?", self.w_steps), answer)
 
     # -------------------------------------------------------------- the lists
 
@@ -500,6 +707,7 @@ class TestBench(QWidget):
         self._fill_recognizer_choice()
         _refill(self.t_models, [(view.plain_name(t.named, t.name, t.id), t.id,
                                  view.translator_limits(t.backend) or t.id) for t in w.translators if t.enabled()])
+        _fit_rows(self.t_models)
         self.fill_from_window()
         self.draw()
 
@@ -514,6 +722,7 @@ class TestBench(QWidget):
         tag = self.r_language.currentData() or ""
         _refill(self.r_models, [(self._engine_name(r.engine), r.engine.dir_name, r.fit.label(tag))
                                 for r in self._usable(tag)])
+        _fit_rows(self.r_models)
         self.draw()
 
     def _fill_recognizer_choice(self) -> None:
@@ -602,39 +811,82 @@ class TestBench(QWidget):
     def _parts(self, kind: str) -> dict:
         return self.r if kind == bench.RECOGNIZERS else self.t
 
-    def _list_earlier(self, kind: str) -> None:
-        combo = self._parts(kind)["earlier"]
-        combo.blockSignals(True)
-        combo.clear()
+    def _list_earlier(self, kind: str, row: int = 0) -> None:
+        parts = self._parts(kind)
+        listed = parts["earlier"]
         records = self.history.of(kind)
+        listed.blockSignals(True)
+        listed.clear()
         for record in records:
-            combo.addItem(record.label())
-        combo.blockSignals(False)
-        combo.setEnabled(bool(records))
-        if not records:
-            combo.addItem("Nothing compared yet.")
+            models_in_it = len(dict.fromkeys(record.ids))
+            listed.addItem(f"{record.title}\n{record.when}, {models_in_it} {'model' if models_in_it == 1 else 'models'}")
+        listed.setCurrentRow(min(row, len(records) - 1))
+        listed.blockSignals(False)
+        listed.setVisible(bool(records))
+        parts["search"].setVisible(bool(records))
+        parts["none"].setVisible(not records)
+        self._search(kind)
 
-    def _show_earlier(self, kind: str, index: int) -> None:
+    def _search(self, kind: str) -> None:
+        parts = self._parts(kind)
+        words = parts["search"].text().casefold().split()
+        for row in range(parts["earlier"].count()):
+            item = parts["earlier"].item(row)
+            item.setHidden(not all(word in item.text().casefold() for word in words))
+
+    def _show_earlier(self, kind: str, row: int) -> None:
         records = self.history.of(kind)
-        if 0 <= index < len(records):
-            self.show_record(records[index])
+        self._parts(kind)["confirm"].hide()
+        if 0 <= row < len(records):
+            self.show_record(records[row])
+        else:
+            self._show_nothing(kind)
+
+    def _show_nothing(self, kind: str) -> None:
+        parts = self._parts(kind)
+        self.shown[kind] = None
+        self._set_cards(parts, [])
+        for name in ("title", "tested", "note"):
+            parts[name].setText("")
+        parts["stack"].setCurrentIndex(0)
+        self.draw()
+
+    def _set_cards(self, parts: dict, cards: list[CardView]) -> None:
+        for old in parts["cards"]:
+            parts["body"].removeWidget(old)
+            old.deleteLater()
+        for n, card in enumerate(cards):
+            parts["body"].insertWidget(n, card)
+        parts["cards"] = cards
 
     def show_record(self, record: bench.Record) -> None:
         parts = self._parts(record.kind)
-        table = parts["table"]
         self.shown[record.kind] = record
-        table.setColumnCount(len(record.columns))
-        table.setHorizontalHeaderLabels(record.columns)
-        _fill(table, record.rows)
-        header = table.horizontalHeader()
-        wide = {"What it heard", "Text", "Translation"}
-        for column, name in enumerate(record.columns):
-            header.setSectionResizeMode(column, header.ResizeMode.Stretch if name in wide
-                                        else header.ResizeMode.ResizeToContents)
-        table.resizeRowsToContents()
+        parts["title"].setText(f"{record.title}  ({record.when})")
+        given = bench.tested_text(record)
+        _said(parts["tested"], given)
+        self._set_cards(parts, [CardView(card, not given, lambda ident, k=record.kind: self.use(k, ident))
+                                for card in bench.cards(record)])
+        parts["stack"].setCurrentIndex(1)
         parts["note"].setText("  ".join(x for x in (f"Reference: {record.reference}" if record.reference else "",
                                                      record.note) if x))
         self.draw()
+
+    def _ask_delete(self, kind: str) -> None:
+        if self.shown[kind] is not None:
+            self._parts(kind)["confirm"].show()
+
+    def delete_shown(self, kind: str) -> None:
+        parts = self._parts(kind)
+        record = self.shown[kind]
+        parts["confirm"].hide()
+        if record is None:
+            return
+        row = parts["earlier"].currentRow()
+        self.history.remove(record)
+        self._list_earlier(kind, max(row, 0))
+        self._show_earlier(kind, parts["earlier"].currentRow())
+        self.said.setText("Deleted.")
 
     def _take(self, outcome: bench.Outcome) -> None:
         if outcome.record is None:
@@ -644,22 +896,18 @@ class TestBench(QWidget):
             if h.gpu_bytes or h.cpu_bytes:
                 self.perf.measured.model("recognizer", h.engine, h.device, h.gpu_bytes, h.cpu_bytes)
         self.history.add(outcome.record)
+        self._parts(outcome.record.kind)["search"].clear()
         self._list_earlier(outcome.record.kind)
         self.show_record(outcome.record)
-        self.said.setText("Done. The comparison is in the table, and kept under Results.")
+        self.said.setText("Done. This comparison is kept under Earlier comparisons.")
 
-    def _selected(self, kind: str) -> str:
-        record, table = self.shown[kind], self._parts(kind)["table"]
-        row = table.currentRow()
-        return record.ids[row] if record is not None and 0 <= row < len(record.ids) else ""
-
-    def use_selected(self, kind: str) -> None:
-        ident = self._selected(kind)
-        if not ident:
-            return
+    def _conversation_choice(self, kind: str) -> tuple[QComboBox, str]:
         w = self.window_
-        combo, what = (w.recognizer, "recognizer") if kind == bench.RECOGNIZERS else (w.translator, "translator")
-        if w.running():
+        return (w.recognizer, "recognizer") if kind == bench.RECOGNIZERS else (w.translator, "translator")
+
+    def use(self, kind: str, ident: str) -> None:
+        combo, what = self._conversation_choice(kind)
+        if self.window_.running():
             self.said.setText(bench.STOP_FIRST)
             return
         index = combo.findData(ident)
@@ -669,6 +917,7 @@ class TestBench(QWidget):
             return
         combo.setCurrentIndex(index)
         self.said.setText(f"{combo.currentText().strip()} is now the conversation's {what}.")
+        self.draw()
 
     def copy_table(self, kind: str) -> None:
         record = self.shown[kind]
@@ -740,7 +989,7 @@ class TestBench(QWidget):
                 f"{speed['first_audio_ms'] or '-'} ms after speech ends (medians).")
         else:
             self.speed_label.setText("Speed: this recognizer and translator have not been measured together here "
-                                     "yet. Use the button below.")
+                                     "yet. Press Measure on a recording.")
         _fill(self.runs_table, [[r["when"], r["recognizer"], r["translator"], r["mode"], r["asr_rtf"] or "",
                                  r["translate_ms"] or "", r["first_audio_ms"] or "",
                                  gb(r["peak_gpu_used"]) if r["peak_gpu_used"] else ""]
@@ -835,22 +1084,50 @@ class TestBench(QWidget):
             self.busy_label.setText("")
         self.busy_label.setVisible(busy)
         from_sound = self.t_from_sound.isChecked()
-        self._t_form.setRowVisible(self.t_text, not from_sound)
-        self._t_form.setRowVisible(self.t_sound_box, from_sound)
+        self.t_text.setVisible(not from_sound)
+        self.t_sound_box.setVisible(from_sound)
         for kind, button, reason in ((bench.RECOGNIZERS, self.r_run, self.r_reason),
                                      (bench.TRANSLATORS, self.t_run, self.t_reason), ("whole", self.w_run, self.w_reason)):
             state = self._ready(kind)
             button.setEnabled(state.enabled)
             reason.setText(state.message)
+            reason.setVisible(bool(state.message))
+        self._draw_steps(from_sound)
         for clip in (self.r_sound, self.t_sound):
             clip.setEnabled(not busy)
         for kind in (bench.RECOGNIZERS, bench.TRANSLATORS):
-            parts = self._parts(kind)
-            parts["use"].setEnabled(bool(self._selected(kind)) and not running)
-            parts["use"].setToolTip("Stop the conversation to change this." if running else
-                                    "Click a row first." if not self._selected(kind) else
-                                    "Choose this model in Models.")
-            parts["copy"].setEnabled(self.shown[kind] is not None)
+            self._draw_results(kind, running, busy)
+        self.said.setVisible(bool(self.said.text()))
+
+    def _draw_steps(self, from_sound: bool) -> None:
+        given = self.t_sound.has_sound() if from_sound else bool(typed.lines_of(self.t_text.toPlainText()))
+        for steps, filled in (
+            (self.r_steps, [self.r_sound.has_sound(), bool(_ticked(self.r_models)),
+                            bool(self.r_reference.toPlainText().strip()) or None]),
+            (self.t_steps, [given, bool(_ticked(self.t_models)), bool(self.t_reference.toPlainText().strip()) or None]),
+            (self.w_steps, [bool(self.w_asr.currentText())]),
+        ):
+            for step, state in zip(steps, bench.step_states(filled)):
+                step.set_state(state)
+
+    def _draw_results(self, kind: str, running: bool, busy: bool) -> None:
+        parts = self._parts(kind)
+        shown = self.shown[kind] is not None
+        words = "Working. The answer will appear here." if busy else (
+            self._ready(kind).message or "Ready. Press Compare, and the answer will appear here.")
+        if parts["empty"].text() != words:
+            parts["empty"].setText(words)
+        parts["copy"].setVisible(shown)
+        parts["delete"].setVisible(shown)
+        parts["hint"].setVisible(shown and any(not c.card.failed for c in parts["cards"]))
+        parts["tested"].setVisible(bool(parts["tested"].text()))
+        parts["note"].setVisible(bool(parts["note"].text()))
+        combo, _what = self._conversation_choice(kind)
+        for view_ in parts["cards"]:
+            current = view_.card.ident == combo.currentData()
+            view_.use.setEnabled(not running and not current)
+            view_.use.setText("In use now" if current else "Use in the conversation")
+            view_.use.setToolTip("Stop the conversation to change this." if running else "Choose this model in Models.")
 
     # -------------------------------------------------------------- showing and closing
 

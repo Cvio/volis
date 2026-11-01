@@ -99,6 +99,7 @@ QTableWidget {{
     background: {t.surface}; gridline-color: {t.border}; border: 1px solid {t.border};
     selection-background-color: {t.accent}; selection-color: {t.on_accent};
 }}
+QHeaderView {{ background: {t.rail}; }}
 QHeaderView::section {{ background: {t.rail}; color: {t.muted}; border: none; padding: 5px; }}
 QPlainTextEdit {{
     background: {t.surface}; border: 1px solid {t.border}; border-radius: 8px; padding: 6px;
@@ -118,6 +119,21 @@ QSlider::groove:horizontal {{ background: {t.surface}; height: 6px; border-radiu
 QSlider::sub-page:horizontal {{ background: {t.accent}; height: 6px; border-radius: 3px; }}
 QSlider::handle:horizontal {{ background: {t.text}; width: 14px; margin: -4px 0; border-radius: 7px; }}
 
+QFrame#step {{ background: {t.rail}; border: 1px solid {t.border}; border-radius: 10px; }}
+QFrame#step[state="now"] {{ border-color: {t.accent}; }}
+QLabel#stepNumber {{
+    background: {t.surface}; color: {t.muted}; border: 1px solid {t.border}; border-radius: 12px;
+}}
+QFrame#step[state="now"] QLabel#stepNumber {{ background: {t.accent}; border-color: {t.accent}; color: {t.on_accent}; }}
+QFrame#step[state="done"] QLabel#stepNumber {{ color: {t.accent}; border-color: {t.accent}; }}
+QLabel#stepTitle {{ font-weight: 600; color: {t.muted}; }}
+QFrame#step[state="now"] QLabel#stepTitle, QFrame#step[state="done"] QLabel#stepTitle {{ color: {t.text}; }}
+QFrame#card {{ background: {t.surface}; border: 1px solid {t.border}; border-radius: 12px; }}
+QFrame#card[best="true"] {{ border-color: {t.accent}; }}
+QLabel#badge {{
+    background: {t.accent}; color: {t.on_accent}; border-radius: 8px; padding: 2px 8px; font-weight: 600;
+}}
+
 QLabel#heading {{ font-weight: 600; }}
 QLabel#muted, QLabel#speaker, QLabel#original, QLabel#note {{ color: {t.muted}; }}
 QLabel#status {{ color: {t.accent}; }}
@@ -135,4 +151,9 @@ QScrollBar::handle:vertical {{ background: {t.border}; border-radius: 3px; min-h
 QScrollBar::handle:vertical:hover {{ background: {t.muted}; }}
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: transparent; }}
+QScrollBar:horizontal {{ background: transparent; height: 10px; margin: 2px; }}
+QScrollBar::handle:horizontal {{ background: {t.border}; border-radius: 3px; min-width: 30px; }}
+QScrollBar::handle:horizontal:hover {{ background: {t.muted}; }}
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0; }}
+QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {{ background: transparent; }}
 """

@@ -103,8 +103,12 @@ def tick_models(box, *names) -> None:
         item.setCheckState(Qt.CheckState.Checked if any(n in item.text() for n in names) else Qt.CheckState.Unchecked)
 
 
-def rows(table) -> list[list[str]]:
-    return [[table.item(r, c).text() for c in range(table.columnCount())] for r in range(table.rowCount())]
+def names(parts) -> list[str]:
+    return [view.card.name for view in parts["cards"]]
+
+
+def states(steps) -> list[str]:
+    return [step.state for step in steps]
 
 
 class Running:
@@ -168,23 +172,22 @@ def test_recognizers_are_compared_scored_kept_and_one_can_be_used(tb, window, tm
     tb.gate.set()
     settle(tb)
     assert not tb.busy() and not tb.busy_bar.isVisibleTo(tb) and tb.r_run.isEnabled()
-    got = rows(tb.r["table"])
-    assert [r[0] for r in got] == [tb.r_models.item(0).text(), tb.r_models.item(1).text()], "named as in the list"
-    poor, good = got
-    assert good[1] == "Buenos días. ¿Dónde le duele?" and good[6] == "0.0%"
-    assert float(poor[6].rstrip("%")) > 0
+    good, poor = tb.r["cards"]
+    assert good.card.name == tb.r_models.item(1).text(), "the nearest to the correct text comes first"
+    assert good.wrote[0].text() == "Buenos días. ¿Dónde le duele?" and good.card.best and not poor.card.best
+    assert "Letters wrong 0.0%" in good.score.text() and good.score.isVisibleTo(tb)
     assert tb.log == ["closed whisper-large-v3-turbo-es", "closed whisper-large-v3-turbo"], "one at a time"
-    assert "Spanish, a recording, 3.0 s of speech in 2 parts" in tb.r["earlier"].currentText()
+    assert "Spanish, a recording, 3.0 s of speech in 2 parts" in tb.r["earlier"].currentItem().text()
     assert "Letters wrong" in tb.r["note"].text() and SAID in tb.r["note"].text()
     assert bench.History.load(tmp_path).of(bench.RECOGNIZERS)[0].ids == ["whisper-large-v3-turbo-es", "whisper-large-v3-turbo"]
-    # a row chosen becomes the conversation's recognizer
-    assert not tb.r["use"].isEnabled(), "no row is selected yet"
-    tb.r["table"].selectRow(1)
-    assert tb.r["use"].isEnabled()
+    # a card's button makes that model the conversation's recognizer
     window.recognizer.setCurrentIndex(window.recognizer.findData("whisper-large-v3-turbo-es"))
-    tb.r["use"].click()
+    tb.tick()
+    assert poor.use.text() == "In use now" and not poor.use.isEnabled()
+    good.use.click()
     assert window.recognizer.currentData() == "whisper-large-v3-turbo"
     assert "is now the conversation's recognizer" in tb.said.text()
+    assert good.use.text() == "In use now" and poor.use.isEnabled()
 
 
 def test_sound_with_no_speech_is_said_plainly(tb):
@@ -193,7 +196,7 @@ def test_sound_with_no_speech_is_said_plainly(tb):
     tick_models(tb.r_models, "turbo")
     tb.r_run.click()
     settle(tb)
-    assert tb.said.text().startswith("No speech was found") and tb.r["table"].rowCount() == 0
+    assert tb.said.text().startswith("No speech was found") and tb.r["cards"] == []
 
 
 def test_a_clip_is_recorded_from_the_microphone_or_read_from_a_file(tb, tmp_path):
@@ -271,15 +274,17 @@ def test_translators_are_compared_on_typed_text_with_scores(tb, window):
     tb.t_reference.setPlainText("Where does it hurt?")
     tb.t_run.click()
     settle(tb)
-    got = rows(tb.t["table"])
-    assert sorted(r[1] for r in got) == sorted(tb.t_models.item(i).text() for i in range(2)), "named as in the list"
-    assert all(r[0] == ES and r[2] == "Where does it hurt?" and r[5] == "100.0" for r in got)
-    assert {r[4] for r in got} == {"graphics card", "processor"}
-    assert "Spanish > English, typed, 1 line" in tb.t["earlier"].currentText()
+    cards = tb.t["cards"]
+    assert sorted(names(tb.t)) == sorted(tb.t_models.item(i).text() for i in range(2)), "named as in the list"
+    assert all(c.wrote[0].text() == "Where does it hurt?" and c.score.text() == "Score 100.0" for c in cards)
+    assert tb.t["tested"].text() == ES, "one sentence: said once, above the cards"
+    assert not any(c.card.best for c in cards), "equal scores: neither is the closest"
+    assert {"graphics card", "processor"} <= {fact for c in cards for fact in c.card.facts}
+    assert "Spanish > English, typed, 1 line" in tb.t["earlier"].currentItem().text()
     assert "does not show that a translation is correct" in tb.t["note"].text()
-    tb.t["table"].selectRow(1)
-    tb.t["use"].click()
-    assert window.translator.currentData() == tb.shown[bench.TRANSLATORS].ids[1]
+    other = next(c for c in cards if c.use.isEnabled())
+    other.use.click()
+    assert window.translator.currentData() == other.card.ident
     from PySide6.QtGui import QGuiApplication
 
     tb.t["copy"].click()
@@ -297,9 +302,9 @@ def test_translators_are_compared_on_what_a_recognizer_hears(tb):
     assert tb.t_run.isEnabled()
     tb.t_run.click()
     settle(tb)
-    got = rows(tb.t["table"])
-    assert [(r[0], r[2]) for r in got] == [("Buenos días.", "Good morning."), (ES, "Where does it hurt?")]
-    assert "talk.wav, as heard by" in tb.t["earlier"].currentText()
+    assert tb.t["cards"][0].card.lines == [("Buenos días.", "Good morning."), (ES, "Where does it hurt?")]
+    assert tb.t["tested"].text() == "", "two sentences: each stays beside its translation"
+    assert "talk.wav, as heard by" in tb.t["earlier"].currentItem().text()
     assert tb.log[0] == "closed whisper-large-v3-turbo", "the recognizer is released before a translator is loaded"
 
 
@@ -329,9 +334,84 @@ def test_the_last_comparison_is_there_when_the_bench_is_opened_again(tb, window)
     tb.t_run.click()
     settle(tb)
     again = TestBench(window, tb.worker)
-    assert rows(again.t["table"]) == rows(tb.t["table"]) and again.t["copy"].isEnabled()
-    assert again.r["earlier"].currentText() == "Nothing compared yet." and not again.r["earlier"].isEnabled()
+    assert names(again.t) == names(tb.t) and again.shown[bench.TRANSLATORS] is not None
+    assert again.r["none"].isVisibleTo(again) and not again.r["earlier"].isVisibleTo(again)
+    assert again.shown[bench.RECOGNIZERS] is None and again.r["stack"].currentIndex() == 0
     again._timer.stop()
+
+
+# ---------------------------------------------------------------- knowing what to do next
+
+
+def test_the_step_to_do_next_is_lit_and_the_answer_side_says_the_same(tb):
+    assert states(tb.r_steps) == [bench.NOW, bench.LATER, bench.OPTIONAL, bench.LATER]
+    assert tb.r["empty"].text() == tb.r_reason.text() and "Record something" in tb.r["empty"].text()
+    tb.r_sound.set_audio(CLIP, "a recording")
+    assert states(tb.r_steps) == [bench.DONE, bench.NOW, bench.OPTIONAL, bench.LATER]
+    tick_models(tb.r_models, "turbo")
+    assert states(tb.r_steps) == [bench.DONE, bench.DONE, bench.OPTIONAL, bench.NOW]
+    assert tb.r["empty"].text().startswith("Ready.") and not tb.r_reason.isVisibleTo(tb)
+    tb.r_reference.setPlainText(SAID)
+    assert states(tb.r_steps)[2] == bench.DONE
+    tb.tabs.setCurrentIndex(1)
+    tb.t_text.setPlainText(ES)
+    assert states(tb.t_steps)[:2] == [bench.DONE, bench.NOW]
+    tb.t_from_sound.setChecked(True)
+    assert states(tb.t_steps)[0] == bench.NOW, "the speech hasn't been given yet"
+
+
+def test_clicking_anywhere_on_a_models_row_ticks_it(tb):
+    from PySide6.QtTest import QTest
+
+    box, item = tb.r_models, tb.r_models.item(0)
+    box.resize(400, 200)
+    QTest.mouseClick(box.viewport(), Qt.MouseButton.LeftButton, pos=box.visualItemRect(item).center())
+    assert item.checkState() == Qt.CheckState.Checked
+    QTest.mouseClick(box.viewport(), Qt.MouseButton.LeftButton, pos=box.visualItemRect(item).center())
+    assert item.checkState() == Qt.CheckState.Unchecked
+
+
+# ---------------------------------------------------------------- earlier comparisons
+
+
+def compared(tb, words) -> None:
+    tb.t_text.setPlainText(words)
+    tick_models(tb.t_models, "Gemma")
+    tb.t_run.click()
+    settle(tb)
+
+
+def test_earlier_comparisons_are_listed_found_and_shown_again(tb):
+    compared(tb, ES)
+    compared(tb, "Buenos días.")
+    listed = tb.t["earlier"]
+    assert listed.count() == 2 and listed.currentRow() == 0, "newest first, and it is the one shown"
+    assert tb.t["tested"].text() == "Buenos días."
+    listed.setCurrentRow(1)
+    assert tb.t["tested"].text() == ES
+    tb.t["search"].setText("nothing like this")
+    assert listed.item(0).isHidden() and listed.item(1).isHidden()
+    tb.t["search"].setText("spanish TYPED")
+    assert not listed.item(0).isHidden() and not listed.item(1).isHidden()
+
+
+def test_a_comparison_is_deleted_only_after_asking_and_stays_deleted(tb, tmp_path):
+    tb.tabs.setCurrentIndex(1)
+    compared(tb, ES)
+    compared(tb, "Buenos días.")
+    tb.t["delete"].click()
+    assert tb.t["confirm"].isVisibleTo(tb) and tb.t["earlier"].count() == 2, "nothing is gone yet"
+    tb.t["delete_no"].click()
+    assert not tb.t["confirm"].isVisibleTo(tb) and tb.t["earlier"].count() == 2
+    tb.t["delete"].click()
+    tb.t["delete_yes"].click()
+    assert tb.t["earlier"].count() == 1 and tb.t["tested"].text() == ES, "the next one takes its place"
+    assert len(bench.History.load(tmp_path).of(bench.TRANSLATORS)) == 1
+    tb.t["delete"].click()
+    tb.t["delete_yes"].click()
+    assert tb.shown[bench.TRANSLATORS] is None and tb.t["stack"].currentIndex() == 0 and tb.t["cards"] == []
+    assert tb.t["none"].isVisibleTo(tb) and not tb.t["delete"].isVisibleTo(tb)
+    assert bench.History.load(tmp_path).of(bench.TRANSLATORS) == []
 
 
 # ---------------------------------------------------------------- whole set

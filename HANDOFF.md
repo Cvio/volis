@@ -77,6 +77,13 @@ P20.** U1 to U7 are built; the old window is gone.
   file adds it. `Never save` sends nothing and keeps nothing. **Combining:** `open_file` recognises the other
   computer's copy (both two-computers, same day, at least half the shorter one's sentences match from the other
   side) and adds the audio this copy lacks. Clocks a day apart, across midnight, open as a separate conversation.
+- **Test bench redesigned (after U7, the user's choices):** numbered steps on the left with the next one lit
+  (`bench.step_states`; none is locked), the action button always in sight, the answer on the right. Results are
+  cards, closest to the given text first (`bench.cards`, read from the kept rows, so old comparisons show the same
+  way); with nothing to compare against they stay in the order they ran, and "Closest to your text" appears only
+  when two or more scores differ. A card's own button replaces choosing a row and then pressing Use. Earlier
+  comparisons are an always-visible list with search and Delete (asks first, as Saved does; `History.remove`).
+  Model lists are tick rows, not the mockup's chips: Qt has no wrapping layout and long names filled a line anyway.
 
 ## Priorities (2026-10-10)
 

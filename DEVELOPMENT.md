@@ -105,9 +105,10 @@ lists as left out.
 | **Translators** | Which one translates this best? | Text you type or paste, or a recording or an audio file (one recognizer writes it down first, and every translator gets the same words). If you also paste a translation you trust, each is scored against it. |
 | **Whole set** | Will this recognizer, translator and voice run together on this computer? | Your choice of the three. It answers at once, without loading anything, and can then time the set on a recording. |
 
-It works only while no conversation is running, because it needs the same memory. Tick the models,
-press **Compare**, and wait: models are loaded one at a time. **Cancel** stops after the model that is
-running. To use one, click its row and press **Use in the conversation**.
+It works only while no conversation is running, because it needs the same memory. Each tab has numbered
+steps on the left, with the one to do next lit, and the answer on the right. Models are loaded one at a
+time. **Cancel** stops after the model that is running. Each model's result is a card, the closest to your
+text first; to use one, press **Use in the conversation** on its card.
 
 - **Letters wrong** and **Words wrong** (recognizers): how far what was heard is from the text you
   typed. Lower is better.
@@ -115,8 +116,8 @@ running. To use one, click its row and press **Use in the conversation**.
   means closer, not "correct": a good translation in different words scores lower.
 - **Time** and **Speed**: how long the model took, without the time to load it.
 
-Every comparison is kept. The list above the table shows earlier ones, and **Copy as a table** copies
-the one on screen.
+Every comparison is kept under **Earlier comparisons**: click one to see it again, search them, or press
+**Delete** to remove the one on screen. **Copy as a table** copies it.
 
 ## The performance panel
 
