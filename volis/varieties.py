@@ -1,12 +1,9 @@
 """Languages and their varieties (dialects), by BCP 47 tag.
 
-Port of Rust `varieties.rs`, with the same table. A tag is a language,
+A tag is a language,
 optionally with a region: `es` is Spanish with no particular dialect, `es-MX`
 is Mexican Spanish. Adding a dialect means adding one row to `TABLE`. A tag
 that isn't in the table is an error shown to the user, not a silent fallback.
-
-The table must stay identical to Rust's: both apps read the same `volis.toml`,
-and a tag one knows and the other doesn't would break the shared file.
 """
 
 from __future__ import annotations
@@ -55,8 +52,7 @@ def require(tag: str) -> Variety:
         known = ", ".join(v.tag for v in TABLE)
         raise ValueError(
             f'"{tag.strip()}" is not a language or variety Volis knows. Known: {known}. '
-            "To add one, add a row to volis/varieties.py and to volis-rust's "
-            "src/varieties.rs."
+            "To add one, add a row to volis/varieties.py."
         )
     return found
 

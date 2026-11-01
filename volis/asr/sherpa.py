@@ -1,10 +1,9 @@
-"""The sherpa backend: engine.toml folders through sherpa-onnx 1.13.8, configured
-exactly as Rust `asr.rs` configures them, so the text is identical.
+"""The sherpa backend: engine.toml folders through sherpa-onnx 1.13.8.
 
 Parakeet (nemo_transducer) decides the language itself and ignores the one
 it's told. Whisper has the language baked in when its recognizer is created,
-and creating one loads the model, so a recognizer is kept per language, as in
-Rust (shared-machine mode alternates two languages every turn).
+and creating one loads the model, so a recognizer is kept per language
+(shared-machine mode alternates two languages every turn).
 """
 
 from __future__ import annotations
@@ -21,7 +20,7 @@ from . import AsrError, AsrResult, Memory
 
 log = logging.getLogger(__name__)
 
-# Rust's NUM_THREADS: measured on the i7-12700H laptop, 6 threads (the
+# Measured on the i7-12700H laptop, 6 threads (the
 # performance cores) beat both 2 and 12.
 NUM_THREADS = 6
 
@@ -122,7 +121,7 @@ class WhisperAsr:
                 task="transcribe",
                 num_threads=NUM_THREADS,
                 provider="cpu",
-                # Rust passes 0; the Python binding's default is -1.
+                # The Python binding's default is -1.
                 tail_paddings=0,
                 enable_token_timestamps=False,
                 enable_segment_timestamps=False,

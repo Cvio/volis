@@ -1,16 +1,15 @@
 """Audio capture: device enumeration and a capture thread that hands the rest
 of the pipeline 16 kHz mono float32.
 
-Port of Rust `audio.rs`, on sounddevice (PortAudio) instead of cpal.
-Resampling happens here, once, at the capture boundary. Every stage
+On sounddevice (PortAudio). Resampling happens here, once, at the capture boundary. Every stage
 downstream may assume 16 kHz mono float32 in [-1.0, 1.0] and nothing else.
 
-Devices are the Windows WASAPI ones: cpal's default host on Windows is WASAPI,
-so these are the names volis-rust lists and `[audio].input_device` holds.
+Devices are the Windows WASAPI ones: these are the names `[audio].input_device`
+holds.
 (PortAudio also lists each device under MME, DirectSound and WDM-KS, where
 MME truncates names to 31 characters.)
 
-Two threads, as in Rust:
+Two threads:
 
 * PortAudio's callback runs on the device's own thread. It downmixes to mono
   and hands the samples off. It never resamples and never blocks: if the queue
@@ -52,7 +51,7 @@ class Device:
 
     name: str
     is_default: bool
-    # Native configuration, as text for display, in cpal's words.
+    # Native configuration, as text for display.
     default_config: str | None
     index: int = -1
 
@@ -94,7 +93,7 @@ def _wasapi() -> dict:
             return {"index": index, **api}
     if sys.platform == "win32":
         raise AudioError("PortAudio lists no Windows WASAPI host API")
-    # Elsewhere, PortAudio's default host API plays the part cpal's does.
+    # Elsewhere, PortAudio's default host API.
     index = sd.default.hostapi
     return {"index": index, **sd.query_hostapis(index)}
 
@@ -113,7 +112,7 @@ def _list_now(kind: str) -> list[Device]:
         if device["hostapi"] != api["index"] or device[channels_key] < 1:
             continue
         # WASAPI shared mode always hands over float32 at the mix format's
-        # channels and rate, which is what cpal reports as the default.
+        # channels and rate.
         config = f"{device[channels_key]} ch, {int(device['default_samplerate'])} Hz, F32"
         devices.append(Device(device["name"], device["index"] == default, config, device["index"]))
     return devices
@@ -124,7 +123,7 @@ def list_input_devices() -> list[Device]:
 
 
 def list_output_devices() -> list[Device]:
-    """Output devices beside input ones, as in Rust: the two lists are read and
+    """Output devices beside input ones: the two lists are read and
     printed together."""
     return _list("output")
 
@@ -157,7 +156,7 @@ def downmix(data: np.ndarray, channels: int) -> np.ndarray:
 
 
 def to_float(data: np.ndarray) -> np.ndarray:
-    """Integer PCM to float32 in [-1, 1], the way cpal's FromSample does."""
+    """Integer PCM to float32 in [-1, 1], scaled by the type's range."""
     if data.dtype.kind == "f":
         return data.astype(np.float32, copy=False)
     if data.dtype.kind == "i":
@@ -170,8 +169,7 @@ def to_float(data: np.ndarray) -> np.ndarray:
 
 
 class Resampler:
-    """Streaming resampler to 16 kHz mono (soxr). Rust uses sherpa-onnx's
-    linear resampler here; soxr is a better filter (see HANDOFF.md)."""
+    """Streaming resampler to 16 kHz mono (soxr)."""
 
     def __init__(self, from_rate: int) -> None:
         self.from_rate = from_rate

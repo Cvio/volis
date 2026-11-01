@@ -1,4 +1,4 @@
-"""The recognizers, on the fixtures. Like Rust's `#[ignore]` model tests, these
+"""The recognizers, on the fixtures. These
 run only when the models and fixtures are present (skipped otherwise). GPU
 models are loaded one at a time and released."""
 

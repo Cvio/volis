@@ -1,8 +1,7 @@
 """What the events do to the window. No Qt in this file: it is plain Python,
-unit-tested, and `window.py` only draws it. Port of Rust `gui::Session`.
+unit-tested, and the window only draws it.
 
-One difference in shape from Rust: a caption there is an utterance with one
-translation; here a row is a sentence (volis translates per sentence), and
+A row is a sentence (volis translates per sentence), and
 the same rows are the live captions and the file timeline. Turn-taking,
 pairing and the shared machine join at P6, P9 and P10.
 """
@@ -14,7 +13,7 @@ from dataclasses import dataclass, field
 
 from .. import events as ev
 
-# Lines kept in the pane (Rust's MAX_LINES).
+# Lines kept in the pane.
 MAX_LINES = 200
 
 STOPPED, STARTING, LISTENING = "stopped", "starting", "listening"
@@ -212,9 +211,7 @@ class Session:
     def _follow_turn(self, event) -> None:
         """A turn is finished when everything it produced has run its course:
         every sentence translated or refused and, when replies are spoken,
-        every translation spoken and the voice silent again. Rust's rule (the
-        reply finishing, or any reason there will be no reply), for a turn
-        that can hold several sentences."""
+        every translation spoken and the voice silent again."""
         if isinstance(event, ev.Mode):
             self.mode = event.kind
             self._reset_turn()
@@ -432,7 +429,7 @@ class KeyEdges:
 
 class TurnKey:
     """Whether the turn key is down, kept by volis itself, so that a held
-    key is one press however its repeats arrive (Rust's TurnKey)."""
+    key is one press however its repeats arrive."""
 
     def __init__(self) -> None:
         self.down = False
@@ -470,8 +467,7 @@ def turn_key_action(style: str, turn: str, edges: KeyEdges, holding: bool, focus
 
 
 def indicator(s: Session, key: str, hold: bool, paused: bool = False, file_mode: bool = False) -> tuple[str, str]:
-    """The big state label and its colour, readable from across a desk
-    (Rust's indicator)."""
+    """The big state label and its colour, readable from across a desk."""
     grey, slate, red, amber, green, blue = "#464a52", "#344e6e", "#c42828", "#be7d14", "#268246", "#2864aa"
     if s.state == STOPPED:
         return "STOPPED", grey

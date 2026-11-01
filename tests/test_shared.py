@@ -1,4 +1,4 @@
-"""Port of the tests in Rust `shared.rs`: which side pressed, and so where
+"""Two people at one computer: which side pressed, and so where
 the turn's words go."""
 
 from pathlib import Path

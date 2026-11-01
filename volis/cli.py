@@ -1,4 +1,4 @@
-"""Command line. Port of Rust `cli.rs` and `main.rs`.
+"""Command line.
 
 Deliberately small: the window is where the controls belong. These flags
 exist so each milestone can be checked from a shell. Commands arrive with the
@@ -308,7 +308,7 @@ def run_translate(root: Path, config: Config, command: Command) -> int:
     try:
         if command.name == "print-prompt":
             # Bytes, so Windows doesn't turn LF into CRLF: the prompt is
-            # compared byte for byte with Rust's.
+            # shown byte for byte.
             sys.stdout.flush()
             sys.stdout.buffer.write(translator.prompt(request).encode("utf-8"))
             sys.stdout.buffer.flush()
@@ -395,8 +395,7 @@ class _Utc(logging.Formatter):
 
 
 def init_logging(root: Path) -> None:
-    """stdout plus `<root>/logs/volis.log.<date>`, as Rust does with
-    `volis.log.<date>`. If the folder can't be created, stdout alone."""
+    """stdout plus `<root>/logs/volis.log.<date>`. If the folder can't be created, stdout alone."""
     formatter = _Utc("%(asctime)s %(levelname)5s %(name)s: %(message)s")
     handlers: list[logging.Handler] = [logging.StreamHandler(sys.stdout)]
     logs = paths.logs_dir(root)

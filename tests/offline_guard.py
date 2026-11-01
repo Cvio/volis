@@ -8,7 +8,7 @@ An attempt to reach anything but loopback, private (RFC 1918), link-local or
 unique-local addresses raises, and is also written to stderr as a line
 starting `OFFLINE-GUARD:` with the address and the Python stack that made it,
 so a library that catches the error and carries on is still caught. Local
-addresses stay allowed: paired mode uses them, under the Rust rule "would it
+addresses stay allowed: two computers use them, under the rule "would it
 still work with the WAN cable unplugged and no DNS server on the segment?".
 Name lookups are allowed only for "localhost" and literal IP addresses; any
 other name would need a DNS server.

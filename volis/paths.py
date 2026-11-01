@@ -1,6 +1,6 @@
 """Every path in volis derives from the application's own location.
 
-Port of Rust `paths.rs`. Never the current working directory, never
+Never the current working directory, never
 `%APPDATA%`, `%LOCALAPPDATA%` or `~/.cache`. `app_root()` is the *only*
 path-derivation function; every other location is a join off it, and those
 joins live here too so there is one place to read.
@@ -47,7 +47,7 @@ def strip_verbatim(path: Path) -> Path:
 
 
 def config_file(root: Path) -> Path:
-    """`<root>/volis.toml` - user selections, shared with volis-rust."""
+    """`<root>/volis.toml` - user selections."""
     return root / "volis.toml"
 
 
@@ -62,7 +62,7 @@ def in_progress_dir(root: Path) -> Path:
 
 
 def python_config_file(root: Path) -> Path:
-    """`<root>/volis-python.toml` - settings volis-rust doesn't have."""
+    """`<root>/volis-python.toml` - every other setting."""
     return root / "volis-python.toml"
 
 

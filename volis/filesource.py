@@ -3,7 +3,7 @@ reads, decoded with PyAV (its wheels include the decoders) and brought to
 16 kHz mono float32 the same way the microphone is: averaged to mono, then
 resampled with `audio.Resampler`.
 
-New in volis (volis-rust has no file input). The file becomes an audio
+The file becomes an audio
 source in place of the microphone, so everything after it is the live
 pipeline. Pacing (real time or fast) and pause arrive with file mode at P4.
 """

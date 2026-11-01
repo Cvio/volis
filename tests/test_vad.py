@@ -1,5 +1,4 @@
-"""Port of the tests in Rust `vad.rs`. Rust marks the model tests `#[ignore]`
-and takes paths from the environment; here they run whenever
+"""The speech detector. The tests run whenever
 models/vad/silero_vad.onnx and the fixtures (tests/fetch-fixtures.ps1) are
 present, and are skipped otherwise."""
 
@@ -66,7 +65,7 @@ def test_segment_timings_are_derived_from_the_sample_rate():
 def test_silence_produces_no_segments():
     segmenter = Segmenter(settings())
     silence = np.zeros(10 * SAMPLE_RATE, np.float32)
-    # A deterministic low-level hiss at about -60 dBFS, as Rust's test.
+    # A deterministic low-level hiss at about -60 dBFS.
     noise, hiss = 0.0, np.empty(10 * SAMPLE_RATE, np.float32)
     for i in range(len(hiss)):
         noise = (noise * 7.0 + 0.3) % 1.0

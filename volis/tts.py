@@ -1,4 +1,4 @@
-"""Speech synthesis through sherpa-onnx's OfflineTts. Port of Rust `tts.rs`.
+"""Speech synthesis through sherpa-onnx's OfflineTts.
 
 Which voice speaks is decided by language, not by a setting: the voice is the
 discovered model that declares the target language, best fit first (tuned for
@@ -20,7 +20,7 @@ from .models import Engine
 
 log = logging.getLogger(__name__)
 
-# Rust's NUM_THREADS: synthesis runs while the recognizer may be working.
+# Synthesis runs while the recognizer may be working.
 NUM_THREADS = 2
 
 

@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QApplication, QLineEdit, QPlainTextEdit
 
 from . import session as ses
 
-# [mode].turn_key in volis.toml uses egui's key names (it is Rust's file).
+# [mode].turn_key in volis.toml uses these key names.
 KEY_NAMES = {
     "Space": Qt.Key.Key_Space, "Enter": Qt.Key.Key_Return, "Tab": Qt.Key.Key_Tab, "Escape": Qt.Key.Key_Escape,
     "ArrowLeft": Qt.Key.Key_Left, "ArrowRight": Qt.Key.Key_Right, "ArrowUp": Qt.Key.Key_Up,

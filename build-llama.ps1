@@ -12,7 +12,7 @@
 #
 # Needs Visual Studio Build Tools (C++), which include CMake, and the internet
 # to fetch the source from PyPI. GGML_NATIVE=OFF keeps the build portable to
-# other CPUs (copy-to-run); OpenMP and curl are off, as in volis-rust's build.
+# other CPUs (copy-to-run); OpenMP and curl are off.
 
 param([switch]$Cuda)
 $ErrorActionPreference = "Stop"
@@ -44,7 +44,7 @@ if ($Cuda) {
     $out = Join-Path $out "cuda"
     $gpu = "ON"
     # CUDA 12.9's headers refuse compilers newer than Visual Studio 2022; the flag lifts that
-    # check. The result is tested against the CPU build (parity/translate.py).
+    # check.
     $cudaFlags = "-DCMAKE_CUDA_FLAGS=-allow-unsupported-compiler"
     # Ninja, because the Visual Studio generator needs the toolkit's MSBuild integration.
     $ninja = Join-Path $vs "Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja"

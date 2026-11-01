@@ -1,225 +1,9 @@
-# Instructions: volis, the next features (P13 to P20)
+# The plan: features not built yet (P18 to P20)
 
-For Claude Code, in the volis repo (`D:\AI_Data\projects\volis`). P0 to P12 are done. This file
-adds eight milestones. Each one makes the app better for the people it's meant for:
-**non-technical users who want to talk to a friend or colleague and have no interpreter.**
-
-Read this whole file before writing any code. Then read `CLAUDE.md`, `HANDOFF.md`,
-`SETTINGS.md` and `MODELS.md`, and the modules each milestone names.
-
----
-
-## How to work on this
-
-- `CLAUDE.md`'s rules all still apply: offline at runtime, no separate services, one path
-  function, everything inside the app folder, new settings in `volis-python.toml` (never
-  `volis.toml`), tests passing at every commit.
-- **Build in the milestone order below. Stop after each milestone,** show its check passing, and
-  wait for the user to say go on.
-- **Before P13, summarise back** what you understood of all eight milestones, and list anything
-  in this file that conflicts with the code as it is. This file was written from reading the
-  code, not from running every path in it.
-- **Verify before you rely.** Where this file says "verify" (beam search alternatives, seq2seq
-  model classes, language codes), check the installed library's behaviour and report it before
-  building on it.
-- **The window's logic stays out of Qt,** as now: new state goes in `gui/session.py` or a new
-  Qt-free module, with tests. Qt only draws it.
-- Record every new setting in `SETTINGS.md`, every user-facing change in `README.md` (plain
-  words), and every milestone in `HANDOFF.md`.
-
-## Who this is for
-
-Every decision in the window below follows from this. A typical user opens volis, picks two
-languages, presses Start and talks. They don't know what a recognizer or a GGUF is, and they
-shouldn't need to. Everything technical stays **available**, but out of the way.
-
----
-
-## P13 — Rescan models and devices without restarting
-
-**Why:** adding or fixing a model (say, re-downloading a broken folder) currently means closing
-and reopening the app. volis-rust has a rescan. volis never got one.
-
-- A **Rescan** button, plus `F5` and a menu entry under *View*.
-- It re-runs model discovery for recognizers, translators and voices, and re-lists microphones and
-  speakers. Every dropdown updates. New entries appear, removed ones disappear, and broken ones
-  show their reason, as `--report` does.
-- **While stopped:** if the currently selected model or device is gone, select the best
-  remaining match (the same ranking as now), and show one plain line saying what changed and why.
-- **While running:** Rescan is allowed for devices and lists, but never unloads a model in use.
-  Changes to the selection apply at the next Start.
-- Models already loaded stay loaded.
-
-**Check:** with the app open and stopped, add a model folder and press Rescan. It appears. Rename
-it and press Rescan. It disappears, and if it was selected, the line says so. Plug in a headset
-and press Rescan. It appears in both device lists.
-
----
-
-## P14 — The window, for non-technical users
-
-Eight changes to `gui/window.py`. Make a screenshot before and after (`scripts/window_check.py`
-already renders the window offscreen) and put both in `HANDOFF.md`.
-
-1. **Basic and Advanced.** The visible settings are only:
-   - the two languages, with a **swap button** between them (item 3);
-   - the recognizer and the translator;
-   - the microphone and the speakers, each with a **Test** button (item 6);
-   - "Speak translations" on or off;
-   - the mode: take turns, continuous, or shared machine.
-
-   Everything else goes in an **Advanced** section that starts closed and remembers whether the
-   user opened it: half-duplex, vowel marks, comparing recognizers, streaming, context, revision,
-   hold-speech, fragment joining, glossary, pairing.
-2. **A conversation view while running.** Nothing can be changed while a conversation runs, so
-   once Start is pressed, the settings fold away into a slim bar showing the two languages and
-   the two models. The transcript takes the space, with larger text. A text-size control
-   (A− / A+) is kept in that bar and remembered.
-3. **Swap languages:** a ⇄ button between "Spoken" and "Translate into" swaps them in one click.
-   It isn't needed in shared mode, where each side has its own language.
-4. **Plain model names.** Dropdowns show a short, readable name ("Whisper turbo — many
-   languages", "Gemma 4 E4B — good for Arabic"), and the technical details (folder, file,
-   quantization, backend, size) go in a tooltip that appears on hover. The name comes, in order,
-   from:
-   - the model folder's `volis-python.toml` `name`;
-   - the recommendations file (P20), if it exists by then;
-   - a cleaned-up folder name: strip `-GGUF`, quantization tags and file extensions, and replace
-     dashes with spaces.
-
-   `fetch_models.py` writes a plain `name` for every model it downloads.
-5. **Start and Stop is the big control.** A large button whose label and colour show the state
-   (*Start* / *Listening… press to stop* / *Paused*), with the shortcut key written under it.
-   This replaces the small Start button next to the large "STOPPED" banner.
-6. **Test buttons.**
-   - **Test speakers** says a short sentence in the target language through the chosen speakers
-     and voice.
-   - **Test microphone** records 3 seconds, shows the level while recording, then plays it back
-     and shows what the recognizer heard.
-
-   They're disabled while running.
-7. **Say why something is greyed out.** Every disabled control has a one-line reason, as a tooltip
-   and as small text beside it. For example: "Needs 'Revise earlier translations'".
-8. **A warning before it won't fit.** Using the estimates the performance panel already has, show
-   a warning next to the recognizer and translator when the chosen combination likely won't fit
-   in memory, or will be too slow for conversation, **before** Start is pressed. One plain
-   sentence, with the numbers in the tooltip.
-
-**Check:** the before and after screenshots. A first-time user, the user's own test, can choose
-languages and start a conversation without opening Advanced. Every disabled control explains
-itself. The tests for `gui/session.py` cover the new states.
-
----
-
-## P15 — Type or paste text to translate
-
-**Why:** for noisy rooms, names, addresses and numbers; and to test a translator directly, for
-example against Google Translate, without speaking.
-
-- A **text box** below the transcript: type or paste, press Enter or **Translate**. It uses the
-  current languages and translator, and the result is added to the transcript as a row marked as
-  typed. "Speak translations" applies.
-- **Several lines** at once: each line becomes its own row.
-- **Compare mode** (a checkbox by the box): the text goes through 2 or 3 chosen translators, side
-  by side, with the time each took and its device (GPU or CPU). Translators load on demand, one
-  at a time if they don't fit together, as `--compare` does for recognizers.
-- **Reference:** an optional second box for a reference translation (Google's, or a person's).
-  Each translator's output is scored against it with chrF, the same scoring as file mode
-  (`scoring.py`). The page says plainly that the score shows closeness to that reference, not
-  correctness.
-- Typed rows are exported and logged like spoken ones.
-- Command line, already there: `--translate`. Add `--compare-mt <id,id,...>` for the same compare
-  mode from a terminal.
-
-**Check:** a Persian, an Arabic and a Spanish sentence, each through two translators with a
-reference, show both outputs, the scores and the timings.
-
----
-
-## P16 — The Persian clean-up step
-
-**Why:** Persian recognition is often good while the translation comes out odd. Three things in
-the recognizer's text can mislead a translator. A clean-up step between recognition and
-translation fixes the first two. The third is a model question (P17).
-
-1. **Arabic look-alike letters.** Arabic ي and ك become Persian ی and ک. Also Arabic ة and ۀ
-   forms where the Persian standard differs. Use a published normalisation table, and name the
-   source in the code.
-2. **The half-space (zero-width non-joiner, U+200C).** Persian joins word parts with it:
-   می‌خواهم ("I want") is one word. Recognizers often write a normal space (می خواهم) or nothing at
-   all (میخواهم). Repair the standard cases:
-   - the prefixes می / نمی before a verb;
-   - the plural ها / های;
-   - the comparatives تر / ترین;
-   - the possessive and pronoun endings after a word that ends in ه.
-
-   Use a published rule set, for example the one in the `hazm` library's normalizer. Either use
-   `hazm`'s normalizer directly, if it installs cleanly in this environment with no network at
-   runtime and no large dependencies, or port its rules, with the source named. Report which
-   before building on it.
-3. **Digits and punctuation:** Arabic-Indic and Persian digits stay as they are in what's shown,
-   but are handled consistently. Keep the original text, so nothing the user sees is silently
-   altered.
-
-**Where it runs:** on recognized and typed Persian text, after the hallucination guards and before
-translation, when the source language is `fa`. The transcript shows the cleaned text, with the
-original in a tooltip. Setting: `[text] persian_cleanup = true` in `volis-python.toml`, on by default.
-
-**Measure it.** The Persian FLEURS fixtures already have aligned English references. Run each
-installed recognizer and translator on them with the clean-up off and on, and report chrF both
-ways in `HANDOFF.md`. If it makes things worse anywhere, say so and keep it switchable.
-
-**Check:** unit tests for each rule, with real examples. The measurement above.
-
----
-
-## P17 — Seq2seq translators: MADLAD, NLLB and similar
-
-**Why:** dedicated translation models often translate languages like Persian better than small
-chat models, because translation is all they were trained for. volis lists them as unusable
-today, because every translator backend expects a chat model.
-
-**What they are:** models that take text in one language and produce its translation, with no
-chat format and no instructions. The language is chosen by a code:
-- **MADLAD-400** (T5): a prefix token on the input, like `<2fa>` for "into Persian";
-- **NLLB-200** (M2M100): a source-language setting, and the target language forced as the first
-  output token, with codes like `pes_Arab`, `arb_Arab` and `acm_Arab` (Mesopotamian, that is,
-  Iraqi, Arabic);
-- **Marian / OPUS-MT:** one model per language pair.
-
-**Build:**
-
-- **Discovery:** a folder in `models\mt\` with a `config.json` whose `model_type` is a text
-  seq2seq family (`t5`, `mt5`, `m2m_100`, `marian` and the like). **Check the class:** a
-  *text*-to-text model, never a *speech* seq2seq model, which belongs to recognizers. List it in
-  `--report` with its family and the languages it supports.
-- **A new backend, `seq2seq`,** in `translate/seq2seq.py`, through `transformers`
-  (`AutoModelForSeq2SeqLM`). It implements the existing `Translator` interface, and outputs go
-  through the same cleaning and the guards that apply: empty, echo and too-long. The "recited the
-  prompt" guard doesn't apply, since there's no prompt.
-- **Language codes:** a table per family, mapping volis's tags and varieties to the model's
-  codes. For example, NLLB `ar-IQ` → `acm_Arab`, `ar` → `arb_Arab`, `fa` → `pes_Arab`. **Verify
-  every code** against the model's own tokenizer or config, and refuse, with a clear message, a
-  language the model doesn't have. A variety the model lacks falls back to its base language,
-  with a note in the transcript row ("translated as Arabic: this model has no Iraqi").
-- **What it can't do,** said plainly in the window and `SETTINGS.md`: no context from earlier
-  sentences, no glossary in the prompt, no dialect instruction. Each sentence is translated on
-  its own. The glossary still works as an **after-check** (P19), flagging a translation that
-  didn't use a glossary term.
-- **Memory:** check it fits before loading, as other backends do. MADLAD 10B won't fit on 8 GB.
-  MADLAD 3B and NLLB 1.3B should. GPU in float16, otherwise CPU.
-- **Faster versions, verify first:** CTranslate2 conversions (int8) of NLLB and MADLAD exist and
-  run much faster on the CPU. If the `ctranslate2` package installs cleanly and runs in-process,
-  add it as a second path for the same models (folders containing `model.bin` and a CTranslate2
-  config). Otherwise, report that and skip it.
-- `fetch_models.py` learns to fetch `google/madlad400-3b-mt` and
-  `facebook/nllb-200-distilled-1.3B` into `models\mt\`, with a `volis-python.toml` giving a plain
-  name. Note in `MODELS.md` that NLLB's license is non-commercial.
-
-**Check:** both models translate the Persian and Arabic fixtures, from text (P15's compare mode)
-and from a file. Add their chrF to `MODELS.md` next to the Gemma models, with the Persian
-clean-up on.
-
----
+Each one is for **non-technical users who want to talk to a friend or colleague and have no
+interpreter.** They shouldn't need to know what a recognizer or a GGUF is. `CLAUDE.md`'s rules all
+apply. Written before the current window: where it says Advanced, read the Developer settings page,
+and where it says a cell, read a bubble.
 
 ## P18 — Help, in plain words
 
@@ -240,7 +24,7 @@ clean-up on.
   - When something goes wrong.
 - **A small ? beside each option** opens its explanation.
 - **Pictures are made automatically** from the real window: a script (extend
-  `scripts/window_check.py`) puts the window in each state offscreen, takes the screenshots
+  `scripts/app_shots.py`) puts the window in each state offscreen, takes the screenshots
   into `help\images\`, and `build.ps1` runs it. Hand-made screenshots go out of date after the
   next change. These can't.
 - Arabic and Persian examples in the pictures display right to left.
@@ -400,15 +184,18 @@ the help pages. Offered once at first start, then always available from Help.
 recommends the Arabic one for the Arabic side and the general one for English, and says why.
 **Use recommended** sets both. The shared-machine tutorial runs from start to finish.
 
----
+## Notes for P19d, on hold
 
-## Not in this file, but noted for later
+**Automatic phrasebook use:** the 90% rule above is wrong in both directions. "Could I see the menu,
+please?" scores 88% against "Can I see the menu, please?" and misses, while "Can **we** see the
+menu, please?" scores 94% and passes. Proposed: use a stored translation automatically only on an
+exact match, ignoring punctuation and capitals; let one entry list several wordings; show a near
+match as a suggestion beside the model's translation.
 
-These came up, and were deliberately left out of this round. Record them in `HANDOFF.md` under
-"Later":
-- translating the computer's own sound (loopback capture), with an always-on-top caption window;
-- a replay button per row;
-- speaker labels in file mode (sherpa-onnx speaker diarization);
-- a full-screen "show the other person" view;
-- automatically saving every live session as a transcript, if export doesn't already cover live
-  sessions. **Check and record which.**
+**Kinds of glossary entry:** a word with two meanings can't be a fixed entry. Persian منو is "menu"
+and, far more often, the everyday "me". Proposed: add a *hint* ("X can also mean Y here"; chat
+translators only) and a *watch word* (show both readings and let a person choose). Whether a hint
+works is untested.
+
+**Not yet answered by the user:** the setting this is for, whether the speakers are from Iran or
+Afghanistan, who can check terms, and one row per term or a list per language pair.

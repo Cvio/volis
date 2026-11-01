@@ -83,7 +83,7 @@ def choose(files: list[str], role: str, include: list[str]) -> list[str]:
 
 
 def piper_engine(name: str, language: str, model: str, variety: str = "", note: str = "") -> str:
-    """The engine.toml of a Piper voice, as volis-rust's templates have it."""
+    """The engine.toml of a Piper voice."""
     variety_line = f'varieties = ["{variety}"]   # the dialect this voice speaks\n' if variety else ""
     return (f'name = "{name}"\nkind = "segment"\nbackend = "vits"\nlanguages = ["{language}"]\n{variety_line}\n'
             "# espeak-ng does the pronunciation for Piper voices. It is a directory, so it\n"
@@ -183,7 +183,6 @@ def main() -> int:
 
     target = REPO / "models" / args.role / (args.name or args.id.split("/")[-1])
     if args.role != "tts" and (target / "engine.toml").is_file():
-        # e.g. the volis-rust folder converted from this very model: same name.
         print(f"STOP: {target} is an engine.toml (sherpa-onnx) model folder. Give the download "
               "its own folder name with -Name.", file=sys.stderr)
         return 1

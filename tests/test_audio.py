@@ -1,4 +1,4 @@
-"""Port of the tests in Rust `audio.rs`, plus the file source."""
+"""Audio devices and capture, plus the file source."""
 
 from pathlib import Path
 

@@ -1,7 +1,6 @@
 """Translation: the interface the pipeline talks to, and loading.
 
-Port of the shape of Rust `translate.rs`. Every translator (llama.cpp GGUF
-now; transformers at P11) implements `Translator`, and every output passes
+Every translator implements `Translator`, and every output passes
 the same cleaning and the same three guards (`guards.py`), whichever model
 produced it.
 """
@@ -112,7 +111,7 @@ def system_text(prompt: PromptFile, request: TranslationRequest) -> str:
 
 
 def translate_checked(translator, request: TranslationRequest, generate, prompted: bool = True) -> TranslationResult:
-    """Rust's `Translator::translate` around any backend's raw generation:
+    """Around any backend's raw generation:
     unknown tags refused before any prompt is built, then clean, then the three
     guards. `generate(request)` returns the raw model output. `prompted=False`
     for a model with no prompt (seq2seq): nothing to recite, so that guard is
@@ -166,7 +165,7 @@ def model_file(entry: TranslatorEntry) -> Path:
 
 def choose(root: Path, wanted: str) -> TranslatorEntry:
     """The translator to use: `wanted` by its --report id, or else the file at
-    the top of models/mt/ (volis-rust's), or else the first usable one. A
+    the top of models/mt/, or else the first usable one. A
     translator asked for by name that isn't there is an error; volis never
     substitutes another."""
     from .. import models, paths

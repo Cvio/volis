@@ -1,4 +1,4 @@
-"""Port of the tests in Rust `ring.rs` and `compare.rs`."""
+"""The last few utterances, and comparing recognizers."""
 
 import numpy as np
 
@@ -78,8 +78,7 @@ def test_one_failing_engine_does_not_lose_the_others():
     assert c.runs[1].ok
 
 
-def test_the_table_is_rusts_line_for_line():
-    """parity/asr.py parses Rust's table; volis's must read the same way."""
+def test_the_table():
     c = compare.run_all(FakeEngines([Fake("parakeet", "hola")]), utterance(), "es")
     assert compare.format_table(c, "parakeet").splitlines() == [
         "utterance 1 at 0 ms - 1000 ms of audio",

@@ -40,8 +40,8 @@ from volis import scoring  # noqa: E402
 
 FIXTURES = REPO / "tests" / "fixtures" / "files"
 RUNS = [
-    ("es_419-to-en.wav", "es", "whisper-large-v3-turbo-es"),
-    ("ar_eg-to-en.wav", "ar", "gemma-4-E4B-it-GGUF"),
+    ("es_419-to-en.wav", "es", "whisper-large-v3-turbo"),
+    ("ar_eg-to-en.wav", "ar", "cohere-transcribe-arabic-07-2026"),
 ]
 
 

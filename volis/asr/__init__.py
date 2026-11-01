@@ -1,13 +1,13 @@
 """Speech recognition: the two interfaces the pipeline talks to, and loading.
 
-Port of the shape of Rust `asr.rs`. Whole-utterance recognizers (Whisper,
+Whole-utterance recognizers (Whisper,
 Parakeet, MMS, Cohere Transcribe) implement `SegmentAsr`; streaming
 recognizers implement `StreamAsr` (P7). Which backend runs a model is decided
 by discovery from the folder's contents (`models.py`); the pipeline never
 knows.
 
 Backends:
-  sherpa        engine.toml folders, through sherpa-onnx exactly as Rust (asr/sherpa.py)
+  sherpa        engine.toml folders, through sherpa-onnx (asr/sherpa.py)
   transformers  downloaded Hugging Face folders (asr/hf.py)
 """
 

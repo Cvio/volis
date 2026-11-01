@@ -1,1295 +1,200 @@
-# Handoff: where volis stands
+# Handoff
 
-> Renamed on 2026-10-03: this app was **pyvolis** and is now **volis** (package `volis`,
-> `volis.exe`); the Rust app was volis and is now **volis-rust**. The Python-only settings file
-> `pyvolis.toml` is now `volis-python.toml`, in the app folder and in model folders. Everything
-> below was rewritten with the new names, including the history: read "volis" in an entry
-> dated before the rename as the app then called pyvolis.
+What is open, and why the code is the way it is. Read `CLAUDE.md` first. Older detail is in git
+history. Last updated 2026-11-01.
 
-Last updated 2026-10-10. Read `CLAUDE.md` first, then `volis-next-features.md` (the plan in
-progress, P13 to P20). `volis-build.md` is the first plan, P0 to P12, and is finished.
-**What to do next is under "Priorities", just below.** Everything after it is the record of
-what was built and found.
+## Where it stands
 
-**In progress (2026-10-31): the new window, `volis-ui-plan.md`, stages U1 to U7, ahead of P18 to
-P20.** U1 to U7 are built; the old window is gone.
+Everything in `README.md` is built: the window, the three ways of talking, saving and sharing,
+opening recordings, the test bench and developer mode, and the ready-made folder. Still to build:
+P18 to P20 in `volis-next-features.md`.
 
-- **U1 done:** `gui/theme.py` (three themes, `[window].theme`, a test that every word stays readable),
-  `gui/bubbles.py` (what the conversation shows, no Qt), `gui/chat.py` (draws it),
-  `gui/app_window.py` (rail, top bar, pages), `gui/sample.py` (a conversation as real events, shown
-  until U2), `scripts/app_shots.py` (pictures). `Session.speaking_id` says which sentence to outline.
-  Sound, Microphone and "..." are greyed out until U2. Found while building: a Qt layout mirrors
-  left and right for a right-to-left widget unless `AlignAbsolute` is set, and a wrapped label's own
-  height estimate can add a blank line, so `chat._fit` measures it. `Session.MAX_LINES` still cuts a
-  conversation at 200 lines; U4 has to end that.
-- **U2 built:** `gui/talk.py` (what the Talk page offers and says, no Qt) and the real pipeline in
-  `gui/app_window.py`: the start screen, loading, the three ways of talking with their keys, typing,
-  Sound, the microphone meter and its silence warning, plain problems with Details, and Settings' Sound
-  and Hands-free. `[setup]` in `volis-python.toml` limits the ways and languages for a customer. The
-  models are read on a thread, so the window opens at once. Engine changes: `translate_typed` takes a
-  direction, so either person on a shared machine can type; `Pipeline.muted` lets Sound apply during a
-  conversation; `[vad].min_silence_ms` is now saved. `TurnKeyFilter`, `qt_key` and `KEY_SYMBOLS` are
-  imported from `window.py` and must move when it goes at U6.
-- **U3 built:** `clips.py` keeps each sentence's spoken translation and each utterance's original in
-  memory (`Options.clips`), and `Replay` plays one through a `Player`. A click on a bubble fills the
-  shared bar. During a conversation it plays through the conversation's own player, so the half-duplex
-  gate keeps hands-free from hearing its replay; afterwards through a player of the window's own. Speech
-  is now synthesised with the sound off too, so it can be listened to later. On two computers, a
-  person's own sentences have no translation audio here until U7 swaps it.
-- **U4 built:** `conversations.py`: `Keeper` updates `conversations\\in-progress` every 2 s (never with
-  `[saving] mode = "never"`); `recover` turns whatever a crash left there into an ordinary conversation
-  when Volis opens, rather than prompting. Saved page: list, search, rename, speakers, delete with a
-  confirmation, the same bubbles, a Translation/Original switch and Play all. Renaming changes the name
-  shown and the text file, not the folder. `Session.max_lines = None` in the new window: nothing is cut off.
-- **U5 built:** one Open (Start screen, Saved page, or dropping a file on the window); the file's name
-  decides what it is. A recording asks for its languages and runs through the ordinary pipeline from an
-  `ArraySource` at full speed, without streaming passes, muted, with its speech kept, then ends like any
-  conversation (`way = "recording"`, suggested name from the file). `conversations.py`: Share as a `.volis`
-  file (a zip of `conversation.json` and `audio\`), as text (UTF-8 with a BOM and CRLF, for Word and Notepad),
-  or as one WAV at 16 kHz with each original followed by its translation. `open_file` treats a `.volis` as
-  untrusted: every field's type is checked, only audio named as a `Keeper` names it is read, folder names
-  are cleaned, nothing is left behind on failure; opening the same conversation again selects it rather than
-  copying it. Engine change: `SpeakThread.submit` waits for a lossless source instead of dropping a sentence
-  when the queue is full, which `--file` with speech also gets.
-- **U6 built:** `gui/window.py` is gone and `app_window` opens by default. `gui/developer.py` (imported only with
-  `--developer`) holds Models and the Developer settings and hosts the test bench and performance panel, which
-  read from its `Hub` as they did from the old window. `gui/keys.py` holds the turn-key filter. `Volis
-  (developer).cmd` is the shortcut, relative so that it survives copying; `build.ps1 -Customer` leaves it out and
-  writes `[setup] developer = false`. Settings gained rescan, and Voice and Faster | More accurate from `[setup]`.
-  Bubbles now carry the Persian as-heard text and a revision's earlier wordings as tooltips, and say a sentence was
-  corrected. `[window] advanced_open` is accepted and ignored, so existing files still load.
-  Old-window tests of what no longer exists were deleted (`test_window`, `test_window_p14`, `test_window_p15`,
-  `test_shared_window`, and parts of `test_view` and `test_no_voice`); those for the bench, performance, rescan and
-  the turn key were moved over. `session.indicator` is now only used by tests of it, and can go.
-  **Left out of the new window:** switching way during a conversation; two computers listening continuously
-  (the plan's "two-way hands-free", for later); typing with no conversation running (the test bench compares
-  typed text, and typing works during a conversation); the found-computers buttons and Disconnect (U7);
-  picking a row's stretch of a recording to play (the bubble plays that sentence's original in Saved).
-- **U7 built:** wire protocol 3. **Accept:** someone dialled always waits for the wire's `Accept`; with
-  `ask_first` (the window) the person dialled is asked first, and two computers choosing each other need no
-  asking. Links waiting for this are pinged, or the read timeout would close them. **Nearby list:** the
-  discovery that already existed, as buttons; typing stays. **Swap:** ending sends `Ending`, which ends the
-  other side too; each then sends over the same connection, so no new firewall opening, the audio the other
-  lacks, base64 in lines: its originals, and the voice it spoke the other's words in. Sentences are named by
-  their translation's words, as the speech clips of remote lines already are, so the same words twice share
-  their audio. The pipeline stops at `SwapDone`, or after 30 s of nothing moving, or when the link drops.
-  A sentence still being translated or spoken as the conversation ends may miss the swap; opening the other's
-  file adds it. `Never save` sends nothing and keeps nothing. **Combining:** `open_file` recognises the other
-  computer's copy (both two-computers, same day, at least half the shorter one's sentences match from the other
-  side) and adds the audio this copy lacks. Clocks a day apart, across midnight, open as a separate conversation.
-- **Test bench redesigned (after U7, the user's choices):** numbered steps on the left with the next one lit
-  (`bench.step_states`; none is locked), the action button always in sight, the answer on the right. Results are
-  cards, closest to the given text first (`bench.cards`, read from the kept rows, so old comparisons show the same
-  way); with nothing to compare against they stay in the order they ran, and "Closest to your text" appears only
-  when two or more scores differ. A card's own button replaces choosing a row and then pressing Use. Earlier
-  comparisons are an always-visible list with search and Delete (asks first, as Saved does; `History.remove`).
-  Model lists are tick rows, not the mockup's chips: Qt has no wrapping layout and long names filled a line anyway.
-
-## Priorities (2026-10-10)
-
-Everything still open, sorted on 2026-10-09 from this file and the plan, and agreed by the user
-to be written here. The sorting is a judgement; where it depends on something not yet known,
-the line says so. Details of an item are where its milestone or the "Later" list has them.
+## Open
 
 ### Must have
 
-Mostly checks, not features: after P0 to P17 the largest unknown is whether what is built holds
-up away from this machine and with real people.
+Mostly checks, not features: the largest unknown is whether this holds up away from this machine
+and with real people.
 
 | Item | Who |
 |---|---|
-| **Rebuild the ready-made folder and run it on a second Windows PC** with no Python and no internet (`.\build.ps1`, `scripts\p12_check.py`, then "P12 findings"). Not rebuilt since P12; since then: the rescan, the new window, typed text, the Persian clean-up and its verb list in `config\`, the seq2seq translators, the test bench. | Rebuild and check here: Claude. The second PC: the user |
-| **The two-person modes with real people:** shared machine with two people at normal speaker volume, and two PCs paired. Neither has been used by people. (Pairing drops to "should" if it is not going to be used.) | The user |
-| **A first-time user starts a conversation without opening Advanced** (P14's own check). | The user |
-| **In-app help (P18):** plain-words pages, a ? beside each option, pictures made from the real window. `README.md` doesn't reach someone handed the ready-made folder. | Claude, when the user says go |
+| **The ready-made folder on a second Windows PC** with no Python and no internet: zip, unzip, live conversation, Resource Monitor watched for connections. Rebuild first (`.\build.ps1`, `scripts\p12_check.py`). | Rebuild: Claude. Second PC: the user |
+| **Two computers, for real:** find, accept, talk, end, both have the whole conversation; then the same on a network that blocks discovery, by typed address. Never yet run on two machines. | The user |
+| **Two people at one computer,** speakers at normal volume: the other key does nothing during a turn, Escape silences a turn, Volis never translates its own voice. | The user |
+| **A first-time user starts a conversation unaided.** | The user |
+| **In-app help (P18).** `README.md` doesn't reach someone handed the ready-made folder. | Claude, when the user says go |
 
 ### Should have
 
-- **Fixing a sentence (P19a, P19b):** other readings and an edit box for what was heard; other
-  translations, each with its back-translation, which is the only way someone who can't read
-  the target language can catch a wrong one.
+- **Fixing a sentence (P19a, P19b),** then the corrections log (P19c).
 - **Everyday test sentences** for Persian and Iraqi Arabic, checked by a speaker. Everything
-  measured so far is read news (FLEURS). The user's "menu" sentence (below, "Later") was the
-  first colloquial one tried, and all nine translators got it wrong.
-- **The real context test for Persian,** then say in `MODELS.md` which translator to use: in
-  a running conversation with context on, type a restaurant sentence, then
-  میشه منو رو ببینم لطفا؟ as a second line. In the user's Test bench runs only Gemma 4 12B and
-  Gemma 4 E4B used context correctly; NLLB's lead was on news sentences.
-- **Quiet speech straight after loud speech** is missed by the speech detector (found with the
-  test bench): find out how large the difference must be, and try evening out levels.
-- ~~**Saving a live conversation.**~~ Done 2026-10-14 (below, "Two-way with no voice").
-- **A translator that lacks the chosen language** greyed out beforehand, with the reason
-  (P17's leftover).
-- **Model advice (part of P20):** a "Recommended" marker and "Use recommended".
-- **The GPU translator build published** (GitHub Releases, fetched by `setup.ps1`), so setting
-  up from a clone needs no build tools. Matters less if everyone gets the ready-made folder.
-- **Tidy the documents:** the user removed Qwen3-ASR (2026-10-09): `MODELS.md`, the basic set
-  and the download list still offer it. This file: the sections marked obsolete below.
-- **The corrections log (P19c),** once P19a and P19b exist.
+  measured so far is read news; the first colloquial sentence tried ("menu", see P19d in the plan)
+  defeated all nine translators.
+- **The real context test for Persian,** then say in `MODELS.md` which translator to use. In a
+  running conversation with context on, type a restaurant sentence, then
+  میشه منو رو ببینم لطفا؟ as a second line. In the user's runs only Gemma 4 12B and Gemma 4 E4B used
+  context correctly.
+- **Quiet speech straight after loud speech** is missed. It is the Silero detector itself: a clip
+  37 dB quieter than the one before was not found, though it is when given alone. Find out how
+  large the difference must be, and try evening out levels.
+- **A translator that lacks the chosen language** greyed out beforehand, with the reason. Today
+  it is refused when it translates.
+- **Model advice (part of P20).**
+- **The GPU translator build published,** so setting up from a clone needs no build tools. Matters
+  less if everyone gets the ready-made folder.
 
 ### Nice to have
 
-- Guided tutorials (the other part of P20).
-- CTranslate2 (P17's leftover). It mainly helps a machine with no graphics card, which is not
-  a target, so the proposal is to drop it. **The user hasn't decided.**
-- A graphics-card or processor choice for the translator in the window (now only
-  `[translate] device`).
-- A context box in the test bench: earlier sentences given to the translators as a
-  conversation gives them. Joining two sentences on one line is not the same and spoils the score.
-- One settings file in place of `volis.toml` and `volis-python.toml`, now that nothing else
-  reads `volis.toml`.
-- An automatic check of the Arabic vowel marks (speak test sentences with and without them,
-  transcribe the sound, compare with the text), since no listener has judged them.
-- The plan's own "Later" list: translating the computer's own sound with a caption window, a
-  replay button per row, speaker labels in file mode, a full-screen view for the other person.
-- Small loose ends: the "too slow" warning exists only for a pair already run here; typed text
-  in shared machine mode goes in the main pair's direction; the user's installed models show
-  cleaned folder names until `.\fetch-models.ps1 -Names -Group all`; an English test recording
-  with references; whether the Persian clean-up should be off by default (no measured benefit);
-  `--translate` prints "prompt default" and no fallback note for a seq2seq model; the compare
-  code the window no longer uses (`session.py`'s `comparing`); a real headset plugged in while
-  the app is open; `models\asr\whisper-model-large-hmong` has no `config.json`.
+- Guided tutorials (part of P20).
+- Two computers listening continuously.
+- A graphics-card or processor choice in the window (now only `[translate] device`).
+- A context box in the test bench. Joining two sentences on one line is not the same and spoils
+  the score.
+- One settings file in place of `volis.toml` and `volis-python.toml`.
+- An automatic check of the Arabic vowel marks, since no listener has judged them.
+- Translating the computer's own sound with a caption window; speaker labels on recordings; a
+  full-screen view for the other person; Word and PDF export; password protection; a Farsi or
+  Arabic interface.
+- Small loose ends: the "too slow" warning exists only for a pair already run here; an English
+  test recording with references; whether
+  the Persian clean-up should be off by default (no measured benefit); `--translate` prints
+  "prompt default" and no fallback note for a seq2seq model; `session.py`'s `comparing` and
+  `session.indicator` are used only by tests; `models\asr\whisper-model-large-hmong` has no
+  `config.json`.
+
+### Waiting on the user
+
+- CTranslate2: it mainly helps a machine with no graphics card, which is not a target. Proposal:
+  drop it.
+- Gemma 4 26B: record it in `MODELS.md`, add a per-model layer setting, or delete it (51.6 GB).
+- Whether P18 or P19 comes first.
 
 ### On hold, by the user's decision
 
-- **Glossaries and the phrasebook (P19d):** the kinds of entry, the glossary as hints to the
-  recognizer, an editor for interpreters, and the phrasebook's matching rule. Both notes are
-  under "Later". Waiting on: the setting this is for, whether the speakers are from Iran or
-  Afghanistan, and who can check terms.
-- **Holding speech for revision** (`[context] hold_speech`): set aside.
-- **Linux,** and **machines without an NVIDIA card.**
-
-### Obsolete
-
-- **Everything about volis-rust.** It is no longer on this machine or a reference. That covers
-  `parity\`, the open item "the GPU wheel's CPU path isn't Rust's", "the same turns through
-  volis-rust side by side", the section "Development models" (the models are no longer hard
-  links to Rust's files), and "Differences from volis-rust" read as an obligation: it stays as
-  the record of why things are as they are.
-- **Done, though an older part of this file still says open:** the rename to volis; building
-  the performance panel; "a download from nothing has not been run" (the user ran it,
-  2026-10-02); the replacement characters after Whisper on Persian (fixed 2026-10-07, and the
-  user reports it fixed on the other machine).
-- **Superseded by the test bench:** the Compare recognizers and Compare translators tick boxes
-  (the P15 entry describes the second as it was), and the performance panel's What if and
-  Benchmarks tabs.
-- **Removed models:** Qwen3-ASR (0.6B and 1.7B) and Voxtral, and the tests still owed on them.
-- **Dropped on evidence:** a "situation" line in the translator's instructions (restaurant,
-  clinic). Given a restaurant sentence, three smaller translators invented words ("my order",
-  "my reservation", "assist me") where they had been literally wrong before.
-
-## Status
-
-- **P0 done:** paths and the offline environment, `volis.toml` load and save, discovery for
-  `engine.toml` folders, Hugging Face folders and GGUF translators, `--report`, `doctor.ps1`,
-  `fetch-model.ps1`, `parity\report.py`, and the offline test.
-- **P1 done:** `--devices` (identical to Rust's output), microphone capture (`audio.py`), the
-  file source (`filesource.py`, PyAV), Silero VAD with the pre-roll (`vad.py`), `volis-python.toml`
-  with `[vad].pre_roll_ms`, `tests\fetch-fixtures.ps1`, and `scripts\vad_cuts.py` (cut points
-  with and without the pre-roll, from a file, the fixtures or the microphone).
-- **P2 done, one check partly open (below):** recognizers through sherpa-onnx (`asr/sherpa.py`)
-  and transformers (`asr/hf.py`: Whisper, CTC with MMS adapters, Cohere Transcribe), the
-  hallucination guards (`asr/guards.py`, `config/hallucinations.toml`), `ring.py`, `compare.py`,
-  the pipeline core (`pipeline.py`) and `--listen` with `--seconds`, `--wav`, `--compare`.
-  Scripts: `scripts/transcribe.py` (every model on the fixtures: CER, share of outputs without
-  punctuation, real-time factor), `parity/asr.py` (volis-rust vs volis on the same audio).
-- **P3 done:** GGUF translators through llama-cpp-python (`translate/llamacpp.py`), prompts from
-  each model's own chat template, Rust's cleaning and three guards (`translate/guards.py`),
-  prompt files (`prompts/`), several translators (`[translate]` in `volis-python.toml`), and
-  `--translate` / `--print-prompt`. `parity/translate.py` compares with volis-rust.
-- **P4 done:** `--file` (`filerun.py`): an audio file through the live pipeline, with sentences
-  (`sentences.py`), a translation thread, the events (`events.py`), the export folder
-  (`export.py`) and quick scores (`scoring.py`, with model-bench's `textclean.py` copied
-  verbatim). `scripts/make_fixture_file.py` builds test recordings with references.
-- **P5 done; the user ran its check on 2026-09-30** (a Spanish file, an Arabic file, a live
-  conversation in the window: all three looked right). The window (`gui/window.py`,
-  drawing `gui/session.py`), voice output (`tts.py`, `playback.py`, the half-duplex gate), and
-  `--report --load`. Checked without a person: `scripts/window_check.py` (the window through a
-  file run, offscreen, with a responsiveness measurement), `scripts/gate_check.py` (does volis
-  hear itself, through the VB-Audio cable).
-- **P6 done:** continuous and turn-based modes, switchable while running; the turn key in toggle
-  and hold styles; the microphone device closed between turns; a turn as one utterance, trimmed
-  of silence and split at pauses past 25 s; the three-state indicator. Checked against real
-  devices by `scripts/turn_check.py` (15 of 15).
-- **P7 done:** streaming recognition with LocalAgreement (`asr/streaming.py`), provisional
-  text in the window, carry-forward context and the session glossary (`translate/context.py`),
-  fragment holding, and a fourth hallucination guard (sparse text). Measured by
-  `scripts/p7_check.py`; numbers under "P7 findings".
-- **After P7, before P8 (2026-10-01):** the default prompt now frames the text, so questions
-  and requests are translated instead of answered (differences 41, 42); the translator runs on
-  the GPU when a GPU build is installed (43); GPU recognizers make a warm-up pass at load.
-  Numbers under "After P7".
-- **P8 done:** revision mode (`translate/revision.py`, `[context] mode = "revision"`, the
-  window's "Revise earlier translations" box, `--context revision`), with its limits. Checked
-  by `scripts/p8_check.py`; numbers under "P8 findings".
-- **P9 done:** paired mode. `wire.py`, `floor.py`, `discovery.py` and `peer.py` are ports of
-  the Rust modules, protocol version 2 unchanged; the pipeline routes a paired run's
-  translations to the other PC and speaks what arrives; the window has the peer panel.
-  Checked with volis at both ends (`tests/test_peer.py`, `tests/test_paired.py`) and against
-  the real `volis-rust.exe` (`scripts/pair_check.py`, 12 of 12). See "P9 findings".
-- **P10 done:** shared-machine mode, a recognizer per side, varieties per side. `shared.py`
-  ports Rust's `shared.rs`; the pipeline loads each side's recognizer once and keeps it, takes
-  a turn's recognizer, language, target and voice from the key that started it, and drops
-  everything a cancelled turn had under way; the window has the third mode, the two columns
-  and the two keys. Checked with real models by `scripts/shared_check.py`; the keys by
-  `tests/test_shared_window.py`. Not yet tried by a person at the keyboard. See "P10 findings".
-- **P11 done:** four more backends, each verified against the installed libraries before it
-  was built: GGUF speech models through llama.cpp's audio input (`asr/llamacpp_audio.py`),
-  LoRA adapters on GGUF translators and on transformers recognizers, and translators through
-  transformers (`translate/hf.py`). Each ran a fixture recording end to end
-  (`scripts/p11_check.py`). See "P11 findings".
-- **After P11:** `MODELS.md` lists every model tested with its scores, and `fetch-models.ps1`
-  (`scripts/fetch_models.py`) downloads the ones worth having into place with their settings
-  files. Its settings files and its Piper conversion reproduce what is installed here byte
-  for byte; **a download from nothing has not been run** (everything on the default list was
-  already in place, except Gemma 3 12B and TranslateGemma 12B, which were deleted to save disk).
-- **The user's own trials, 2026-10-02, on another PC:** `fetch-models.ps1` from nothing works;
-  Gemma 4 E4B and Qwen3-ASR work in streaming and in shared machine mode; choosing Paired
-  shows the firewall message and the addresses; Standard Arabic and Iraqi speech gave the same
-  translations; Qwen3-ASR 1.7B and Voxtral are not good. Still to do by the user: two machines
-  paired, and two people at one machine.
-- **Decisions for P12, by the user:** NVIDIA machines only for now (so the GPU build of
-  llama.cpp ships; a machine without an NVIDIA card is not a target); several GB for the
-  folder is expected; choosing GPU or CPU is a nice-to-have (`[translate] device` exists).
-  volis-rust's prompt stays as it is. Linux is not needed for now.
-- **Holding speech for revision** (`[context] hold_speech`, off by default; difference 67),
-  **vowel marks for Arabic voices** (`[tts] diacritize`, off by default; differences 68, 69) and
-  `fetch-model.ps1 -Role tts` were added after P11, at the user's request. Whether the marks
-  make the voices sound better has not been judged by a listener.
-- **P12 done (on this machine):** `build.ps1` makes `dist\volis\` with PyInstaller in
-  one-folder mode, which collected everything (no fallback to a shipped environment was
-  needed). `volis.exe --doctor` checks the folder; `scripts\p12_check.py` runs the built
-  program. See "P12 findings". **The check on a second machine (no Python, no internet) is the
-  user's to do.**
-
-## P13 to P20 (`volis-next-features.md`)
-
-Eight milestones for non-technical users. Built in order; stop after each.
-
-- **Before P13 (2026-10-06):** the repository now lives in `D:\AI_Data\projects\volis`. The Rust
-  app is no longer on this machine and no longer a reference (the user's decision; `CLAUDE.md`
-  says so). One test depended on a model that is no longer installed (the small Qwen3 at the
-  top of `models\mt\`); it now checks the rule (the top-level file, else the first usable
-  translator) whatever is installed. The tests that pin Qwen3's exact prompt text are skipped
-  while that file is absent.
-- **P13 done: Rescan.** A button, F5 and View > Rescan models and devices read `models\` and
-  the audio devices again without restarting (`gui/rescan.py`, no Qt; `MainWindow.rescan`).
-  Every list updates. A line under the button says, in plain words, what is new, what is gone,
-  what stopped working and why, and what works again; and when a chosen model or device is
-  gone, what replaced it: the best-ranked recognizer for the language, the first usable
-  translator, Windows' default device. While a conversation runs the lists still update,
-  nothing loaded is touched, and the line says the change applies at the next Start.
-  - New with it: a folder Volis can't understand is now **listed, greyed out, with the reason**
-    as its tooltip (recognizers and translators). Before, it appeared only in `--report`.
-  - Check (`tests/test_rescan.py`, 10 tests, on a temporary models folder): a folder added
-    appears; renamed, it disappears and the line says the choice changed; a headset appears in
-    both device lists; unplugged while chosen, the choice returns to the system default. Also
-    run against the real app and models folder: nothing changed / folder added / renamed /
-    removed, each reported correctly, the user's choice untouched.
-  - Not done by a person: a real headset plugged in while the app is open.
-  - Found on the way: `models\asr\whisper-model-large-hmong` has no `config.json`, so Volis
-    can't tell what it is. It now shows in the recognizer list as broken, with that reason.
-- **P14 done: the window, for non-technical users.** All eight changes. The words the window
-  uses are worked out in `gui/view.py` (no Qt, 14 tests): plain model names, the big control's
-  label, why a control is greyed out, the won't-fit warning. `gui/devicetest.py` (no Qt, 8
-  tests) is the two Test buttons. `tests/test_window_p14.py` (11 tests) drives the real window.
-
-  | Before | After |
-  |---|---|
-  | ![before, stopped](docs/images/p14-before-stopped.png) | ![after, stopped](docs/images/p14-after-stopped.png) |
-  | ![before, running](docs/images/p14-before-running.png) | ![after, running](docs/images/p14-after-running.png) |
-
-  Advanced, opened: ![after, Advanced open](docs/images/p14-after-advanced.png)
-
-  The pictures are made by `scripts/window_shots.py` from the real window, on this machine's
-  models, with no model loaded (the running picture is fed the events a conversation sends).
-  1. **Basic and Advanced.** Visible: the two languages, recognizer, translator, microphone,
-     speakers, Speak translations, the mode. Everything else is under Advanced, closed until
-     opened, remembered in `[window] advanced_open`. The settings scroll: with Advanced open
-     they are taller than a laptop screen.
-  2. **Conversation view.** While running the settings fold into a bar (languages, the two
-     models) and the transcript takes the window. A− / A+ change its text size
-     (`[window] text_size`, default 12). **Departure from the file:** the bar has a Settings
-     button that unfolds the settings, because the mode can be changed while running (P6) and
-     folding them away for good would have removed that.
-  3. **Swap** exchanges the two languages and re-ranks the recognizers. Hidden in shared mode.
-  4. **Plain names.** A list shows the name a settings file gives (`Engine.named`,
-     `Translator.named`), else the folder name cleaned (`view.clean_name`); the folder, file,
-     compression, size and backend are the tooltip. `fetch_models.py` has a plain name for
-     every model (`PLAIN_NAMES`) and writes it into the folder's `volis-python.toml`;
-     `fetch-models.ps1 -Names` does that for models already installed, downloading nothing.
-     **Not done for the user:** their installed models keep cleaned folder names until they
-     run that, and two (`Gemma 4 E4B (Q4_K_M, audio)`, `Qwen3-ASR 0.6B (Q8)`) keep the
-     technical names written earlier, since an existing settings file is never changed.
-  5. **One big Start/Stop control,** green, with the state in large letters and what pressing
-     it does under it. New shortcut: Ctrl+Enter. The state banner is gone.
-  6. **Test buttons.** Run for real here: the English and Spanish voices played their test
-     sentence; Persian said no voice is installed; the microphone test recorded 3 s, played
-     it back and ran Whisper on it. A recording below -50 dBFS says "nothing was heard" and
-     loads nothing.
-  7. **Reasons.** `view.disabled_reasons` gives every greyed-out control one line, shown as
-     its tooltip and in small grey text beside it. While running they all say the same thing,
-     so then only the tooltip carries it.
-  8. **The warning.** An orange line under the translator when the pair won't fit (from
-     `perf.verdict`, the same estimate as the performance panel), only just fits, or was
-     measured too slow on this machine (recognition slower than speech, or over 3 s a
-     sentence). **Limit:** "too slow" appears only for a pair that has been run here; there
-     is no speed estimate for one that hasn't.
-  - Not done by a person: "a first-time user can choose languages and start a conversation
-    without opening Advanced" is the user's own test.
-- **P15 done: type or paste text to translate.** A box under the transcript; Enter or
-  Translate sends it, Shift+Enter is a new line, each line is its own row, marked "typed" where
-  a spoken row shows its time. `volis/typed.py` (no Qt) holds the logic.
-  - **Who translates it.** While a conversation runs, the running pipeline does
-    (`Pipeline.translate_typed`, a "typed" command): the translator is never loaded twice, the
-    line gets the conversation's context, is spoken by its voice, and when paired is sent to
-    the other PC like any sentence. While stopped, `typed.Worker` loads the chosen translator
-    on first use and keeps it until Start (which releases it) or the window closes; "Speak
-    translations" then speaks through the chosen speakers.
-  - **Compare translators:** a tick box; two or three translators ticked in a list; an optional
-    reference box. Each is loaded when its turn comes and closed before the next, so two that
-    don't fit together can still be compared. The table shows, per line and translator: the
-    translation, the time, graphics card or processor, and chrF against the reference
-    (`scoring.chrf`, as file mode). The window and `--compare-mt` both say the score is
-    closeness to that reference, not correctness. Only while stopped (the window says why).
-  - **`--translate "text" --compare-mt a,b[,c] [--reference "..."]`** from a terminal.
-  - Typed rows are `SentenceMsg(typed=True)` events like any other: logged, kept in the run's
-    record, and written by the export. (Export itself still needs a file run: see Later.)
-  - A text box now keeps its keys: a space typed in it is no longer the turn key. That was
-    already wrong for the glossary box.
-  - Check (`scripts/p15_check.py`, the real command, Gemma 3 4B and TranslateGemma 4B on the
-    GPU, each language's first FLEURS sentence against its FLORES+ reference):
-
-    | | Gemma 3 4B | TranslateGemma 4B |
-    |---|---|---|
-    | Persian | chrF 56.3, 646 ms | chrF 55.4, 721 ms |
-    | Arabic | chrF 85.0, 442 ms | chrF 94.7, 358 ms |
-    | Spanish | chrF 55.8, 477 ms | chrF 42.4, 522 ms |
-
-    Both outputs, scores and timings are shown for all three. (One sentence each: this shows
-    the feature, not which translator is better. Both mistranslated the Persian for "leak".)
-  - 19 new tests (`tests/test_typed.py`, `tests/test_window_p15.py`), one of them a typed line
-    through a real pipeline with stand-in models. The picture: `docs/images/p15-compare.png`.
-  - Not decided, noted: while running in shared machine mode a typed line is translated in
-    the main language pair's direction, not a side's.
-- **P16 done: the Persian clean-up step** (`volis/persian.py`, `[text] persian_cleanup`, on by
-  default). After the guards and before translation, for a Persian source only, spoken or
-  typed: Arabic look-alike letters become the Persian ones, and the half-space is put back
-  where a recognizer wrote a space or nothing. The window shows the cleaned text; the row's
-  tooltip shows what was heard (`SentenceMsg.original`).
-  - **hazm: ported, not installed** (checked first, as the file asks). hazm 0.12.1 installs on
-    this Python, but brings nltk, python-crfsuite and flashtext, and its normalizer loads a
-    3.4 MB word list and builds a tokenizer and lemmatizer when created. Ported from it, with
-    the source named in the module: the letter table (390 letters), `AFFIX_SPACING_PATTERNS`,
-    the ZWNJ tidying, and `seperate_mi` with its verb list (`config\persian_verbs.txt`, 693
-    stems, 7032 forms, user-editable). **Not ported:** its word-list joins, its removal of
-    vowel marks, and its restyling of quotation marks, the decimal point and Western digits.
-  - **Three departures from hazm,** each in the docstring: a mi- written apart is joined only
-    before a verb when the verb list is there (hazm joins it to anything, so "ماه می سال", the
-    month of May, becomes one word); ۀ becomes ه + hamza above; Arabic-Indic digits become
-    Persian digits (Western digits stay). Arabic ة is left alone: Persian writes it two ways
-    and no table can say which.
-  - 21 tests (`tests/test_persian.py`), a rule each on real examples, one through a real
-    pipeline with a stand-in recognizer, one for typed text.
-  - **Measured (`scripts/p16_check.py`): no clear effect.** Ten Persian FLEURS clips, every
-    installed recognizer that covers Persian and every installed translator, each sentence on
-    its own, chrF against the FLORES+ English, as heard and cleaned:
-
-    | transcript from | sentences changed | CER |
-    |---|---|---|
-    | the clips' own text | 2 of 10 | 0% |
-    | Gemma 4 E4B (audio) | 0 of 10 | 4.5% |
-    | MMS 1B | 0 of 10 | 4.2% |
-    | Whisper large-v3-turbo | 6 of 10 | 6.6% |
-    | Qwen3-ASR 0.6B | 4 of 10 | 20.5% |
-
-    | translator | own text | Gemma 4 E4B | MMS | Whisper turbo | Qwen3-ASR |
-    |---|---|---|---|---|---|
-    | Gemma 3 4B | 64.3 → 64.3 | 59.9 → 59.9 | 58.5 → 58.5 | 58.6 → 58.4 | 48.8 → 50.4 |
-    | Gemma 4 E4B | 65.3 → 64.7 | 63.2 → 63.2 | 61.3 → 61.3 | 61.2 → 60.6 | 47.9 → 48.6 |
-    | TranslateGemma 4B | 61.5 → 62.0 | 61.9 → 61.9 | 57.9 → 57.9 | 59.1 → 59.0 | 50.5 → 51.2 |
-    | Aya Expanse 8B | 61.9 → 61.9 | 59.5 → 59.5 | 58.7 → 58.7 | 59.4 → 59.8 | 49.1 → 49.7 |
-    | Gemma 3 12B * | 66.8 → 67.2 | 61.7 → 61.7 | 63.2 → 63.2 | 62.3 → 61.7 | 51.5 → 51.9 |
-    | Gemma 4 12B * | 67.5 → 67.1 | 63.4 → 63.4 | 62.5 → 62.5 | 63.4 → 62.6 | 48.8 → 49.7 |
-    | TranslateGemma 12B * | 64.6 → 64.6 | 58.9 → 58.9 | 63.2 → 63.2 | 60.4 → 60.7 | 53.8 → 53.6 |
-
-    (chrF as heard → cleaned. \* doesn't fit this 8 GB card: about 4 s a sentence here.)
-
-    Every change is between -0.8 and +1.7, and ten sentences can't tell that from nothing.
-    **Where it was slightly worse:** Whisper's transcripts, with five of the seven translators
-    (-0.2 to -0.8), and the clips' own text with the two Gemma 4 models (-0.5, -0.6). **Where
-    it was slightly better:** Qwen3-ASR's transcripts, with six of seven (+0.5 to +1.7).
-    Gemma 4 and MMS already write the half-space correctly: nothing to clean, no change.
-    The transcript error rate doesn't move because the scoring ignores the half-space.
-    - **No Arabic look-alike letter appeared in any of the 40 transcripts,** so the first rule
-      was not exercised by this test at all. Every change measured is a half-space.
-    - So on read news speech the step neither helps nor hurts measurably. It stays on by
-      default, as the file specifies, and switchable. Whether it earns its place needs a test
-      it can fail: conversational Persian, or a recognizer that writes Arabic letters.
-  - **Also learned, the first Persian figures here:** recognition CER is 4.2% (MMS), 4.5%
-    (Gemma 4 E4B), 6.6% (Whisper turbo), 20.5% (Qwen3-ASR 0.6B); and on correct text the
-    translators score 61.5 to 67.5, Gemma 4 12B highest. `MODELS.md` has them.
-- **P17 built and measured: seq2seq translators (MADLAD, NLLB, Marian).** Its check is met
-  (both models, from text and from a file, scores in `MODELS.md`); two leftovers are under
-  "Still open" and in "Priorities". First built and tested without a model
-  (`tests/test_seq2seq.py`, stand-in model):
-  - `volis/translate/seq2seq.py`: backend `seq2seq` (`AutoModelForSeq2SeqLM`, 4 beams), the
-    `NLLB` and `MADLAD` code tables, `code_for` (variety, then language, then ISO 639-3; a
-    variety the model lacks falls back with a note), `codes_from_vocab` (the check against the
-    loaded tokenizer) and `codes_in` (the same from `tokenizer.json`, for the model list).
-  - `models.py`: `_text_seq2seq_family`, `_seq2seq_translator`; `Translator.languages`.
-    `--report` prints the family and the languages.
-  - `translate_checked(..., prompted=False)` skips only the "recited" guard.
-  - The fallback note travels `TranslationResult.note` -> `Translated.note` -> the row's notes
-    column (and `typed.Result.note`). The translator list's tooltip says what these models
-    can't do (`view.translator_limits`).
-  - `fetch_models.py` has both models (group `tested`), without MADLAD's `.gguf` files.
-  - A live conversation turns context and revision off for these (`uses_context = False`).
-  - **NLLB-200 distilled 1.3B: downloaded, verified, measured.** `pytorch_model.bin` loads
-    offline; float16 on the GPU, about 3.5 s to load; all
-    202 codes read, and every entry of the `NLLB` table is in its tokenizer. `mt_bench.py`:
-    es>en 61.6, ar>en 68.6, fa>en **70.2** (the best measured; Gemma 4 12B 67.5), en>es 61.6,
-    mean 65.5, obey 23/24, 687 ms a sentence. `p16_check.py`: Persian clean-up changes nothing
-    for it (+0.0 on four transcripts, -0.2 on Qwen3-ASR's). Checked from text
-    (`--compare-mt` beside Gemma 3 4B), with an Iraqi target (`acm_Arab` forced), and from a
-    Persian file (`--file`, Whisper turbo: 2 sentences, median 694 ms).
-  - **MADLAD-400 3B: verified and measured** (`model.safetensors`, 11.8 GB). 492 codes. The
-    first `MADLAD` table was wrong in five places, found by the check against the tokenizer:
-    it has no `acm`, `aeb`, `apc`, `ars` or `yue`. It has `arz`, `ary` and `prs`. Table
-    corrected; Iraqi and the rest fall back to `ar` with the note. float16 on the GPU gives
-    sound output (no T5 overflow). `mt_bench.py`: es>en 62.8, ar>en 69.4, fa>en 66.5, en>es
-    62.2, mean 65.2, obey 23/24, 1937 ms a sentence. Persian clean-up: +0.0 on three
-    transcripts, -0.7 and -1.0 on Qwen3-ASR's and Whisper's. **It does not fit beside a
-    recognizer on 8 GB:** an Arabic file with Whisper turbo loaded took 7.3 s for its sentence.
-  - `fetch-model.ps1` on a repo holding the full model and `.gguf` copies now takes the model
-    (the user got only MADLAD's candle-format `model-q4k.gguf` the first time), and such a
-    copy in the folder no longer hides the model from the list.
-  - **Still open:**
-    1. **CTranslate2 not built.** `ctranslate2` 4.8.2 resolves for this environment (dry run
-       only; not installed). Building the second path needs the package and a converted model.
-    2. A translator that lacks the chosen language is refused when it translates, not greyed
-       out beforehand. `--translate` prints "prompt default" for a model with no prompt, and
-       doesn't print the fallback note (the window and `--compare-mt` do).
-- **The test bench (a UI refinement the user asked for, between P17 and P18).** The four
-  testing tools were in three places and each changed what another button did: "Compare
-  recognizers" (a tick box under Advanced that changed START), "Compare translators" (a tick
-  box that changed Translate), and the What if and Benchmarks tabs of the performance panel.
-  They are now one window, **View > Test bench** (Ctrl+Shift+T), `gui/testbench.py` over
-  `bench.py`:
-  - **Recognizers:** a recording made there or an audio file, through each ticked recognizer;
-    with the correct text typed in, letters wrong (CER) and words wrong (WER), time, speed
-    against the speech, where it ran and the memory it took.
-  - **Translators:** typed or pasted text, or a recording or file heard by one chosen
-    recognizer, through each ticked translator (any number now, not two or three); score
-    against a pasted reference.
-  - **Whole set:** What if and Benchmarks merged: choose a set, see at once whether it fits,
-    "Measure this set on a recording", the table of runs.
-  - One rule, said once at the top: not while a conversation runs (with a button that stops
-    it). One line and one moving bar while it works, one Cancel. The reason a Compare button
-    is grey is beside it before it is pressed (`bench.ready`). Every comparison is kept
-    (`logs\test-bench.json`) and listed under Results; "Copy as a table" gives Markdown; "Use in
-    the conversation" sets the main window's choice from a row.
-  - **Decisions:** the name; always in the View menu, no setting hides it; the performance
-    panel keeps only the live view ("Now"); recognizer comparison is on a clip (recorded or a
-    file), not live as you speak, so a run can be repeated and scored.
-  - **Removed from the main window:** both tick boxes, the translator list, the reference box
-    and the comparison table; `typed.Worker.compare` and the `MtComparison` event. A
-    conversation can't start, and typed text isn't translated, while the bench is working.
-  - **Left as it was:** the pipeline's own compare mode and `--listen --compare` on the command
-    line; `--translate --compare-mt`; `session.py` still models a comparing session
-    (`comparing`, `ComparisonLine`), which the window no longer starts.
-  - **How pasted text applies to recognizers** (the user asked for text, speech and a file on
-    both tabs): a recognizer can only be given sound, so on the Recognizers tab the typed
-    text is the correct text it is marked against. On the Translators tab all three are inputs.
-  - Tests: `tests/test_bench.py` (16, stand-in models) and `tests/test_window_testbench.py`
-    (14, the real window offscreen). Checked on real models: two Persian FLEURS clips through
-    Whisper turbo and MMS, then through NLLB and Gemma 3 4B as heard by Whisper.
-  - **Noticed while checking, not changed:** two recordings joined end to end, the second
-    37 dB quieter than the first (FLEURS has one at -59 dBFS): the speech detector found no
-    speech in the second, though it finds it when that clip is given alone. It is the Silero
-    detector itself (the same through sherpa-onnx with none of volis's code). A quiet speaker
-    straight after a loud one could be missed the same way in a conversation.
-  - Pictures: ![recognizers](docs/images/testbench-recognizers.png)
-    ![translators](docs/images/testbench-translators.png)
-    ![whole set](docs/images/testbench-whole-set.png)
-    The main window now, Advanced open: ![main window](docs/images/testbench-main-window.png)
-- **Two-way with no voice, and saving a conversation (2026-10-14, the user's request).** A
-  conversation must work, and be kept, even when it can't be heard.
-  - **Shared machine mode no longer refuses a side whose listener has no voice** (Farsi today).
-    `shared.direction` returns that side with no voice and a warning shown under its column
-    ("shown on the screen but not spoken"). Before, the side's key was refused, so a
-    Farsi/English conversation with a key each was impossible.
-  - **A language with no voice is said once and then shown silently**, in every mode.
-    `tts.choose` raises `tts.NoVoice` (a `TtsError`); `SpeakThread` remembers the language in
-    `voiceless`, emits one plain `Error` ("No voice is installed for Persian: ..."), and from then
-    on a `NotSpoken(id, language)` event per sentence instead of an error per sentence. The
-    session treats `NotSpoken` as it does `SpeakingStarted`, so a turn doesn't wait forever for
-    speech that won't come. The start-up error is cleared by `Listening`, so the window also says
-    it before Start: `view.voice_note`, a grey line under Speak translations.
-  - **Saving a live conversation.** The Export button shows as "Save conversation..." once a
-    sentence is on the screen, in live mode too, and File > Export works for it. Every export
-    now also writes `conversation.txt` (each sentence with its time or "typed", its language and
-    its translation). `export.configuration` names the microphone for a live run. Saving is not
-    automatic, and START clears the screen; an automatic-save option is the next step if wanted.
-  - Tests: `tests/test_no_voice.py` (3), plus one each in `test_shared.py`, `test_session.py`,
-    `test_view.py`, `test_shared_window.py`, and two in `test_filemode.py`. Not run end to end
-    with real models and two people.
-- **Fixed (2026-10-15): correct translations refused as "recited" when a sentence is said
-  again.** Found by the user: a paragraph typed during a shared-machine conversation became
-  context; the same sentences, then spoken, were all refused ("the model recited its own
-  instructions"). The recital guard counts an output found inside an earlier turn's source or
-  translation as copying the context, which is right for a model that answers a new sentence
-  with the last translation, and wrong for a sentence said again, whose correct translation is
-  the earlier one. Now `translate_checked` leaves out of that check any earlier turn the
-  current sentence repeats (`guards.repeats`: at least 60% of its words in the earlier source,
-  counted in words so "behaviour"/"behavior" still match). Replayed on Gemma 4 E4B with the
-  user's typed paragraph as context: both refused sentences translate; a new sentence answered
-  with an earlier translation is still refused (test). Repetition is ordinary in conversation
-  ("say that again"), so this mattered beyond typed text.
-
-### Later (noted in `volis-next-features.md`, deliberately not in this round)
-
-- Translating the computer's own sound (loopback capture), with an always-on-top caption window.
-- A replay button per row.
-- Speaker labels in file mode (sherpa-onnx speaker diarization).
-- A full-screen "show the other person" view.
-- Saving every live session as a transcript. **Checked: export does not cover live sessions.**
-  File > Export works only after a file run (`MainWindow.export` refuses without a file); a
-  live conversation is kept in the log file only.
-- **Phrasebook matching (for P19d; the user's decision 2026-10-09: hold, keep as an
-  enhancement).** The plan uses a checked translation automatically when a recognized sentence
-  is at least 90% similar to an entry (`[phrasebook] match = 0.9`). Measured with one common
-  letter-similarity measure (Python's `difflib` ratio; the plan names none), that rule is
-  wrong in both directions. Against "Can I see the menu, please?": harmless rewordings miss
-  ("Could I see the menu, please?" 88%, without "please" 84%, "May I take a look at the menu
-  first, please?" 63%), while changes of meaning pass ("Can **we** see the menu, please?"
-  94%). In Persian, against میشه منو رو ببینم لطفا: "can I see the menu **first**" passes at
-  92% and would lose "first", "can **we** see the menu" passes at 98% and would say "I", and
-  "can **you** see **me**, please?" (میشه منو ببینی لطفا) misses by two points at 88%.
-  **Proposed instead:** (1) a stored translation is used automatically only on an exact match,
-  ignoring punctuation and capitals; (2) one entry can list several wordings that share a
-  checked translation; (3) a near match is shown as a suggestion beside the model's
-  translation, never swapped in. `volis-next-features.md` is unchanged: decide this when P19d
-  is built.
-- **Glossary ideas (for P19d; the user's decision 2026-10-09: on hold for more thinking).**
-  Discussed, nothing built, nothing tested:
-  - **Kinds of entry.** The plan has one kind: *fixed* ("always translate X as Y"), right for
-    names and technical terms. A word with two meanings needs another. The user's first
-    example was Persian منو, which is "menu" and, far more often, the everyday "me": as a
-    fixed entry it would turn "Do you know me?" into "Do you know the menu?", and the plan's
-    "term not used" flag would mark every correct "me". Proposed: a *hint* ("X can also mean Y
-    here"; chat translators only, the model still decides), and a *watch word* (show both
-    readings, with back-translations, and let a person choose; any translator; ties into
-    P19b). **Whether a hint works is untested.** The test offered and not run: one line added
-    to the instructions ("منو can mean 'menu'"), then the menu sentence and two ordinary "me"
-    sentences through each chat translator. In the user's Test bench runs only the Gemma 4
-    models used restaurant context correctly; three smaller ones invented words instead.
-  - **The glossary as hints to the recognizer** (new, not in the plan): active terms given to
-    Whisper and Gemma 4 before they listen, for names, places and borrowed words. Not MMS.
-    To verify first: how it is done in the installed versions, Whisper's limit on hint text,
-    and that a hinted word isn't "heard" when it wasn't said. So a tick per term for "also
-    hint the recognizer", and few of them.
-  - **An editor for interpreters** (new; the plan has hand-edited files and "Add to
-    glossary"): a Glossary menu opening a window with the glossaries on the left (tick = active)
-    and the chosen one's terms in a table; add from a conversation by right-click; import and
-    export (a colleague's file, a two-column spreadsheet). Guard rails: a warning on a short,
-    common word; conflicts between active glossaries shown; a removed glossary moved aside,
-    not deleted. **Three decisions left with the user:** one row per term across all the
-    languages worked in (proposed; changes the plan's one-direction file layout) or a list per
-    language pair; whether an entry works both ways by default (proposed: yes, with a switch
-    per term); in the menu bar for everyone (proposed) or under Advanced.
-  - **Where terms come from.** Start with 50 to 200 of the user's own: people, places,
-    programs, forms, medicines. Then whatever goes wrong in use. Public sources only to top
-    up a topic, each to be checked for contents and licence before use (named from memory:
-    Wikidata, GeoNames, Translators without Borders glossaries, court and health-agency
-    interpreter glossaries, Microsoft's terminology lists, Wiktionary extracts). Public lists
-    are formal and standard (Iranian Persian, Standard Arabic): every term needs a speaker of
-    the variety in use. For translation a file can be large, since only terms that appear in
-    a sentence are sent; for recognizer hints it must be small.
-  - Not yet answered by the user: the setting this is for, whether the speakers are from Iran
-    or Afghanistan, and who can check terms in Farsi and Iraqi Arabic.
-
-## Open list (2026-10-02): superseded
-
-Everything that was listed here is in "Priorities" at the top of this file, or is done. The
-performance panel it asked for was built on 2026-10-03 (difference 73); its What if and
-Benchmarks tabs moved to the test bench on 2026-10-09.
-
-## Environment, as verified at P0
-
-- Python 3.12.10 (uv-managed), torch 2.11.0+cu128, transformers 5.18.0, sherpa-onnx 1.13.8 with
-  onnxruntime 1.28.2 from the environment, PySide6 6.11.2, PyAV 19.0.0, peft 0.21.1.
-- The development machine (RTX 4070 Laptop, 8 GB) has no CUDA toolkit, no CMake and no MSVC on
-  PATH. Which matters at P3: llama-cpp-python is only published on PyPI as source.
-- transformers 5.18's speech seq2seq mapping includes `whisper`, `cohere_asr`, `qwen3_asr`,
-  `voxtral`, `granite_speech`, `canary`, `moonshine` and more; its CTC mapping includes `wav2vec2`,
-  `hubert`, `wavlm`, `parakeet_ctc` and more. Qwen3-ASR and Voxtral may therefore run through
-  `transformers` without llama.cpp's audio input (P11).
-
-## Development models
-
-`models\` holds **hard links** to volis-rust's model files (`target\release\models\`), made by
-`parity\link_models.py`: the same bytes, no copies, and deleting volis's side never touches
-Rust's. `models\asr\whisper-small\` is a hard link to model-converter's download of
-`openai/whisper-small` (without its `fetched.json`). `volis.toml` is a copy of Rust's.
-
-## Differences from volis-rust, with the reasons
-
-1. **volis-only settings go in `volis-python.toml`, not `[volis.*]` in `volis.toml`.** Rust's
-   `Config` has `#[serde(deny_unknown_fields)]` at the top level, so any extra section would
-   stop volis-rust loading the shared file. No milestone so far needs a volis setting, so the
-   file doesn't exist yet.
-2. **An ASR folder without `engine.toml` is examined, not skipped.** Rust skips it with a
-   warning; volis recognises Hugging Face and GGUF folders, and lists anything it can't
-   recognise as an error with the reason. TTS folders keep Rust's rule.
-3. **Several translators.** Rust uses the one `.gguf` at the top of `models\mt\` and refuses to
-   start if there are two. volis lists that file plus one or more per subfolder, and its report
-   warns when there are two at the top.
-4. **A GGUF with no chat template is listed as unusable,** because volis builds prompts from the
-   model's own template (Rust hardcodes Qwen's). The Qwen3 file Rust uses has one.
-5. **`--listen` and the window** don't exist yet; they arrive at P2 and P5. With no arguments
-   volis says the window arrives at P5.
-6. **Logs** go to `logs\volis.log.<date>` (Rust: `volis.log.<date>`), plus `logs\doctor.json`.
-7. **Varieties error message** names both `volis/varieties.py` and Rust's `src/varieties.rs`,
-   because the tables must stay the same (a test pins volis's to Rust's).
-8. **Devices are PortAudio's WASAPI list** (sounddevice). cpal's default Windows host is WASAPI,
-   so names and order match Rust's; the "F32" in each device line is assumed (WASAPI shared
-   mode always delivers float32), where cpal asks the device.
-9. **Resampling uses soxr, not sherpa-onnx's linear resampler.** A better filter for the same
-   job. Recognition of 16 kHz input (the fixtures) is unaffected; audio from a 48 kHz
-   microphone reaches the recognizer slightly differently than in Rust.
-10. **The pre-roll length is a setting**, `[vad].pre_roll_ms` in `volis-python.toml`, default 600 ms
-    (Rust's fixed value; the build file assumed 300 ms, but Rust already found 300 too short for
-    "¿Cuántos años tienes?"). 0 turns it off. Segments also record where the detector itself
-    said speech began, so the lead-in can be measured.
-11. **The VAD reset** pops queued segments one by one: sherpa-onnx's Python binding has no
-    `clear()`. Same effect.
-12. **File input is new** (`filesource.py`): WAV, MP3, M4A/AAC, FLAC, OGG/Vorbis, Opus, ALAC,
-    decoded by PyAV, averaged to mono and resampled like the microphone.
-
-13. **`--compare` manages GPU memory.** Rust keeps every engine loaded. volis loads every
-    engine if they fit; if the GPU models don't, they take turns (each loaded for its run and
-    released) while the CPU (sherpa) models stay loaded. Runs are always one after another.
-14. **Hallucination guards are new** (`[guards]` in `volis-python.toml`, each switchable). The
-    speech-probability guard uses a second Silero model from the same `silero_vad.onnx`, run by
-    sherpa-onnx at `min_peak_probability` (0.8): sherpa-onnx's Python binding doesn't expose
-    Silero's probabilities, but it applies a threshold to each window, which answers "did any
-    window clearly contain speech?". (PyTorch can't run an `.onnx` file, which the user had
-    been told it could.)
-15. **The console is UTF-8** (`__main__.py`), so Arabic and Persian reach it intact.
-16. **Whisper through sherpa is created with `tail_paddings=0`,** as Rust passes; the Python
-    binding's default is -1.
-
-17. **llama-cpp-python is built here** (`build-llama.ps1`, CPU, kept in `wheels\`). Its
-    published Windows wheels stop at 0.3.19 (CPU) and 0.3.4 (CUDA 12.4, too old for Qwen3 and
-    for the RTX 5090); 0.3.35 is source only. Rust runs its translator on the CPU too.
-18. **Flash attention is on.** llama.cpp defaults to "auto", which is on for the CPU, and that
-    is what Rust's llama-cpp-2 gets; llama-cpp-python turns it off unless told. With it off,
-    9 of 25 translations differed from Rust's; with it on, all 25 are identical.
-19. **Prompts come from each GGUF's chat template** (Rust hardcodes Qwen's ChatML). For Qwen3
-    the rendered prompt is byte-identical to Rust's `prompt_for` (tests/test_translate.py),
-    with thinking turned off through the template's `enable_thinking`.
-20. **Several translators**: `[translate].model` in `volis-python.toml` (default: the file at the
-    top of `models\mt\`, Rust's); `[translate].prompt` picks a prompt file.
-
-21. **Translation is per sentence, not per utterance** (agreed with the user before P4). A stage
-    between recognition and translation splits each transcript at final punctuation; every
-    sentence has an id, "<utterance>.<n>", used by every event, the export and (later) the
-    timeline and revisions. Text with no final punctuation stays one sentence per utterance,
-    which is Rust's behaviour.
-22. **Events are one set for everything** (`events.py`), defined through P8 (partial, held,
-    revised) so `events.jsonl` won't change shape. `--listen`, file mode and the window all
-    consume them.
-23. **From a file, nothing is dropped:** where Rust drops an utterance the translator can't take
-    in time, a file run waits. Live use keeps Rust's behaviour.
-24. **A stall probe** (a 50 ms timer on its own thread) reports when every Python thread is held
-    up, the early warning for the window's responsiveness. Worst stall so far: 0 ms, with
-    Whisper (GPU) and Qwen3 (CPU) running together.
-
-25. **The window is Qt (PySide6), and its pane is a table,** one row per sentence: time, source,
-    translation, notes. Rust's egui window shows a card per utterance. The same rows are the
-    live captions and the file timeline. `Session` keeps Rust's shape and tests where they apply.
-26. **Every PortAudio stream is opened on one audio thread** (`audio.on_audio_thread`), and
-    PortAudio is initialised on it. Through PortAudio's WASAPI backend, a stream fails to start
-    ("Unanticipated host error") when opened on a thread other than the one that initialised
-    PortAudio, and volis opens streams from the pipeline's thread and the window's. cpal has
-    no such restriction.
-27. **The voice speaks sentence by sentence** (translation is per sentence), and "first audio"
-    is timed from when the utterance was cut, as in Rust.
-28. **Voice output in file mode is off by default** and has its own switch that is never saved;
-    the half-duplex gate doesn't apply to a file.
-29. **`--report --load`** loads each usable model in turn and prints device, memory and load
-    time (Rust has no equivalent).
-
-30. **A turn ends when all its sentences have run their course.** In Rust a turn is one
-    utterance with one reply, finished when that reply ends. In volis a turn can hold several
-    sentences, so the window stays in "processing" until every one is translated or refused
-    and, when replies are spoken, spoken; the voice going quiet between two sentences doesn't
-    end it. Taking a new turn cuts off whatever is being spoken, as in Rust; sentences of the
-    earlier turn that arrive during the new one wait and play when it ends (Rust's rule for a
-    reply that arrives mid-turn).
-31. **The turn key is taken by an application event filter** (`TurnKeyFilter`), the Qt
-    equivalent of Rust removing the key from egui's input before any widget runs.
-    `[mode].turn_key` keeps egui's key names, since the file is shared.
-32. **`mode.kind = "shared"`** isn't built until P10: a live run then takes turns and says so.
-33. **Recognition has its own thread** (`AsrWorker`). The pipeline thread now only runs the VAD
-    and hands work over, so a slow recognition pass never delays the cutting of speech. Final
-    passes take priority over provisional ones, and a provisional pass that is already out of
-    date when its turn comes is skipped.
-34. **Streaming recognition** (`[asr] streaming`, off by default; Rust has none). While an
-    utterance is spoken its audio so far is transcribed again every `interval_s` (the first
-    time after half of that); words two passes in a row agree on are committed, whole committed
-    sentences are translated at once, and the rest is shown as provisional text. It works in
-    continuous mode and file mode only: a turn is recognised once, when it ends, as before.
-    The final pass at the end of the utterance still decides the text.
-35. **Word timestamps are asked for only where they are used.** They cost Whisper about 1 s a
-    pass. A file run's final pass has them (for the subtitles and the timeline); a live run's
-    doesn't; streaming passes have them once the buffer is 10 s or longer, to trim what is
-    already committed. Without them a sentence's times are shared out by length and marked
-    approximate.
-36. **Carry-forward context** (`[context] mode = "carry"`, the default; Rust translates each
-    utterance alone). The last 4 sentences and their translations go into the prompt as earlier
-    turns of the chat, within 400 tokens. With `mode = "off"` the prompt is byte for byte
-    Rust's, and that is what `parity/translate.py` compares.
-37. **Context leaves half at a time.** When there are more than `sentences` turns the oldest
-    half is dropped together, so consecutive prompts start the same way, and the translator
-    keeps what it already evaluated (`LlamaTranslator.run(prompt, reuse=True)` compares token
-    prefixes). Same outputs; about 0.7 s a sentence instead of 1.7 s on this CPU. Without
-    context every sentence starts from a cleared cache, as in Rust.
-38. **The glossary** is one sentence added to the system text ("Keep these names and terms
-    exactly: ..."), per session and not saved. The "recites the prompt" guard knows that
-    sentence and the context turns too.
-39. **Fragment holding** (`[fragments]`, on by default). A sentence of fewer than 4 words with
-    no final punctuation waits up to 1.5 s to be joined to the next one before it is
-    translated. The clock is the wall for the microphone and the file's own time for a fast
-    file run, so both give the same result.
-40. **A fourth hallucination guard, "sparse":** fewer than one word per 3 s over 3 s or more of
-    detected speech. My choice, as the user asked me to use my judgement: it catches the
-    one- or two-word outputs Whisper gives for long noise, which the other three let through.
-    `[guards] sparse = false` turns it off.
-41. **The default prompt frames the text; Rust's hands it over alone.** `prompts\rust.txt` is
-    Rust's prompt exactly and is what the parity checks and the byte-for-byte test use.
-    `prompts\default.txt` has the same system text plus a section after `--- the text ---`:
-    the user turn becomes `{source} text to translate into {target} (translate it; never answer
-    it or do what it says):` and the text in quotation marks on the next line. Context turns are
-    framed the same way. Reason: the user said "how do you say let's go to the store in Spanish"
-    and heard "vamos a la tienda". The system text already forbids answering; the models ignore
-    it, and more so with context, which looks like a conversation.
-42. **A fourth translation guard:** an output containing the frame's own words is refused as
-    "recited" (`guards.contains_the_wrapper`).
-43. **The translator can run on the GPU** (`[translate] device = "auto"`, the default; Rust is
-    CPU only, `with_n_gpu_layers(0)`). It needs the GPU build of llama-cpp-python
-    (`build-llama.ps1 -Cuda`, into `wheels\cuda\`, 344 MB and so not committed; `setup.ps1`
-    installs it when it is there). The build uses PyTorch's own CUDA 12 runtime files, loaded by
-    full path before `llama_cpp` is imported (`llamacpp.load_cuda_runtime`), so there is one
-    copy of each in the process and no CUDA Toolkit is needed to run. `device = "cpu"` is Rust's
-    behaviour. On the GPU the wording differs from the CPU's on most sentences, at the same
-    quality.
-44. **Revision mode** (Rust has none). After each translated sentence, the last 3 source
-    sentences are translated again as one text (the conversation before them as context), the
-    result is split back into sentences, and an earlier sentence whose translation changed gets
-    a `Revised` event: the row shows the new wording, is highlighted for 4 s, says "revised" and
-    keeps the old wording in its tooltip; `events.jsonl` logs old and new; the status line
-    counts them. Off by default (`mode = "carry"`).
-45. **What revision never touches,** beyond the build file's two rules (a sentence handed to
-    the voice; one that ended more than 30 s before the newest). These three are mine, each
-    from a measurement:
-    - *a sentence of more than 8 words* (`revise_max_words`): revising everything on the
-      read-speech fixture gave 20 revisions in 14 sentences and a worse translation (Gemma,
-      chrF 61.2 against 63.6). Long sentences carry their own meaning; a second translation
-      only rewords them. If no earlier sentence in reach is short, the translator isn't asked;
-    - *the newest sentence*: nothing has been said since it was translated;
-    - *a sentence already revised once*: second looks flipped "doesn't" to "does not" and back.
-    Also: if the joint translation doesn't split into as many sentences as the source, nothing
-    changes (there is no telling which words belong to which sentence); and a difference of
-    case or punctuation alone is not a revision.
-46. **"Spoken" means handed to the voice,** not finished playing: once queued it will be said.
-    So with "Speak translations" on, every sentence is spoken as soon as it is translated and
-    revision changes nothing; the translator is not asked again at all. Revision is for
-    captions and file runs. (An idea, not built: within a turn, hold each sentence's speech
-    until the next sentence has been translated.)
-47. **Live, revision gives way to new speech:** when sentences are waiting to be translated,
-    the revision pass is skipped. A file run never skips it.
-48. **Paired mode:** revision is to be off while paired (P9), as the build file says.
-
-49. **Translation-only models (TranslateGemma)** have a chat template that takes the two language
-    codes and the text and writes its own instructions. volis detects that template
-    (`source_lang_code` in it) and gives it what it asks for; the prompt file and the glossary
-    are not used with such a model, context still is. A variety its table lacks (en-US) is
-    sent as the bare language.
-50. **A turn crosses the wire sentence by sentence.** Rust sends one `Utterance` per turn;
-    volis translates per sentence, so it sends one `Utterance` per sentence (the same
-    message, more of them) and releases the floor behind the last. A marker in the translation
-    queue (`END_OF_TURN`) keeps that order. Rust shows and speaks each as it arrives.
-51. **Context stays local and revision is off while paired,** as the build file says: only
-    the final translation of a sentence is sent. `[context] mode = "revision"` runs as
-    "carry" in a paired run, and the window's box says "(off while paired)".
-52. **A turn's last fragment is no longer held.** A short unpunctuated sentence at the end of
-    a turn used to wait 1.5 s for something to join; nothing can follow the end of a turn, so
-    it now goes at once (paired or not). Found while placing the floor release.
-53. **Network interfaces come from psutil** (Rust uses the `if_addrs` crate); it was already
-    installed as another package's dependency and is now declared. IPv4 addresses only in the
-    peer panel; Rust also lists routable IPv6 ones. Typing an IPv6 address works.
-54. **`SO_EXCLUSIVEADDRUSE` on the listener:** on Windows two programs can otherwise bind the
-    same port and each get some of the connections. With it, a second Volis on the same port
-    is told pairing is unavailable, as Rust's bind error does.
-55. **A file run never pairs** (Rust has no file mode), and neither does `--listen` or a
-    comparison, as in Rust.
-56. **Shared mode: one table, not two.** Rust shows each person's turns in their own column.
-    volis shows the two columns as panels (language and key in large letters, the status,
-    the side's pickers, a heavy border and colour on the active side) above its one table, in
-    which each row is marked with whose words it is (an arrow before the time). A
-    conversation reads in order that way, and the table is what file mode and export share.
-57. **Any recognizer that is told the language may hear a side without the warning.** Rust
-    warns for everything but Whisper ("decides the language itself"); in volis only
-    Parakeet does, since Whisper, MMS and Cohere through transformers are all told. A
-    downloaded model that doesn't say which languages it knows may be chosen for a side, with
-    a note in the column.
-58. **Context crosses the two directions on a shared machine.** What the other person said
-    was translated the other way; it is given to the translator turned round (its translation
-    as the source, its source as the translation), which is an equally true pair in this
-    direction. So an answer is translated knowing the question. Rust has no context.
-59. **Cancelling drops what is under way at every stage** (Rust's cancel generation, extended
-    to recognition, which volis runs on its own thread): a turn being recognised, sentences
-    queued or being translated, speech queued or being synthesised.
-60. **The mode radio buttons are in an explicit button group.** With a third button, Qt's
-    automatic exclusion between sibling radio buttons left two of them checked; found by the
-    shared-window tests.
-61. **Reading a GGUF's metadata walks its vocabulary in memory.** Listing five translators
-    took 1.5 s (a read and a seek for each of 260,000 strings) on every start of the window
-    and every `--report`; it takes 0.3 s now. Same result.
-62. **llama.cpp speech models are driven through `mtmd_cpp` directly.** llama-cpp-python's
-    own chat handlers take images only (they refuse a model that "does not support vision"),
-    so `asr/llamacpp_audio.py` calls the multimodal functions itself: the audio as 16 kHz
-    samples, the prompt from the model's chat template, greedy decoding. In this process, as
-    everything is.
-63. **Two kinds of speech model, told apart by name or by the folder's `volis-python.toml`.** A
-    model trained only to transcribe (a name containing "asr": Qwen3-ASR) is given the audio
-    alone, and its answer is begun for it with `language Spanish<asr_text>`, so the language
-    is told and not detected. Any other (Gemma 4, Voxtral) is asked in words to transcribe
-    the audio in the language. `prompt = "..."` in the folder's `volis-python.toml` sets the words
-    (`""` = the audio alone). The language is given by its English name, never as a variety.
-64. **A LoRA adapter for a recognizer is merged into its base at load** (`peft`,
-    `merge_and_unload`), in memory only: recognition runs at the base's speed and no file is
-    written. The base is the folder beside the adapter named like the last part of the
-    adapter's `base_model_name_or_path` ("openai/whisper-small" -> `whisper-small`), or
-    `base = "..."` in the adapter folder's `volis-python.toml`. It is never fetched.
-65. **A GGUF LoRA adapter is a translator of its own:** a folder in `models\mt\` with the
-    adapter `.gguf` and a `volis-python.toml` saying `base = "<translator id>"` (and optionally
-    `scale = 0.5`). An adapter for another architecture than its base's is refused by name.
-66. **Transformers translators** load the folder with `AutoModelForCausalLM`, build the prompt
-    with the tokenizer's own chat template (Qwen3's thinking off), decode greedily, and pass
-    the same cleaning and guards. For a model with no GGUF yet; a GGUF of the same model is
-    faster (below).
-67. **Holding speech for revision** (`[context] hold_speech`, default off). With revision and
-    the voice both on, a sentence short enough to be revised is not handed to the voice until
-    the next sentence has been translated (and the pair looked at again), or `hold_speech_s`
-    (2 s) has passed with nothing following, or the turn has ended. It is then spoken as it
-    reads at that moment and never revised again. A long sentence is never held. Without this
-    setting, revision changes nothing once the voice is on (P8). Off while paired, as revision is.
-    Measured (`scripts/p8_check.py`, `dialogue-es.wav`, 14 short sentences, the voice on): 14 of
-    14 spoken, 6 revised before they were spoken, none after. The mechanism works; the revisions
-    are as mixed as P8 found ("I can't find it." -> "I can't find him." better; "three houses
-    and a motorbike" -> "and a dog" worse).
-68. **Vowel marks for Arabic before the voice** (`[tts] diacritize` in `volis-python.toml`, default
-    off; `volis/tashkeel.py`). Piper restores Arabic's short vowels with a small model
-    (libtashkeel) before espeak-ng pronounces the text; sherpa-onnx, which both apps use to run
-    Piper voices, leaves that step out. volis can now run it: a port of piper-phonemize's
-    `tashkeel.cpp` on the same model file, through the `onnxruntime` Python package. One
-    departure from Piper's code: U+064B (fathatan) is removed from the input with the other
-    marks (Piper leaves it, and text that had one comes out with two). volis-rust has the same
-    gap and no fix.
-69. **`onnxruntime==1.28.0` is a dependency** (for 68). Checked: on Windows the package carries
-    the runtime inside its own extension and loads no `onnxruntime.dll`, so sherpa-onnx's
-    bundled 1.28.2 is still the only one in the process, in either load order (voice, VAD and
-    the marking model all ran both ways; `doctor.ps1` passes). Adding it changed no other
-    locked version: `uv.lock` gained onnxruntime, flatbuffers and protobuf and nothing else.
-
-## Versions: what keeps a new machine the same as this one
-
-- **Python packages:** `uv.lock` pins every package to an exact version and hash, and
-  `setup.ps1` installs with `uv sync --locked`, which refuses to install anything else. A
-  package is only ever added by editing `pyproject.toml` and running `uv lock`, never by
-  `pip install` into the environment.
-- **Exact pins that matter:** `sherpa-onnx` and `sherpa-onnx-core` 1.13.8 (onnxruntime.dll
-  1.28.2, as volis-rust links), `onnxruntime` 1.28.0, `llama-cpp-python` 0.3.35 (the wheel in
-  `wheels\`; the GPU build in `wheels\cuda\` is made on the machine by `build-llama.ps1 -Cuda`
-  and needs CUDA Toolkit 12.9), torch 2.11.0+cu128 (carries the CUDA 12 runtime the GPU
-  llama.cpp loads), transformers 5.18.0, peft 0.21.1, Python 3.12.10, uv 0.11.x.
-- **Models are not pinned to a revision.** `fetch-models.ps1` takes each repo's current files,
-  and the sherpa-onnx archives and `libtashkeel_model.ort` from their current URLs. A
-  publisher who replaces a file changes what a new machine gets. For a deployment, copy the
-  `models\` folder from a machine that works rather than download again; that is also what
-  the copy-to-run folder (P12) does.
-- **Not carried by the repo:** the GPU wheel (344 MB, git-ignored) and `models\`. A new
-  development machine needs `build-llama.ps1 -Cuda` once, or the wheel copied into
-  `wheels\cuda\` before `setup.ps1`.
-70. **The built program is a console program**, as volis-rust is (it has no
-    `windows_subsystem` setting): a double-click opens the window with a console behind it, and
-    the same exe takes every command-line option. A window-only exe would need a second
-    build of the same folder for the command line.
-71. **`--doctor`**, new: the same checks as `doctor.ps1`, available in the built folder, where
-    there is no `doctor.ps1` and no environment. There it checks the folder's own libraries
-    instead of package records, and adds one check: every library loaded comes from the folder
-    or from Windows (Windows Defender's scanning library, which it puts into every process,
-    counts as Windows).
-72. **The sherpa-onnx recognizer folders end in `-onnx-int8`** (`whisper-large-v3-turbo-onnx-int8`,
-    `parakeet-tdt-0.6b-v3-onnx-int8`, and the two converted fine-tunes), at the user's request, so
-    the picker shows which recognizers are compressed ONNX on the CPU. volis-rust's own folders
-    keep their names; folder names mean nothing to it. `whisper-large-v3-turbo` is now OpenAI's
-    original, on the GPU: on the fixtures it scored Spanish CER 0.5% (int8: 0.6%) and Arabic 3.3%
-    (int8: 5.2%), at RTF 0.33 and 0.22 against 0.41 and 0.52.
-73. **The performance panel** (View > Performance, `volis/perf.py`, `gui/perf_panel.py`), at
-    the user's request; volis-rust has none. GPU figures from `nvidia-smi` once a second (a
-    short program that reads counters; no new library). Windows reports N/A for each process's
-    GPU memory, so volis's share is the sum of its loaded models (`ModelLoaded`) and other
-    programs' is the rest. `Translated` events now carry `context_turns`, how many earlier
-    sentences went with the sentence. Measurements are kept in `logs\performance.json`.
-    Checked on the Spanish fixture in the real window: 14 sentences timed with their context,
-    the run recorded, and What if saying Gemma 4 12B with the Spanish Whisper doesn't fit 8 GB.
-
-## P12 findings
-
-- **PyInstaller 6.22.3, one-folder mode** (`volis.spec`), in uv.lock's `build` group so a
-  build machine gets the same version. It collected torch with its CUDA libraries, PySide6,
-  sounddevice's PortAudio, PyAV, onnxruntime and transformers by its own hooks. What it can't
-  see is named in the spec: llama.cpp's and sherpa-onnx's DLLs (loaded by path), librosa's
-  `.pyi` stubs, sacrebleu's tokenizers; and transformers, torch and peft kept as `.py` too,
-  since they read their own source. No UPX: compressed DLLs are what scanners flag.
-- **Size:** 5.6 GB for the program (`_internal\`), plus `models\` (47 GB here, everything in
-  MODELS.md). Build time about 4 minutes.
-- **`scripts\p12_check.py`, on the built program** (Qwen3 1.7B translating, this machine's
-  `volis-python.toml` otherwise, streaming on):
-
-  Three runs each; the times vary run to run by more than built and source differ.
-
-  | | built | from source |
-  |---|---|---|
-  | `--doctor` | all checks pass; onnxruntime 1.28.2 from the folder; GPU translator build; every library from the folder or Windows | |
-  | `--report` | 18 usable models, app root = the folder | |
-  | Spanish file, whisper-large-v3-turbo-es | CER 1.0%, chrF 59.3, 64 to 89 s | 64 to 76 s |
-  | Arabic file, Gemma 4 E4B hearing | CER 1.5%, chrF 59.8, 86 to 95 s | 86 to 108 s |
-  | network connections held, sampled every 0.2 s through every run | none | |
-
-  The same check passed with the folder moved out of the repository (`D:\AI_Data\...`, run
-  from `C:\`), and the window opened from there with no arguments, as a double-click does.
-- **Found by the built window, fixed:** the hold-speech box (difference 67) connected three
-  boxes to a refresh that ran while the window was still being filled in, when a user's
-  settings had them ticked; Qt printed the error to the console and the window opened anyway.
-  Fixed, with a test that fails without the fix.
-- With this machine's own settings (Gemma 4 12B translating, which doesn't fit on 8 GB beside a
-  recognizer) a file took 12 minutes instead of about one: the settings, not the packaging.
-- **Not done here (needs the user):** the folder zipped and unzipped on a Windows PC with no
-  Python and no internet; live mode there, and Resource Monitor watched for connections; a
-  machine whose security software might remove DLLs. A PC without an NVIDIA GPU is not a
-  target (the user's decision).
-
-## P11 findings
-
-- **Verified before building,** on llama-cpp-python 0.3.35, peft 0.21.1, transformers 5.18.0:
-  `mtmd_cpp` has `mtmd_bitmap_init_from_audio` and `mtmd_support_audio`, and Qwen3-ASR 0.6B
-  and Gemma 4 E4B both transcribed the fixtures through it, on the GPU; `Llama(lora_path=,
-  lora_scale=)` applies an adapter (strength 0 gives the base's output exactly, a strong one
-  changes it, on CPU and GPU); `peft` merges a Whisper LoRA; `AutoModelForCausalLM` runs
-  Qwen3 0.6B. Nothing had to be worked around with a separate process.
-- `scripts/p11_check.py`, each backend on a fixture recording end to end:
-
-  | recognizer | backend | Spanish CER / WER | Arabic CER / WER | RTF |
-  |---|---|---|---|---|
-  | Qwen3-ASR 0.6B (Q8) | llamacpp-audio | 1.6% / 6.0% | 4.1% / 16.2% | 0.02 |
-  | Gemma 4 E4B (Q4_K_M + mmproj F16) | llamacpp-audio | 1.1% / 3.4% | 1.5% / 6.5% | 0.08 |
-  | whisper-small | transformers | | 7.4% / 22.7% | 0.13 |
-  | whisper-small + Algerian Darja LoRA | transformers + peft | | 12.6% / 43.1% | 0.13 |
-
-  Gemma 4 E4B's Arabic is the best measured here so far (Cohere Transcribe: 1.9 to 2.1% CER,
-  7.4% WER), and Qwen3-ASR is the fastest recognizer installed. The Darja adapter is worse
-  than its base on this recording, as it should be: the recording is Egyptian read speech and
-  the adapter is tuned for Algerian. What the check shows is that it loads and is applied.
-
-  | translator | backend | chrF | per sentence |
-  |---|---|---|---|
-  | Qwen3 1.7B Q4_K_M | llamacpp | 59.1 | 389 ms |
-  | Qwen3 0.6B safetensors | transformers | 58.8 | 1974 ms |
-  | Qwen3 1.7B + adapter, strength 0 | llamacpp + LoRA | 59.1, 14 of 14 sentences as the base | 387 ms |
-  | Qwen3 1.7B + adapter, strength 0.02 | llamacpp + LoRA | 59.6, 5 of 14 as the base | 394 ms |
-
-  The adapters are synthetic (`scripts/make_test_lora.py`: a random low-rank change to one
-  tensor), which proves loading, not that a trained adapter helps. No real GGUF LoRA for an
-  installed translator was found to test with.
-- **Not tested:** Voxtral (not downloaded; it is the second kind of model, as Gemma 4);
-  streaming and the shared machine with a llama.cpp speech model (they use the same
-  `transcribe` as every recognizer, without word timings); a LoRA on a CTC model.
-- The transformers translator is five times slower a sentence than the GGUF one although the
-  model is smaller: `generate` has a fixed cost per call that llama.cpp doesn't.
-- `models\asr\gemma-4-E4B-it-GGUF\` holds a hard link to the Gemma 4 file in `models\mt\`
-  (the same model heard and translating) beside its audio encoder, so it takes no more disk.
-  Loaded as both, it is in memory twice.
-
-## P10 findings
-
-- `scripts/shared_check.py`: English on the left, Spanish (Mexico) on the right, a recorded
-  sentence standing in for each person, real recognizers, translator (Gemma 3 4B on the GPU)
-  and voices (played into the cable). Two turns each, three set-ups, 12 of 12 turns right:
-
-  | set-up | left heard by (CER) | right heard by (CER) |
-  |---|---|---|
-  | Rust's models (its M7.6 check) | parakeet-tdt-0.6b-v3-int8 (29.6%, 2.3%) | whisper-large-v3-turbo-es-adriszmar (0.7%, 0.8%) |
-  | a downloaded model on the right | parakeet-tdt-0.6b-v3-int8 | whisper-large-v3-turbo-es (0.7%, 0.8%) |
-  | downloaded models on both sides | whisper-small (9.9%, 4.5%) | whisper-large-v3-turbo-es |
-
-  The 29.6% is "twenty five to thirty years" against the reference's "25 to 30": Parakeet
-  spells numbers out. Every turn: the log names the recognizer and the language it was told;
-  English came out in `es-MX`, spoken by `vits-piper-es_MX-claude-high` (the Mexico-tuned
-  voice, chosen first for a side set to Spanish (Mexico)); Spanish came out in `en`, spoken
-  by `vits-piper-en_US-lessac-medium`. Each recognizer loaded once.
-- **Not done: the same turns through volis-rust side by side.** Rust's shared mode exists
-  only in its window, with keys. The recognizers are the same files and were compared with
-  Rust's at P2 (Parakeet identical; Whisper int8 the same but for sub-sample differences).
-- **Not done by a person:** two people at the keyboard with speakers at normal volume (Rust's
-  M7.5 check): that the other key does nothing during a turn, that Escape silences a turn,
-  that volis never translates its own voice, that whose turn it is can be read from across
-  a table. The logic for each is tested; the room is not.
-- The log line says `transcribing as "es-MX"`; the recognizer itself is given `es` (each
-  backend takes the language of the tag), as Rust's M7.7 check asks.
-
-## P9 findings
-
-- `scripts/pair_check.py` against `volis-rust.exe` (its window, since Rust's `--listen` never
-  pairs; two clicks in it, Start and Connect): volis dials Rust and both name the other;
-  Rust grants the floor and only then does the microphone open; a sentence from volis
-  arrives in Rust with its original; Rust hears Spanish through the cable and its translation
-  arrives in volis with the original; the volis end killed with no goodbye, and Rust says
-  "volis closed the connection"; Rust dials volis and they pair; Rust killed while
-  volis holds the floor, and volis says "rust-volis dropped the connection", releases the
-  floor and closes the microphone. 12 of 12.
-- The clicks in the Rust window were made by Claude through desktop automation, not by the
-  user. Not tested: two real machines on a cable or switch, the firewall diagnostic against a
-  real firewall, discovery between two machines (two programs on one PC can't both open UDP
-  47801, so on one PC only one of them announces), and a real conversation with voices.
-- What is encoded is byte for byte what serde writes for the same message
-  (`tests/test_wire.py`), and the decoder refuses what serde refuses (negative or fractional
-  `seq`, a missing field, a non-string) plus half a surrogate pair, which Python's JSON parser
-  accepts and UTF-8 cannot hold.
-
-## Translator comparison (2026-10-01, `scripts/mt_bench.py`)
-
-Text only (FLEURS reference transcripts, 10 sentences a language, FLORES+ references), default
-prompt, carry-forward context, GPU build. chrF; "obey" = of 24 tempting sentences translated
-rather than answered, alone / with context; dialogues = first sentence right at once / after
-revision, of 12.
-
-| translator (Q4_K_M) | GB | es>en | ar>en | fa>en | en>es | mean | obey | dialogues | ms/sentence |
-|---|---|---|---|---|---|---|---|---|---|
-| Qwen3 1.7B (Rust's) | 1.1 | 59.2 | 64.3 | 58.8 | 58.3 | 60.2 | 24 / 24 | 5 / 7 | 261 |
-| Gemma 3 4B | 2.5 | 65.9 | 67.7 | 65.5 | 60.0 | 64.8 | 24 / 24 | 6 / 7 | 444 |
-| TranslateGemma 4B | 2.5 | 64.2 | 66.9 | 65.9 | 60.0 | 64.3 | 23 / 24 | 6 / 10 | 511 |
-| Gemma 4 E4B | 5.0 | 64.3 | 71.3 | 63.8 | 60.9 | 65.1 | 24 / 23 | 6 / 8 | 586 |
-| Qwen3 8B | 5.0 | 64.3 | 67.3 | 62.3 | 59.9 | 63.4 | 24 / 23 | 5 / 6 | 867 |
-| TranslateGemma 12B | 7.3 | 62.3 | 68.4 | 64.9 | 61.2 | 64.2 | 24 / 24 | 6 / 9 | 8040 * |
-| Gemma 3 12B | 7.3 | 63.1 | 70.3 | 66.9 | 60.5 | 65.2 | 24 / 24 | 6 / 7 | 9313 * |
-| Gemma 4 12B | 7.1 | 62.2 | 73.1 | 66.6 | 62.7 | 66.1 | 24 / 24 | 5 / 8 | 5909 * |
-
-\* doesn't fit this laptop's 8 GB card and spilled into ordinary memory; not what a larger GPU
-would give. Ten sentences a language: a point or two of chrF is noise. What holds: every model
-from 4B up is 3 to 6 chrF above Qwen3 1.7B; the 12B models are not clearly better than the 4B
-ones except on Arabic (Gemma 4 12B 73.1, Gemma 4 E4B 71.3, against 67 to 68); TranslateGemma
-is the one revision helps most. llama-cpp-python 0.3.35 loads the `gemma4` architecture.
-
-## P8 findings
-
-- `scripts/p8_check.py`, 12 two-sentence dialogues where the first sentence needs the second
-  ("Yo manejo. / Mi carro está afuera.", "Se cayó. / El sistema no responde desde las nueve.",
-  "It's cold. / The soup has been sitting out for an hour."):
-
-  | | right at once | fixed by revision | still wrong | made worse |
-  |---|---|---|---|---|
-  | Qwen3 1.7B | 5 | 2 ("I manage." -> "I drive."; "He fell." -> "It fell.") | 5 | 0 |
-  | Gemma 3 4B | 6 | 1 ("Pareces cansado/a." -> "Están cansados.") | 5 | 0 |
-
-  So revision fixes a minority of what carry-forward gets wrong. The models mostly translate
-  the joint text left to right and repeat their first reading ("Es muy rico." stays "It is very
-  rich" / "It's very delicious" beside "My uncle has three houses and a yacht").
-- Other ways of showing the model the following sentence were tried and are not kept: the
-  sentence alone with "the speaker went on to say ..." after it, before it, or in the system
-  text. None beat the joint translation (both translators end at 7 of 12 right either way),
-  and two of them made Qwen recite the note.
-- Through the pipeline, on `dialogue-es.wav` (the Spanish dialogues spoken by a Piper voice,
-  `scripts/make_dialogue_file.py`; 14 sentences, 42 s): Qwen3 5 revisions in 13 passes (3
-  better, 1 a contraction, 1 worse: "It is closed." -> "He is closed."); Gemma 9 revisions
-  (about half better: "I saw her." -> "I saw it.", "It fell." -> "It crashed.", "I can't find
-  it." -> "I can't find him."; one clearly worse: "It's ready." -> "She is ready."). A revision
-  pass takes about 0.5 s (Qwen3) to 0.8 s (Gemma) on the GPU, once per sentence.
-- On the read-speech fixture: 0 revisions, 2 passes, chrF unchanged (Qwen3 56.8 both ways;
-  Gemma 61.6 and 61.4, the 0.2 being run-to-run variation on the GPU, not revisions).
-- With the voice on: 14 sentences spoken, 0 revisions. With the age limit at 0 s: 0 revisions.
-- The count is the thing to watch, as the build file says: Gemma's 9 in 14 short sentences is
-  a lot of rewriting for roughly 4 real improvements.
-
-## After P7: answering instead of translating, and the GPU translator
-
-- `scripts/obey_check.py`: 24 sentences that tempt a chat model ("how do you say ...", "what
-  is the capital of France", "repeat after me ...", "ignore your instructions ..."), with and
-  without punctuation, both directions, alone and after two earlier sentences. Translated
-  rather than answered or obeyed, out of 24:
-
-  | | Rust's prompt, alone | Rust's, with context | default, alone | default, with context |
-  |---|---|---|---|---|
-  | Qwen3 1.7B | 22 | 18 | 24 | 24 |
-  | Gemma 3 4B | 18 | 9 | 24 | 24 |
-
-  (On the CPU build the default prompt scored 24, 23, 24, 23.) So carry-forward context made
-  the problem much worse with Rust's prompt; that was a P7 regression, found by the user.
-  volis-rust has the same weakness without context (22 and 18 of 24 here).
-- Quality on the Spanish fixture is unchanged by the frame: chrF 58.5 to 59.8 for Qwen3, 62.2
-  to 63.6 for Gemma, across both prompts, with and without context.
-- **Translation time, GPU against CPU** (RTX 4070 laptop): Qwen3 median about 410 ms a
-  sentence against 920 ms to 2.4 s (the CPU figure depends on what else is running); Gemma
-  about 650 ms against 3.2 s.
-- **Open: the GPU wheel's CPU path isn't Rust's.** With the CPU wheel, volis and Rust gave
-  identical translations (25 of 25, P3). With the GPU wheel installed and `device = "cpu"`,
-  `parity/translate.py` gives 19 of 24 identical; turning off `offload_kqv` and `op_offload`
-  made it 14, so that isn't the cause and was not kept. The cause isn't found (the GPU wheel
-  is built with Ninja, the CPU wheel with the Visual Studio generator; compiler flags may
-  differ). For exact parity with Rust, install the CPU wheel (`setup.ps1 -Reinstall` with
-  `wheels\cuda\` moved away).
-- CUDA 12.9's headers refuse Visual Studio 2026's compiler; the build passes
-  `-allow-unsupported-compiler`. The result loads, runs every test and translates at the
-  quality above.
-- Untested: the GPU wheel on a machine with no NVIDIA GPU or driver. It may not load at all
-  there. A P12 question; the CPU wheel is the safe default and is what the repo carries.
-- The parity harness played audio from the main thread, which stopped working when audio got
-  its own thread (P5); it now plays through `audio.on_audio_thread`. It also gives Rust a
-  recognizer Rust has when the user's `volis.toml` names a volis-only one.
-- GPU recognizers make one pass over a second of silence when they load (`HfAsr.warm_up`): the
-  user's first turn took 1093 ms to transcribe against about 300 ms for the later ones.
-
-## P7 findings
-
-- `scripts/p7_check.py` on the Spanish fixture file (124 s, 14 sentences), Qwen3 1.7B on CPU.
-  With whisper-large-v3-turbo-es:
-
-  | | CER | WER | chrF | ASR RTF | translate / sentence |
-  |---|---|---|---|---|---|
-  | everything off | 0.9% | 3.0% | 58.4 | 0.34 | 2459 ms |
-  | + context | 0.9% | 3.0% | 59.3 | 0.34 | 2424 ms |
-  | + fragment holding | 0.9% | 3.0% | 59.3 | 0.34 | (0 held) |
-  | + streaming, fast | 1.0% | 3.4% | 59.4 | 0.70 (97 passes) | |
-  | + streaming, real time | 0.9% | | 59.7 | 0.63 | first text after 1223 ms |
-
-  With mms-1b-all (no punctuation, so the file is 14 utterances treated as sentences): CER
-  1.3 to 1.4%, WER 6.0%, chrF 58.6 without context, 59.6 with, 59.9 with streaming; one
-  fragment held and joined; ASR RTF 0.04 without streaming, 0.12 with.
-- So on read speech: context is worth about 1 chrF and costs nothing once the cache is reused;
-  streaming doubles the recognition work (still well under real time on the GPU) and leaves
-  accuracy where it was; holding rarely fires, because Whisper punctuates almost everything.
-  FLEURS sentences are unrelated to each other, so this understates what context does in a
-  conversation.
-- Context cases (`p7_check.py`, and tests in `tests/test_translate.py`): "Me lo entregan el
-  martes" alone is "I give it to them on Tuesday", after a sentence about an order it is "I get
-  it on Tuesday"; "No la he visto" gets "her" after a sentence about a sister. **Not fixed:**
-  "Yo manejo." followed by "Mi carro está aquí." is still "I manage.", because what would
-  settle it comes afterwards. That is what P8's revision is for.
-- Provisional text first appears 1.2 s after speech starts (the build file asks for about
-  1.5 s): half an interval, plus one Whisper pass.
-- The first try at context doubled translation time (the whole prompt evaluated for every
-  sentence). Differences 35 and 37 are the fixes.
-
-## P6 findings
-
-- `scripts/turn_check.py`, through the cable: speech while idle gives no transcript and no level
-  report, and the capture device isn't open; a turn with a 2 s pause inside is one transcript
-  (407 characters, 3 sentences); taking a turn silences a reply at once (the open microphone
-  then hears -90 dBFS); the mode switches while running, both ways.
-- The level log's "digital silence - is the microphone muted?" fired wrongly when a turn opened,
-  because its window counted time with the microphone closed; the meters now restart when the
-  microphone opens.
-- On the same Spanish file, Gemma 3 4B scores chrF 62.1 against Qwen3 1.7B's 58.4, at about
-  3.2 s a sentence against 2.3 s (CPU). In the user's live test Gemma answered a question
-  ("How do you say in Mexican Spanish...") instead of translating it, which no guard catches.
-
-## P5 findings
-
-- **Responsiveness** (`scripts/window_check.py`, Arabic file, Cohere on the GPU and Qwen3 on the
-  CPU, fast): the window thread's 20 ms timer ran at a median of 20 ms, 99th percentile about
-  36 ms, longest freeze about 180 ms (once, at the start of a run); the pipeline's own stall
-  probe reported 0 ms. No library holds Python's lock for long. Scoring a file at the end froze
-  the window for 380 ms until it was moved to its own thread.
-- **The gate** (`scripts/gate_check.py`): with the cable as both microphone and speakers,
-  half-duplex on gave only the Spanish that was played; off, volis also transcribed its own
-  English voice and tried to translate it. As in Rust, speech that overlaps the voice is lost.
-- **Right to left:** alignment isn't enough. A cell needs a right-to-left base direction
-  (`DirectionDelegate`), or the final full stop and embedded numbers land on the wrong side.
-- **Memory, measured by `--report --load`:** Cohere 4.1 GB, MMS 1.9 GB, Whisper turbo through
-  transformers 1.6 GB each (all GPU); the sherpa models 0.7 to 1.0 GB and the translators 1.1
-  and 2.5 GB (system memory).
-- llama.cpp prints one line to stderr when Gemma loads (`llama_kv_cache_iswa: ...`) despite
-  `verbose=False`. Harmless.
-
-## P4 findings
-
-- **The check:** a 124 s Spanish fixture recording, Spanish Whisper and Qwen3, `--fast`: every
-  export file written; transcript CER 0.9%, translation chrF 58.4 against FLORES+. Arabic
-  through Cohere Transcribe: CER 1.9%, chrF 61.9. ASR real-time factor 0.36 and 0.19;
-  translation median about 2.3 to 2.4 s a sentence on the CPU.
-- **Scores equal model-bench's** to four decimals on the same text (checked with model-bench's
-  own code and environment).
-- **References:** `tests/fetch-fixtures.ps1` now aligns each FLEURS clip with FLORES+ (en, es,
-  ar, ar-IQ via Mesopotamian Arabic, fa) by its English text; FLEURS's ids aren't FLORES+ rows.
-- **A `.ref.srt` is read as the transcript.** The spec doesn't say which side an SRT reference
-  is; a translation reference needs the `.ref.json` form.
-
-## P3 findings
-
-- **Translation parity:** 25 sentences (14 Spanish->English, 11 English->Spanish, Rust's own
-  transcripts from the cable run), Qwen3 1.7B, default prompt: **25 of 25 identical**, on the
-  CPU, about 0.7 to 2.1 s a sentence (Rust's timings on the same sentences were the same range).
-- **A second family**, Gemma 3 4B (`unsloth/gemma-3-4b-it-GGUF`, Q4_K_M), translates with its
-  own template (no system role; it writes its own `<bos>`) and no code changes: 1.9 to 3.0 s a
-  sentence on the CPU. Asked for Mexican Spanish it wrote "¿Qué onda, carnal?".
-- **GPU for the translator** needs a CUDA build of llama-cpp-python, which needs the CUDA
-  Toolkit (12.8 or newer, for the 5090) installed on the building machine. Not installed here;
-  the user's decision.
-- **llama-cpp-python 0.3.35 ships `mtmd.dll` and a `mtmd_cpp` module** (llama.cpp's multimodal
-  library): the starting point for P11's audio-input check.
-- **Recognition parity through the cable can't be made exact.** With both ends at 16 kHz the
-  audio still arrives scaled (gain 0.9896) and not sample-exact, so Whisper's P2 differences
-  stand as explained; Parakeet matched exactly on every Spanish utterance in P2. Exact Whisper
-  parity would need Rust to transcribe a file itself (its test binary, built outside the Rust
-  repo) - the user's call.
-
-## P2 findings
-
-- **Recognition parity with Rust (`parity/asr.py`).** volis-rust listens to the VB-Audio cable
-  while the Spanish fixtures play into it; volis transcribes the WAVs Rust wrote. Parakeet:
-  identical on every utterance. Whisper (all three int8 ONNX folders): 13 of ~33 differ, by a
-  word or a capital. Cause, shown: Rust's WAVs are 16-bit, and changing the audio by less than
-  one 16-bit step flips int8 Whisper's text ("Los personas" -> "Las zonas"; scaling by
-  32767/32768 gives Rust's exact "Las personas"). So the WAV route proves Parakeet's
-  configuration and can't prove Whisper's. Setting the cable to 16 kHz didn't make it exact
-  (see P3 findings).
-- **transformers 5.18 speech classes** (seq2seq): canary, cohere_asr, fun_asr_nano,
-  granite_speech(_plus), kyutai_speech_to_text, moonshine(_streaming), qwen3_asr,
-  seamless_m4t(_v2), speech-encoder-decoder, speech_to_text, speecht5, vibevoice_asr, voxtral,
-  voxtral_realtime, whisper. CTC: data2vec-audio, granite_speech5_ctc, hubert, lasr_ctc,
-  parakeet_ctc, sew(-d), unispeech(-sat), wav2vec2(-bert, -conformer), wavlm.
-- **Fixtures (`scripts/transcribe.py`, 10 FLEURS clips each):** Spanish CER 0.5 to 1.9% for every
-  model. Arabic: Cohere Transcribe 2.1%, the oddadmix Whisper fine-tune 3.7% in float16 through
-  transformers but 8.4% as Rust's int8 ONNX (which cuts sentences short), base Whisper turbo
-  5.2% **with no punctuation on any Arabic output**, MMS 5.8% (CTC: never punctuates).
-- **A hole in the guards:** noise shaped like speech (band-limited, pulsing at syllable rate)
-  passes Silero, and Whisper answers it with invented text: once "¡Suscríbete al canal!"
-  (dropped by the stock-phrase guard), once a lone "y" that no guard catches. A possible fourth
-  guard, for the user to decide: text implausibly short for the length of the segment.
-- **Persian ("fa")** was missing from the varieties table; added in both apps (below).
-
-## Changes made in volis-rust too, by the user's decision
-
-- 2026-09-30: the translation prompt's dialect sentence read "aloud,using" and carried
-  indentation and trailing spaces; fixed in `translate.rs`.
-- 2026-09-30: `VOICE_NOTE_LEFT` in `config.rs` wrote its second comment line with 31 leading
-  spaces; fixed, with a test, in both apps.
-- 2026-09-30: Persian added to the varieties table in both apps: `fa` (Persian) and `fa-IR`
-  (Persian (Iran), "Iranian Persian" in the prompt).
-
-The Rust changes are left uncommitted for the user to review and commit, and `volis-rust.exe` is
-not rebuilt (volis-rust doesn't know `fa` until it is).
+- Glossaries and the phrasebook (P19d).
+- Holding speech for revision (`[context] hold_speech`): built, set aside.
+- Linux, and machines without an NVIDIA card.
+
+### Tried and dropped
+
+- A "situation" line in the translator's instructions (restaurant, clinic). Given a restaurant
+  sentence, three smaller translators invented words ("my order", "my reservation").
+- Other ways of showing a translator the following sentence during revision: none beat translating
+  the two together, and two made Qwen recite the note.
+
+## Why things are the way they are
+
+### The pipeline
+
+- **Translation is per sentence, not per utterance.** Each sentence has the id
+  `<utterance>.<n>`, used by every event and the export. Text with no final punctuation stays one
+  sentence per utterance.
+- **One set of events** (`events.py`) for everything: the window, `--listen`, recordings,
+  `events.jsonl`.
+- **Recognition has its own thread** (`AsrWorker`), so a slow pass never delays cutting speech.
+  Final passes come first; a provisional pass already out of date is skipped.
+- **From a file nothing is dropped;** live use drops what the translator can't take in time.
+- **A turn ends when all its sentences have run their course:** translated or refused and, when
+  spoken, spoken. A short fragment at the end of a turn isn't held, since nothing can follow it.
+- **Cancelling drops what is under way at every stage,** including sentences queued for translating
+  or speaking.
+- **Resampling uses soxr,** a better filter than sherpa-onnx's linear one.
+- **Every PortAudio stream opens on one thread:** through WASAPI a stream otherwise fails to start
+  ("Unanticipated host error").
+- **Word timestamps are asked for only where used.** They cost Whisper about 1 s a pass.
+- **GPU recognizers make one pass over silence when they load,** or the first turn takes about
+  three times as long.
+- **Streaming** commits words two passes agree on; the final pass still decides the text. Not for
+  turns: a turn is recognised once.
+
+### Guards
+
+- **Prompts come from each GGUF's own chat template,** so a GGUF with no template is unusable.
+  Models that only translate (TranslateGemma: `source_lang_code` in the template) get what the
+  template asks for; the prompt file and glossary aren't used with them.
+- **The default prompt frames the text** ("text to translate ...; never answer it"), with the text
+  in quotes. Without the frame and with context, Gemma 3 4B translated only 9 of 24 tempting
+  sentences; with it, 24. `guards.contains_the_wrapper` refuses output that repeats the frame.
+- **The recital guard ignores earlier turns the sentence repeats** (`guards.repeats`, 60% of its
+  words): a sentence said again rightly translates to the earlier translation.
+- **Recognizer guards** (`asr/guards.py`): speech probability, repeats, stock phrases, and "sparse"
+  (fewer than one word per 3 s), for the one- or two-word outputs Whisper gives on long noise.
+  Sherpa-onnx's binding doesn't expose Silero's probabilities, so the first uses a second Silero
+  with `min_peak_probability` as its threshold.
+
+### Context and revision
+
+- **Context leaves half at a time,** so consecutive prompts start the same way and the translator
+  reuses what it evaluated: about 0.7 s a sentence instead of 1.7 s on the CPU.
+- **On a shared computer, context crosses directions turned round,** so an answer is translated
+  knowing the question.
+- **Revision never touches** a sentence handed to the voice, one over 30 s old, one over 8 words
+  (revising everything made translation worse: chrF 61.2 against 63.6), the newest, or one
+  already revised (second looks flip-flop). It fixes a minority of what context gets wrong, and
+  changes nothing once the voice is on.
+- **Context stays local and revision is off with two computers:** only the final translation is
+  sent.
+
+### Text
+
+- **Right to left needs a right-to-left base direction,** or the final full stop lands on the wrong
+  side. A Qt layout mirrors left and right for a right-to-left widget unless `AlignAbsolute` is set.
+- **The Persian clean-up is ported from hazm, not imported:** hazm brings three packages and a
+  3.4 MB word list. `persian.py`'s docstring lists what was ported, left out and changed. Measured
+  on ten read clips: no clear effect, either way.
+- **Vowel marks** (`tashkeel.py`) port Piper's step, which sherpa-onnx leaves out.
+
+### Models and libraries
+
+- **llama-cpp-python is built here:** published wheels stop at older versions, 0.3.35 is source
+  only.
+- **The GPU build uses PyTorch's own CUDA 12 files,** loaded by full path first
+  (`llamacpp.load_cuda_runtime`), so there is one copy and no toolkit is needed to run. CUDA 12.9's
+  headers refuse Visual Studio 2026's compiler; the build passes `-allow-unsupported-compiler`.
+- **Flash attention is on;** llama-cpp-python turns it off unless told.
+- **llama.cpp speech models go through `mtmd_cpp` directly:** the package's chat handlers take
+  images only.
+- **Reading a GGUF's metadata walks its vocabulary in memory:** listing five took 1.5 s with a read
+  per string, 0.3 s now.
+- **A recognizer's LoRA is merged at load** in memory (`peft`). **A GGUF LoRA is a translator of its
+  own:** a folder with the adapter and `base = "<translator id>"`.
+- **`onnxruntime` is a dependency** for the vowel marks. On Windows it carries its runtime inside
+  its extension, so sherpa-onnx's 1.28.2 stays the only `onnxruntime.dll` in the process.
+- **GPU memory per program isn't reported by Windows,** so Volis's share is the sum of its loaded
+  models and "others" is the rest.
+
+### Two computers
+
+- **Discovery, wire and accept:** protocol version 3. Someone dialled waits for `Accept`; two
+  computers choosing each other need no asking. Waiting links are pinged, or the read timeout
+  closes them.
+- **The audio swap** uses the same connection, so no new firewall opening. Sentences are named by
+  their translation's words. A sentence still under way at the end may miss the swap; opening the
+  other's file adds it.
+- **Combining** recognises the other's copy: both two-computers, same day, at least half the
+  shorter one's sentences match. Clocks a day apart open as a separate conversation.
+- **`SO_EXCLUSIVEADDRUSE`:** on Windows two programs can otherwise share a port and each get some
+  of the connections.
+
+### The window and packaging
+
+- **A `.volis` file is untrusted:** every field's type is checked, only audio named as `Keeper`
+  names it is read, folder names are cleaned, and nothing is left behind on failure.
+- **A crash's conversation is recovered silently on opening,** not by a prompt.
+- **`[window] advanced_open` is accepted and ignored,** so older settings files still load.
+- **PyInstaller, one folder** (`volis.spec`), with no UPX: compressed DLLs are what scanners flag.
+  The spec names what its hooks can't see. transformers, torch and peft are kept as `.py`, since
+  they read their own source.
+- **The built program is a console program,** so the same exe takes every option.
+- **`--doctor`** checks every library loaded comes from the folder or Windows.
+
+## Versions
+
+`uv.lock` pins every package by version and hash. The pins that matter: `sherpa-onnx` 1.13.8,
+`onnxruntime` 1.28.0, `llama-cpp-python` 0.3.35, torch 2.11.0+cu128 (carries the CUDA 12 runtime
+the GPU build loads), transformers 5.18.0, peft 0.21.1, Python 3.12.10, uv 0.11.26.
+
+**Models are not pinned to a revision:** `fetch-models.ps1` takes each repo's current files. For a
+deployment, copy `models\` from a machine that works rather than download again.
+
+The repository doesn't carry the GPU wheel (344 MB) or `models\`.

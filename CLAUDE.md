@@ -1,32 +1,28 @@
 # CLAUDE.md - volis
 
-`volis-build.md` is the original build specification (P0 to P12, done) and
-`volis-next-features.md` the current one (P13 to P20). Read the current one before changing
-anything. Volis began as a port of a Rust app, volis-rust, which is no longer on this machine
-and no longer a reference: where these files or the code say "as Rust does", the Python code
-is now the specification. `model-converter` is for reading only: never change anything in it
-unless the user explicitly approves a specific change.
+`model-converter` is for reading only: never change anything in it unless the user explicitly
+approves a specific change.
 
-Which document holds what: `README.md` (for a new user: what Volis is, setup, first run, the
-modes, what to do when something goes wrong; **no milestones, no volis-rust, no builder's
-detail**), `MODELS.md` (which models to start with, choosing your own, then every model tested
-and its scores), `SETTINGS.md` (every setting and command-line option), `DEVELOPMENT.md` (the
-translator build, the ready-made folder, the checks, volis-rust compatibility), `HANDOFF.md`
-(status, history, and every difference from volis-rust with its reason), `volis-ui-plan.md`
-(the new window: the agreed design and its stages), this file
-(constraints and working rules). Rust's documents cover the wire protocol, varieties and
-dialects; link to them, don't copy them.
+Which document holds what:
+
+| Document | What it holds |
+|---|---|
+| `README.md` | For a new user: what Volis is, setup, first run, what to do when something goes wrong. No builder's detail. |
+| `OVERVIEW.md` | For someone deciding whether to use it. |
+| `MODELS.md` | Which models to start with, choosing your own, test scores. |
+| `SETTINGS.md` | Every setting and command-line option. |
+| `DEVELOPMENT.md` | Building, checking and finding your way round the code. |
+| `HANDOFF.md` | What is open, and why the code is the way it is. |
+| `volis-next-features.md` | The plan for the features not built yet (P18 to P20). Read it before building one. |
 
 ## Hard constraints
-
-These come from the Rust `CLAUDE.md` and SPEC §2, adapted only where they name Rust tools.
 
 1. **Never requires, attempts or depends on internet access at runtime.** No downloads, no update
    checks, no telemetry, no model hub lookups. `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` are
    set **before** any Hugging Face library is imported, in the entry point, and a test proves no
-   library opens a connection to anywhere but the local network (see "Offline enforcement").
-   Local network sockets for paired mode are allowed, under the same test as Rust: *would it still
-   work with the WAN cable unplugged and no DNS server anywhere on the segment?*
+   library opens a connection to anywhere but the local network. Local network sockets for
+   two-computer conversations are allowed, under this test: *would it still work with the WAN
+   cable unplugged and no DNS server anywhere on the segment?*
 2. **No separate services.** Every model runs in-process. No Ollama, no local servers, no helper
    processes that serve models. (A Python thread is fine. A child process running inference is
    not.)
@@ -38,40 +34,26 @@ These come from the Rust `CLAUDE.md` and SPEC §2, adapted only where they name 
 5. **Model files keep their published names,** in folders named after the model. A folder made
    by `hf download` is exactly what the user sees in Explorer.
 6. **Copy-to-run:** zip the finished folder, unzip on a fresh Windows machine with no internet and
-   no Python, double-click, and it works. This is heavier than the Rust version because of
-   PyTorch, and that's accepted. It still has to work.
+   no Python, double-click, and it works. It is heavy because of PyTorch, and that's accepted. It
+   still has to work.
 
-Plus the Rust working rules: every error about a file names the absolute path tried; one path
-function; no settings no milestone needs.
+Every error about a file names the absolute path tried. Add no setting that no feature needs.
 
 ## Working rules
 
-- Build in the milestone order of `volis-build.md` (P0 to P12). Each milestone ends with a
-  check. **Stop after each milestone, show its check passing, and wait for the user to say go
-  on.** Don't work ahead.
-- **Verify before you rely.** Where the spec says "verify" (llama.cpp audio, `transformers`
-  classes, chat templates, packaging), check the installed version's behaviour and report it
-  before building on it. If something doesn't exist, stop and say so. Don't invent an API.
-- If a Rust behaviour seems wrong, port it as it is and note it in `HANDOFF.md`. Changing it is
-  the user's call, for both apps.
-- One Python module per Rust module, with the same name. Port the Rust tests to pytest.
-- `volis.toml` is shared with volis-rust and must stay loadable by it: Rust rejects unknown
-  sections (`deny_unknown_fields`), so volis-only settings go in `volis-python.toml`, never in
-  `volis.toml`.
-- `models\mt\`: Rust uses exactly one `.gguf` at the top level and refuses to start with two.
-  Extra translators go one folder per model inside it, which Rust never looks at.
+- Build one stage at a time. **Stop after each, show its check passing, and wait for the user to
+  say go on.** Don't work ahead.
+- **Verify before you rely.** Where a plan says "verify" (library classes, chat templates,
+  packaging), check the installed version's behaviour and report it before building on it. If
+  something doesn't exist, stop and say so. Don't invent an API.
+- Window logic stays out of Qt: new state and rules go in Qt-free modules with tests.
+- New settings go in `volis-python.toml` and `SETTINGS.md`, never in `volis.toml`.
+- `models\mt\`: at most one `.gguf` at the top level, the default translator. Every other
+  translator goes in a folder of its own inside it.
 - Open, start, stop and close every audio stream through `audio.on_audio_thread`, and get
   sounddevice through `audio._sd()`: PortAudio only works from the thread that initialised it.
 - `paths.app_root()` is the only path-derivation function. `volis/__main__.py` sets the
   offline environment before importing anything else; keep it that way.
-- Commit after each milestone. Tests pass at every commit (`.venv\Scripts\python.exe -m pytest`).
+- Commit after each stage. Tests pass at every commit (`.venv\Scripts\python.exe -m pytest`).
 - When the user **asks a question, answer it and wait.** Don't run commands or change their
   `volis.toml` unasked.
-
-## Status
-
-U1 to U7 of `volis-ui-plan.md` done (the window is `gui/app_window.py`; developer pages are in
-`gui/developer.py`, only with `--developer`). P0 to P12 done (through the window, voice output, file mode, continuous and turn-based modes,
-streaming recognition, carry-forward context, revision mode, paired mode, the shared machine,
-the llama.cpp speech, LoRA and transformers-translator backends, and the copy-to-run folder
-built by `build.ps1`). See `HANDOFF.md`.

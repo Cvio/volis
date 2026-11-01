@@ -1,6 +1,6 @@
 """What the translation stage refuses, and how it cleans output.
 
-Port of Rust `translate.rs`: `clean`, and the three guards. A small model
+`clean`, and the guards. A small model
 fails in ways worse than failing visibly, so these reject an output rather
 than let it be captioned and spoken. All three were found in live sessions:
 
@@ -14,7 +14,6 @@ Do not remove one without a replacement.
 
 from __future__ import annotations
 
-# Rust's constants.
 MIN_RECITED_WORDS = 4
 LONG_FLOOR = 80
 LONG_FACTOR = 3
@@ -23,7 +22,7 @@ REPEAT_SHARE = 0.6
 
 
 def normalise(text: str) -> str:
-    """Case and punctuation folded away (Rust's normalise): alphanumerics and
+    """Case and punctuation folded away: alphanumerics and
     whitespace kept, lower-cased, spaces collapsed. Accents are kept."""
     kept = "".join(c for c in text if c.isalnum() or c.isspace())
     return " ".join(kept.lower().split())
@@ -84,7 +83,7 @@ def translates_to_itself(text: str) -> bool:
 
 
 def _trim(word: str) -> str:
-    """Rust's trim_matches(|c| !c.is_alphanumeric())."""
+    """Without anything non-alphanumeric at either end."""
     start, end = 0, len(word)
     while start < end and not word[start].isalnum():
         start += 1

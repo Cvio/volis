@@ -1,12 +1,11 @@
 """The pipeline: audio source -> VAD -> recognizer -> guards -> sentences ->
 translator -> events.
 
-Port of the continuous-listening core of Rust `pipeline.rs` (voice, turns,
-sharing and pairing join it at P5 to P10). The pipeline reports only through
+The pipeline reports only through
 events (events.py) on a queue; `--listen`, file mode and the window are all
-consumers of the same events, as in Rust.
+consumers of the same events.
 
-Threads, as Rust, with the costs in mind:
+Threads, with the costs in mind:
   capture or file source   hands 16 kHz chunks on (audio.py, ArraySource)
   pipeline                 the detector only: it must never fall behind the audio
   recognition              its own thread: the final pass over each utterance
@@ -24,8 +23,8 @@ Threads, as Rust, with the costs in mind:
   stall probe              a 50 ms timer that reports when Python's threads
                            are held up (a library holding the GIL): the early
                            warning for the window's responsiveness (P5)
-Live, a sentence the translator can't take in time is dropped and reported,
-as Rust does; from a file, the pipeline waits instead, so a file run never
+Live, a sentence the translator can't take in time is dropped and reported;
+from a file, the pipeline waits instead, so a file run never
 loses a sentence. Streaming (P7) and revision (P8) add threads of their own.
 """
 
@@ -65,11 +64,11 @@ from .vad import Segment, Segmenter, VadSettings
 log = logging.getLogger(__name__)
 
 QUEUE_CHUNKS = 64  # source -> pipeline, about 6 s
-TRANSLATION_QUEUE = 4  # Rust's TRANSLATION_QUEUE
+TRANSLATION_QUEUE = 4
 SPEECH_QUEUE = 8  # sentences waiting to be spoken
-LEVEL_EVENT = 0.2  # seconds between Level events (Rust's LEVEL_EVENT)
-LEVEL_LOG = 5.0  # seconds between level lines in the log (Rust's LEVEL_LOG)
-# The longest stretch handed to a recognizer at once (Rust's MAX_PART). Whisper
+LEVEL_EVENT = 0.2  # seconds between Level events
+LEVEL_LOG = 5.0  # seconds between level lines in the log
+# The longest stretch handed to a recognizer at once. Whisper
 # hears 30 seconds and no more; a long turn is split at its pauses into parts
 # below that, transcribed in order and joined.
 MAX_PART = 25 * SAMPLE_RATE
@@ -79,7 +78,7 @@ CONTINUOUS, TURN, SHARED = "continuous", "turn", "shared"
 
 @dataclass(frozen=True)
 class Command:
-    """What a consumer asks of a running pipeline (Rust's PipelineCmd)."""
+    """What a consumer asks of a running pipeline."""
 
     # "set_mode" | "begin_turn" | "end_turn" | "cancel" | "begin_shared_turn" | "prepare_shared"
     name: str
@@ -877,8 +876,8 @@ class _Turn:
 
 
 def trim_and_split(origin: int, length: int, segments: list[Segment], max_part: int):
-    """Where the speech is in a turn, and how to split it for the recognizer
-    (Rust's trim_and_split). Returns ((first, last), parts): the span from the
+    """Where the speech is in a turn, and how to split it for the recognizer.
+    Returns ((first, last), parts): the span from the
     first speech to the last, relative to the start of the turn's audio, and
     that span divided into parts no longer than `max_part`, split at the pauses
     between segments; parts are relative to the span. None when the detector
@@ -1119,7 +1118,7 @@ class AsrWorker:
             write_segment(utterance, self.segments_dir)
 
     def _final_whole(self, utterance, parts, speech_seconds, start: float, end: float, cut_at: float) -> None:
-        """One pass over a finished utterance: Rust's behaviour."""
+        """One pass over a finished utterance."""
         pipeline, language = self.pipeline, self.language
         try:
             result = transcribe_parts(self.recognizer, utterance.pcm, parts, language, self.words)
@@ -1237,7 +1236,7 @@ END_OF_TURN = object()  # in the translation queue: the turn's sentences are all
 
 
 class TranslationThread:
-    """Rust's spawn_translator: its own thread, a small queue."""
+    """Its own thread, a small queue."""
 
     def __init__(self, pipeline: Pipeline, translator, target: str, speaker=None, peer=None) -> None:
         self.pipeline = pipeline
@@ -1414,7 +1413,7 @@ class TranslationThread:
 
 
 class SpeakThread:
-    """Rust's spawn_speaker: synthesis and playback for everything this PC
+    """Synthesis and playback for everything this PC
     says. A voice is chosen per sentence by its language and loaded the first
     time it is needed."""
 
@@ -1583,7 +1582,7 @@ class SpeakThread:
 
 
 class LevelMeter:
-    """Peak input level over a window (Rust's LevelMeter)."""
+    """Peak input level over a window."""
 
     def __init__(self, every: float) -> None:
         self.every = every
@@ -1633,14 +1632,14 @@ class StallProbe:
 
 
 def write_segment(utterance, directory: Path) -> None:
-    """As Rust: 16-bit PCM, named by index, start and duration."""
+    """16-bit PCM, named by index, start and duration."""
     path = directory / f"utterance-{utterance.index:04d}-at-{utterance.start_ms}ms-for-{utterance.duration_ms()}ms.wav"
     write_wav(path, utterance.pcm)
     log.info("  wrote %s", path)
 
 
 def write_wav(path: Path, samples: np.ndarray, rate: int = SAMPLE_RATE) -> None:
-    """Rust's wav::write_any: clamp, scale by i16::MAX, round."""
+    """Clamp, scale by i16::MAX, round."""
     path.parent.mkdir(parents=True, exist_ok=True)
     pcm = np.round(np.clip(samples, -1.0, 1.0) * 32767).astype("<i2")
     with wave.open(str(path), "wb") as w:

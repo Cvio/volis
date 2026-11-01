@@ -1,4 +1,4 @@
-"""Port of the tests in Rust `paths.rs`, plus the offline environment."""
+"""Paths, and the offline environment."""
 
 from pathlib import Path
 

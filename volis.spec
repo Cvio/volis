@@ -3,7 +3,7 @@
 # the program, where paths.app_root() finds them.
 #
 # One-folder mode: dist\volis\volis.exe, with every library in
-# dist\volis\_internal\. A console program, as volis-rust is: the window
+# dist\volis\_internal\. A console program: the window
 # opens from a double-click, and the same exe takes --report, --listen and
 # file mode from a terminal.
 

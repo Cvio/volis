@@ -1,4 +1,4 @@
-"""The window (`volis-ui-plan.md`): an icon rail, a top bar, and the conversation
+"""The window: an icon rail, a top bar, and the conversation
 filling the rest. It only draws: the colours are in theme.py, what the
 conversation shows in bubbles.py, the Talk page's rules in talk.py, what the
 events mean in session.py. With --developer, developer.py adds its pages."""

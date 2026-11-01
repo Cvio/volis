@@ -1,5 +1,5 @@
 """Turn-based mode against real devices, through the VB-Audio cable (the
-Rust M6 checks, repeated).
+the turn checks).
 
     .venv\\Scripts\\python.exe scripts\\turn_check.py
 

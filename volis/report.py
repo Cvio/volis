@@ -1,9 +1,6 @@
 """The report: a table of everything discovery found.
 
-Port of Rust `report.rs` and the report half of `main.rs`. For folders with an
-`engine.toml` the output is line-for-line Rust's, so the two reports can be
-compared (`parity/report.py`). Downloaded folders and the translator list add
-lines of their own. Printed to stdout: it is the program's output, not a log.
+Printed to stdout: it is the program's output, not a log.
 """
 
 from __future__ import annotations
@@ -14,7 +11,7 @@ from . import paths
 from .config import Config
 from .models import Engine, Entry, Failed, Role, Translator
 
-# Rust's column widths.
+# Column widths.
 NAME_W = 34
 KIND_W = 7
 BACKEND_W = 15
@@ -70,8 +67,7 @@ def _status(engine: Engine) -> str:
 
 
 def print_single_files(root: Path, translators: list[Translator | Failed]) -> None:
-    """VAD and translation, which have no engine.toml. The `[+] <file>` lines
-    for top-level translators are Rust's; the rest is volis's."""
+    """VAD and translation, which have no engine.toml."""
     vad = paths.vad_model_file(root)
     print()
     print(f"VAD      ({vad})")
@@ -111,8 +107,8 @@ def print_single_files(root: Path, translators: list[Translator | Failed]) -> No
             print(f"        UNUSABLE - {t.unusable}")
     if len(top_level) > 1:
         print(
-            f"  note: volis-rust refuses to start with {len(top_level)} .gguf files at the top of "
-            f"{mt_root}. Give each extra translator its own folder there."
+            f"  note: {len(top_level)} .gguf files at the top of {mt_root}. Only one belongs there: "
+            "give each extra translator its own folder."
         )
 
 
@@ -141,8 +137,6 @@ def report_selection(config: Config, asr: list[Entry]) -> None:
         print(f'  [asr].engine = "{selected}" failed to load: {entry.error}')
     elif entry.enabled():
         print(f'  [asr].engine = "{selected}" -> {entry.name}')
-        if not entry.from_engine_toml:
-            print("    (a volis-only model: volis-rust will report it as not found)")
     elif entry.missing_files():
         print(
             f'  [asr].engine = "{selected}" is DISABLED - missing: '

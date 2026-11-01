@@ -18,10 +18,6 @@
 /cache/
 /exports/
 
-# This machine's paths (see machine.example.yaml), and the parity work folder.
-/machine.yaml
-/parity/.rust/
-
 # Test recordings: voices, not code.
 /tests/fixtures/
 
@@ -29,7 +25,6 @@ __pycache__/
 .pytest_cache/
 /build/
 /dist/
-/machine.yaml.pre-rename
 
 # Training runs and downloaded base models (notebooks/train-a-lora.ipynb).
 /training/

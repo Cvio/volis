@@ -1,4 +1,4 @@
-"""Port of the tests in Rust `varieties.rs`."""
+"""Languages and varieties."""
 
 import pytest
 
@@ -39,9 +39,7 @@ def test_a_language_lists_only_its_own_varieties():
     assert v.varieties_of("de") == []
 
 
-def test_the_table_matches_rust():
-    """The same tags, in the same order, as src/varieties.rs, which both apps'
-    shared volis.toml depends on. Update both together."""
+def test_the_table():
     assert [row.tag for row in v.TABLE] == [
         "en", "en-US", "es", "es-MX", "es-ES", "ar", "ar-IQ", "ar-JO", "fa", "fa-IR",
         "de", "fr", "it", "pt", "ru",

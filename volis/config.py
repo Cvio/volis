@@ -1,12 +1,7 @@
 """`volis.toml` - user selections only, by directory name.
 
-Port of Rust `config.rs`. The same file, the same keys, the same defaults and
-the same strictness: a key that isn't one of Rust's is an error, because it is
-almost always a typo, and because volis-rust would refuse the file anyway
-(`#[serde(deny_unknown_fields)]` at every level, including the top). That is
-also why volis never writes a section of its own here: a `volis.toml` saved
-by volis must still load in volis-rust. volis-only settings get their own
-file, `volis-python.toml`, once a milestone needs one.
+A key that isn't known is an error, at every level, because it is almost always
+a typo. New settings go in `volis-python.toml`.
 
 A key left out of a section takes its default. A missing file is not an error
 (the defaults apply); a malformed one is.
@@ -98,7 +93,7 @@ class Shared:
     right_asr: str = ""
 
 
-# Values Rust's enums accept, per (section, key).
+# Values accepted, per (section, key).
 ENUMS: dict[tuple[str, str], tuple[str, ...]] = {
     ("mode", "kind"): ("continuous", "turn", "shared"),
     ("mode", "turn_style"): ("toggle", "hold"),
@@ -123,7 +118,7 @@ class Config:
 
     @classmethod
     def parse(cls, text: str) -> Config:
-        """Parse TOML text with Rust's rules. Raises ConfigError."""
+        """Parse TOML text. Raises ConfigError."""
         try:
             data = tomlkit.parse(text).unwrap()
         except Exception as e:  # tomlkit raises several parse error types
@@ -166,7 +161,7 @@ class Config:
         """Write back the selections the window can change, leaving everything
         else in the file as the user wrote it: comments, order, other keys.
 
-        The same keys, in the same order, as Rust's `save_selections`. A file
+        A file
         that does not parse is not overwritten.
         """
         try:
@@ -210,8 +205,7 @@ class Config:
 
 @dataclass
 class PyVad:
-    # Audio restored before each utterance. Rust's fixed value is 600 ms;
-    # 0 turns the pre-roll off, to measure what it does.
+    # Audio restored before each utterance. 0 turns the pre-roll off, to measure what it does.
     pre_roll_ms: int = 600
 
 
@@ -316,20 +310,19 @@ class PyFragments:
 class PyTranslate:
     # The translator, as --report lists it: "qwen3-1.7b-q4_k_m.gguf" (a file at
     # the top of models/mt/) or "folder/file.gguf". Empty = the file at the
-    # top, the one volis-rust uses, or else the first usable one.
+    # top, or else the first usable one.
     model: str = ""
     # A prompt file in prompts/, by name.
     prompt: str = "default"
     # "auto" = the GPU when the translator's build and the machine have one;
-    # "cpu" = always the CPU, as volis-rust; "cuda" = the GPU or an error.
+    # "cpu" = always the CPU; "cuda" = the GPU or an error.
     device: str = "auto"
 
 
 @dataclass
 class PythonConfig:
-    """`volis-python.toml` at the app root: settings volis-rust doesn't have.
+    """`volis-python.toml` at the app root: the settings not in volis.toml.
 
-    Separate from volis.toml because Rust refuses unknown sections there.
     Same rules as volis.toml: unknown keys are errors, a missing key takes its
     default, a missing file means all defaults.
     """
@@ -450,8 +443,7 @@ def _check_type(section: str, key: str, default: Any, value: Any) -> Any:
 
 
 # The comments written above the voice keys when they are added, because which
-# voice each key means is easy to get backwards. Byte for byte Rust's
-# VOICE_NOTE_LEFT/RIGHT.
+# voice each key means is easy to get backwards.
 VOICE_NOTE_LEFT = (
     "# left_voice speaks what the LEFT person said, so it is a voice in the RIGHT\n"
     "# person's language. A folder name under models/tts/; empty = first match.\n"
@@ -490,6 +482,6 @@ def _set_explained(
         return
     new = tomlkit.item(value)
     # tomlkit writes an item's indent verbatim before its key, so the note goes
-    # there: the same place Rust's toml_edit puts a key's prefix decor.
+    # there.
     new.trivia.indent = note
     section.add(key, new)

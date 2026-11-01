@@ -1,7 +1,7 @@
 """The floor token (SPEC §9): in turn-based paired mode exactly one peer holds
 the floor, and the microphone is live only on that peer.
 
-Port of Rust `floor.rs`. This is the rule by itself, with no sockets and no
+This is the rule by itself, with no sockets and no
 clock of its own, so every case is tested directly: what each event does to
 the floor, and what must be sent or done as a result. The peer thread feeds
 it events and carries out the actions.
@@ -182,6 +182,6 @@ class Floor:
 def wins_ties(me: str, them: str, my_addr: str, their_addr: str) -> bool:
     """Whether this PC wins a simultaneous request: its name sorts first. Two
     PCs with the same name fall back to their addresses, which the two ends
-    see the same way round, so they still agree. Compared as Rust compares
-    strings, by their UTF-8 bytes."""
+    see the same way round, so they still agree. Compared by their UTF-8
+    bytes."""
     return (me.encode(), my_addr.encode()) < (them.encode(), their_addr.encode())

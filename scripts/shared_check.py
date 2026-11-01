@@ -8,9 +8,7 @@ each person (the fixtures), fed in as a microphone would deliver it; the
 recognizers, the translator and the voices are the real ones, and what is
 spoken goes to the VB-Audio cable rather than the speakers.
 
-Run once with the recognizers volis-rust has (Parakeet on the left, the
-Spanish-tuned Whisper on the right: Rust's M7.6 check), then with a model
-downloaded from Hugging Face on the right, then on the left.
+Run with a Hugging Face model on the right, then on both sides.
 
 For each turn it shows: which recognizer heard it and in which language, the
 transcript and its error against the reference, the translation and its
@@ -57,8 +55,6 @@ from volis.pipeline import Options, Pipeline  # noqa: E402
 
 CABLE_IN = "CABLE Input (VB-Audio Virtual Cable)"
 RUNS = [
-    ("volis-rust's models: Parakeet left, Spanish-tuned Whisper right",
-     "parakeet-tdt-0.6b-v3-onnx-int8", "whisper-large-v3-turbo-es-adriszmar-onnx-int8"),
     ("a downloaded model on the right", "parakeet-tdt-0.6b-v3-onnx-int8", "whisper-large-v3-turbo-es"),
     ("downloaded models on both sides", "whisper-small", "whisper-large-v3-turbo-es"),
 ]

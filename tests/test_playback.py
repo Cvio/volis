@@ -1,4 +1,4 @@
-"""Port of the tests in Rust `playback.rs` and `tts.rs`. The ones that need a
+"""Playback and voices. The ones that need a
 sound card use the VB-Audio cable when it is installed (silent), and are
 skipped otherwise. `scripts/gate_check.py` is the end-to-end check that
 volis doesn't hear itself."""
@@ -154,7 +154,7 @@ def test_an_uninstalled_language_is_refused_not_substituted():
 
 
 def test_speaks_the_target_language():
-    """Rust's speaks_the_target_language, with the real voice."""
+    """With the real voice."""
     engines = [e for e in models.discover(paths.tts_dir(ROOT), models.Role.TTS) if isinstance(e, Engine)]
     try:
         engine = tts.for_language(engines, "en")

@@ -1,4 +1,4 @@
-"""Saved conversations (`volis-ui-plan.md`, U4). No Qt in this file.
+"""Saved conversations. No Qt in this file.
 
 An ordinary folder inside Volis, one folder per conversation:
 

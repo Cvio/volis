@@ -1,4 +1,4 @@
-"""What the Talk page offers and says (`volis-ui-plan.md`, U2). No Qt in this
+"""What the Talk page offers and says. No Qt in this
 file: app_window.py draws these, and the tests check the words and the rules."""
 
 from __future__ import annotations

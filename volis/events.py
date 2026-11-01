@@ -1,9 +1,7 @@
 """Everything the pipeline reports, as events: one set for the window,
 `--listen`, file mode and `events.jsonl`.
 
-Port of Rust's `PipelineMsg`, extended. The whole set is defined now, so the
-export format doesn't change as streaming (P7) and revision (P8) arrive;
-an event a milestone doesn't produce yet is simply never sent.
+One set of events for everything that consumes them.
 
 Times: `wall` is seconds since the pipeline started (every event has it, set
 when the event is made). `start`/`end` are seconds on the source's timeline:

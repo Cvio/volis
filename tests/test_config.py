@@ -1,4 +1,4 @@
-"""Port of the tests in Rust `config.rs`, plus tomlkit-specific checks."""
+"""volis.toml, plus tomlkit-specific checks."""
 
 import pytest
 
@@ -162,8 +162,7 @@ def test_unknown_keys_are_rejected_rather_than_ignored():
 # volis-specific
 
 
-def test_a_volis_section_is_refused_like_rust_refuses_it():
-    """Rust's top-level deny_unknown_fields: volis must never write one."""
+def test_an_unknown_section_is_refused():
     with pytest.raises(ConfigError):
         Config.parse("[volis.asr]\nstreaming = true\n")
 

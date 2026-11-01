@@ -1,6 +1,6 @@
 """The paired-mode wire protocol (SPEC §9): newline-delimited JSON over TCP.
 
-Began as a port of Rust `wire.rs`. During a conversation only text crosses it:
+During a conversation only text crosses it:
 never audio, never models, never context, never a revision. When a conversation
 ends, the two computers swap the audio of what was said (version 3).
 
@@ -109,7 +109,7 @@ Wire = (Hello | Utterance | FloorRequest | FloorGrant | FloorRelease | Ping | Po
         | AudioData | AudioDone)
 _KINDS = {c.__name__: c for c in (Hello, Utterance, FloorRequest, FloorGrant, FloorRelease, Ping, Pong, Bye, Accept,
                                   Ending, AudioBegin, AudioData, AudioDone)}
-# What serde requires of each variant: field -> its JSON type.
+# What each variant requires: field -> its JSON type.
 _FIELDS = {
     Hello: {"name": str, "speaks": str, "sends": str, "proto": int},
     Utterance: {"seq": int, "lang": str, "text": str, "source_lang": str, "source_text": str},
@@ -146,7 +146,7 @@ class Malformed(WireError):
 
 
 def encode(message: Wire) -> str:
-    """One message as a line, newline included: the JSON Rust's serde writes."""
+    """One message as a line, newline included: as JSON."""
     data: dict = {"t": type(message).__name__}
     for name in message.__dataclass_fields__:
         value = getattr(message, name)

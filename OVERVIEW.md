@@ -13,7 +13,7 @@ nothing said in the room is sent anywhere. It is built first for **Arabic**, bot
 Standard Arabic and spoken dialects, and for **Farsi (Persian)**. It also translates recordings and typed text, and it includes tools for checking
 translation quality and what a computer can handle.
 
-![Illustration: a conversation in progress, Farsi on the left and English on the right](docs/images/overview-conversation.png)
+![A conversation in progress, Farsi on the left and English on the right](docs/images/volis-ready.png)
 
 ## Why it exists
 
@@ -111,11 +111,12 @@ Farsi script, and translates it into English, taking the last few sentences into
 Farsi and the English both appear on the screen, and the English is spoken, about two seconds
 after the visitor stops.
 
-**The reply.** Each person has their own key. The staff member presses theirs and answers in
-English; the answer appears in Farsi on the screen and is spoken in Farsi. (This two-key mode is
-built and checked by tests, and is waiting for its first trial with two people.)
+**The reply.** Each person has their own button. The staff member presses theirs and answers in
+English; the answer appears in Farsi on the screen and is spoken in Farsi. (This is built and
+checked by tests, and is waiting for its first trial with two people.)
 
-**Afterwards.** The whole conversation, both languages, can be saved as text to read later.
+**Afterwards.** The whole conversation, both languages and the audio, can be saved to read and
+listen to later.
 
 **How accurate it is today.** On test recordings of people reading Farsi news sentences, Volis
 got about four to seven letters in a hundred wrong when writing the speech down, depending on the
@@ -143,31 +144,27 @@ translations for common sentences, which is under consideration.
 
 ### Live conversation
 
-Pick a mode; you can change it while a conversation is running.
+| Way of talking | How it works | Suits |
+|---|---|---|
+| **Two people, this computer** | Each person has their own button and language. Press, speak, press again. What one says is spoken in the other's language. | Across a desk or a counter. |
+| **Two computers** | Each person has their own computer. Each translates its own person's speech and sends the text to the other over the local network, never the internet. | Two rooms, or a little distance. |
+| **Hands-free** | Every pause ends a sentence. | One person speaking at length. |
 
-| Mode | How it works | Suits | Status |
-|---|---|---|---|
-| **Take turns** | Press a key, speak, press it again. Only then is the speech translated. | Most meetings: nothing is picked up by accident. |
-| **Shared machine** | Two people at one computer, each with their own key and language. What one says is spoken in the other's language. | Across a desk or a counter. |
-| **Pair two computers** | Each person has their own computer. Each translates its own person's speech and sends the text to the other over the local network, never the internet. | Two rooms, or a little distance. |
-| **Listen continuously** | Hands-free. Every pause ends a sentence. | One person speaking at length. |
-
-During a conversation the settings fold away and the text fills the window, in a size you can
-adjust. Arabic and Farsi are laid out right to left. Microphone and speaker **Test** buttons check
-the sound before you start.
+Each person's words stay on their own side, with the translation in large letters. Arabic and
+Farsi read right to left. Clicking a sentence plays it again. **Test** buttons in Settings check
+the microphone and speakers before you start.
 
 ### Recordings
 
-Open an audio file (WAV, MP3, M4A, FLAC, OGG or Opus) and Volis transcribes and translates it.
-Each sentence becomes a row; click a row to hear that part of the recording. It can run at
-normal speed or as fast as the computer allows. **Export** saves the transcript, the translation
-and subtitle files. Useful for recorded interviews, voicemail and statements.
+Open an audio file (WAV, MP3, M4A, FLAC, OGG or Opus) and Volis transcribes and translates it into
+a conversation you can save, read and listen to. The command line also writes subtitle files.
+Useful for recorded interviews, voicemail and statements.
 
 ### Typed text
 
-A box under the conversation translates typed or pasted text, and speaks it if speech is on. It
-helps with names, addresses and numbers, and in a room too noisy for speech. It works during a
-conversation as well, and the typed line is translated with the conversation's context.
+**Type a sentence instead**, during a conversation, translates typed or pasted text with the
+conversation's context, and speaks it if sound is on. It helps with names, addresses and numbers,
+and in a room too noisy for speech.
 
 ## Quality and safeguards
 
@@ -176,9 +173,8 @@ conversation as well, and the typed line is translated with the conversation's c
   sentence back unchanged, or ramble. Volis drops those sentences rather than show or speak them,
   and says why.
 - **Earlier sentences as context,** so words like "he", "she" and "it" come out right.
-- **Revision.** A short sentence whose meaning only becomes clear from the next one is corrected
-  on the screen.
-- **Names and terms to keep exactly,** entered as a short list for the session.
+- **Options a setup can turn on:** correcting a short sentence on the screen when the next one
+  makes its meaning clear, and a short list of names and terms to keep exactly.
 - **The microphone is muted while Volis speaks,** so it doesn't translate itself. (Not needed with
   a headset.)
 - **The Farsi clean-up and the Arabic vowel marks** described above.
@@ -197,8 +193,6 @@ it to check quality for themselves. It answers three questions:
 
 (In the program the first two tabs are called Recognizers and Translators.)
 
-![Illustration: the Test bench comparing translations of one Farsi sentence](docs/images/overview-testbench-translators.png)
-
 Every comparison is kept and can be copied as a table into a report.
 
 ### How to read the scores
@@ -215,8 +209,8 @@ Every comparison is kept and can be copied as a table into a report.
 Volis runs on the computer's graphics card, and the models must fit in its memory. Three things
 help plan for that:
 
-- **A warning before starting.** If the chosen models won't fit together, an orange line says
-  so, before anything is loaded.
+- **A warning when choosing models.** In developer mode, if the chosen models won't fit together,
+  the Models page says so, before anything is loaded.
 - **The Whole set tab** of the Test bench shows how much memory a combination needs and how
   much is free, keeps every timed run on that computer, and so helps decide what hardware to buy.
   On a laptop with an 8 GB graphics card, a typical setup uses about 4.5 GB and leaves about
@@ -227,18 +221,17 @@ help plan for that:
   red when memory is nearly full or speech is falling behind. Useful when Volis has to share the
   computer with, say, a video-call program.
 
-![The Whole set tab: whether a combination fits, and every run measured on this computer](docs/images/overview-testbench-whole-set.png)
-
 ## Privacy and data
 
 - **No internet after installation.** No cloud service, no account, no usage reporting. Pairing
   two computers uses the local network only.
 - **What stays on the computer:** the settings; a log of each session, which includes what was
-  said and how it was translated; any conversation you choose to save; and the Test bench's
-  results.
-  Treat the computer as holding sensitive records, and delete the logs as your policy requires.
-- **Live conversations are not recorded as audio.** A recording made in the Test bench is held
-  in memory only, until Volis is closed.
+  said and how it was translated; saved conversations, with their audio if you keep it, and with
+  no password; and the Test bench's results. Treat the computer as holding sensitive records, and
+  delete the logs as your policy requires.
+- **During a conversation** a temporary copy, audio included, protects it from a crash. With
+  **Never save** nothing about a conversation is written to the computer.
+- **With two computers each keeps its own copy,** and deleting one leaves the other.
 
 ## What it needs
 
@@ -269,11 +262,11 @@ commercial use.
 
 | Ready | Built, awaiting a real-world trial | Planned next |
 |---|---|---|
-| A conversation on one computer, taking turns or listening continuously | Two people sharing one computer | Help pages inside the program, with a **?** beside each option |
-| Translating recordings, with export | Two computers paired | Fixing a sentence: other ways it could have been heard or translated, each translation shown back in the speaker's language so someone who can't read the target language can check it |
-| Translating typed text; saving a conversation as text | The ready-made folder on another computer | Saving each conversation automatically, as an option |
-| The Test bench and the performance panel | | A simple choice or two in place of the model lists |
-| Farsi clean-up and the Farsi voice; Arabic vowel marks | | Guided tutorials |
+| A hands-free conversation on one computer | Two people sharing one computer | Help pages inside the program, with a **?** beside each option |
+| Translating recordings and typed text | Two computers | Fixing a sentence: other ways it could have been heard or translated, each translation shown back in the speaker's language so someone who can't read the target language can check it |
+| Saving, searching, replaying and sharing conversations | The ready-made folder on another computer | Guided tutorials |
+| The Test bench and the performance panel | | |
+| Farsi clean-up and the Farsi voice; Arabic vowel marks | | |
 
 **Under consideration:** glossaries of fixed terms and a phrasebook of checked translations for
 common sentences. Both are being thought through before they are built (the "menu" case above
@@ -301,4 +294,4 @@ shows why a word with two meanings needs care).
 | [MODELS.md](MODELS.md) | For whoever sets Volis up: the models tested and their scores |
 | [SETTINGS.md](SETTINGS.md) | Every setting |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | For whoever builds and maintains Volis |
-| [HANDOFF.md](HANDOFF.md) | Detailed status, history and priorities |
+| [HANDOFF.md](HANDOFF.md) | What is open, and why the code is the way it is |

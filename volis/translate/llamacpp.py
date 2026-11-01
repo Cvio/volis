@@ -1,16 +1,15 @@
 """The llamacpp backend: any GGUF translator, through llama-cpp-python.
 
-Decoding mirrors Rust `LlamaTranslator::run`: a fresh context per utterance
+Decoding: a fresh context per utterance
 (1024 tokens, 6 threads), the prompt tokenized with special tokens parsed and
 no BOS added (the chat template writes any BOS itself), evaluated as one
 batch, then greedy decoding to an end-of-generation token or 256 tokens.
 
 The prompt comes from the model's own chat template (`tokenizer.chat_template`
-in the GGUF), rendered with the system text and the user text. That replaces
-Rust's Qwen-only `prompt_for`, and is what lets Gemma, Aya, Command R7B and
+in the GGUF), rendered with the system text and the user text. That is what lets Gemma, Aya, Command R7B and
 others drop in. Qwen3 must not reason: the template is rendered with
 `enable_thinking=False` when it understands that, and otherwise the empty
-`<think>\\n\\n</think>\\n\\n` block is appended exactly as Rust does.
+`<think>\\n\\n</think>\\n\\n` block is appended.
 """
 
 from __future__ import annotations
@@ -28,9 +27,9 @@ from .prompts import PromptFile
 
 log = logging.getLogger(__name__)
 
-CONTEXT_TOKENS = 1024  # Rust's CONTEXT_TOKENS
-MAX_OUTPUT_TOKENS = 256  # Rust's MAX_OUTPUT_TOKENS
-THREADS = 6  # Rust's THREADS: best on the laptop's 6 performance cores
+CONTEXT_TOKENS = 1024
+MAX_OUTPUT_TOKENS = 256
+THREADS = 6  # best on the laptop's 6 performance cores
 EMPTY_THINK = "<think>\n\n</think>\n\n"
 
 
@@ -77,7 +76,7 @@ def gpu_available() -> bool:
 
 class LlamaTranslator:
     def __init__(self, entry: TranslatorEntry, prompt: PromptFile, device: str = "auto") -> None:
-        """`device`: "cpu" (as volis-rust), "cuda", or "auto" = the GPU when
+        """`device`: "cpu", "cuda", or "auto" = the GPU when
         this build and this machine have one, else the CPU."""
         load_cuda_runtime()
         import llama_cpp
@@ -100,8 +99,8 @@ class LlamaTranslator:
                 n_threads=THREADS,
                 n_threads_batch=THREADS,
                 n_gpu_layers=-1 if on_gpu else 0,  # every layer, or none
-                # llama.cpp defaults to "auto", which is on for the CPU and is what
-                # Rust's llama-cpp-2 gets; llama-cpp-python would turn it off.
+                # llama.cpp defaults to "auto", which is on for the CPU;
+                # llama-cpp-python would turn it off.
                 flash_attn=True,
                 verbose=False,
                 # A LoRA adapter (a GGUF) applied to the base at load time.
@@ -188,7 +187,7 @@ class LlamaTranslator:
     def translate(self, request: TranslationRequest) -> TranslationResult:
         # With context, most of the prompt is the previous sentence's prompt
         # again; what the model already evaluated is kept. Without context
-        # every sentence starts fresh, exactly as Rust does.
+        # every sentence starts fresh.
         reuse = bool(request.context)
         return translate_checked(self, request, lambda r: self.run(self.prompt(r), reuse))
 
@@ -236,7 +235,7 @@ class LlamaTranslator:
 
     def _greedy(self) -> int:
         """Argmax of the last evaluated position's logits, read from llama.cpp
-        itself (llama_get_logits_ith(ctx, -1)), as Rust's greedy sampler does."""
+        itself (llama_get_logits_ith(ctx, -1))."""
         import llama_cpp
 
         pointer = llama_cpp.llama_get_logits_ith(self._llama._ctx.ctx, -1)
@@ -274,7 +273,7 @@ def render(template: str, messages: list[dict], special: dict[str, str], archite
         variables["enable_thinking"] = False
     text = compiled.render(**variables)
     if qwen3 and not thinking_switch and not text.endswith(EMPTY_THINK):
-        # Rust's way: open the assistant turn with an empty reasoning block.
+        # Open the assistant turn with an empty reasoning block.
         text += EMPTY_THINK
     return text
 

@@ -1,5 +1,5 @@
 """Paired mode (SPEC §9): two Volis instances on a local network as the two
-ends of one conversation. Port of Rust `peer.rs`; the two pair with each other.
+ends of one conversation. 
 
 Each machine runs its own complete pipeline and sends the other only the
 translated **text**. The receiver shows it and speaks it with its own voice.
@@ -59,7 +59,7 @@ class AddressError(ValueError):
 
 @dataclass(frozen=True)
 class Address:
-    """An IP address and a port. Ordered as Rust orders a SocketAddr: IPv4
+    """An IP address and a port. Ordered: IPv4
     before IPv6, then by address, then by port."""
 
     host: str

@@ -1,14 +1,12 @@
 """Splitting a transcript into sentences.
 
-New in volis. Rust translates each utterance the VAD cut, which can be half
-a sentence or three. volis translates sentences: everything downstream
+An utterance the VAD cut can be half a sentence or three. volis translates sentences: everything downstream
 (context, fragment holding, revision, subtitles, the timeline) is per
 sentence, and every sentence has a stable id, "<utterance>.<sentence>".
 
 A sentence ends at final punctuation (. ? ! … and the Arabic ؟) followed by a
 space or the end. Text with no final punctuation at all, which is what MMS
-and some Whisper models produce, stays one sentence per utterance: Rust's
-behaviour. Times come from word timings when the recognizer gives them, and
+and some Whisper models produce, stays one sentence per utterance. Times come from word timings when the recognizer gives them, and
 are otherwise shared out over the utterance by length, marked approximate.
 """
 

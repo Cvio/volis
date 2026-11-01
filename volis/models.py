@@ -1,11 +1,10 @@
 """Model discovery: the filesystem is the index.
 
-Port of Rust `models.rs` for `engine.toml` folders, with the same rules and
-the same three outcomes per directory:
+Three outcomes per directory:
 
-* skipped - Rust: no `engine.toml`. In volis, an ASR folder without one is
+* skipped - a TTS folder with no `engine.toml`. An ASR folder without one is
   looked at for a downloaded Hugging Face or GGUF model instead, and listed as
-  unusable with the reason if it is neither. TTS folders keep Rust's rule.
+  unusable with the reason if it is neither.
 * failed - described but wrong. An error for that entry only, listed.
 * loaded - usable, unless a declared file is missing, in which case it is
   listed but disabled with the missing file named.
@@ -14,7 +13,7 @@ New in volis: downloaded folders need no `engine.toml`. The backend is
 decided from what the folder holds (`config.json` and weights: transformers;
 `.gguf` plus `mmproj-*.gguf`: llama.cpp audio), and an optional `volis-python.toml`
 in the folder overrides what was detected. Translators live in `models/mt/`:
-a `.gguf` at the top level (the one volis-rust uses) or one folder per model.
+a `.gguf` at the top level (the default) or one folder per model.
 """
 
 from __future__ import annotations
@@ -43,7 +42,7 @@ class Role(enum.Enum):
     TTS = "tts"
 
 
-# Rust's backends, per role, and the file roles each cannot work without.
+# sherpa-onnx's backends, per role, and the file roles each cannot work without.
 SHERPA_BACKENDS: dict[Role, dict[str, tuple[str, ...]]] = {
     Role.ASR: {
         "nemo_transducer": ("encoder", "decoder", "joiner", "tokens"),
@@ -53,7 +52,7 @@ SHERPA_BACKENDS: dict[Role, dict[str, tuple[str, ...]]] = {
 }
 
 # Backends as volis names them. `sherpa` folders keep their engine.toml
-# backend name in the report, exactly as Rust prints it.
+# backend name in the report.
 TRANSFORMERS = "transformers"
 LLAMACPP_AUDIO = "llamacpp-audio"
 
@@ -212,7 +211,7 @@ def is_plain_filename(name: str) -> bool:
 
 
 def load_engine(directory: Path, role: Role) -> Engine:
-    """Parse one model directory's `engine.toml`, as Rust's `load_engine`."""
+    """Parse one model directory's `engine.toml`."""
     toml_path = directory / ENGINE_TOML
     where = toml_path.absolute()
     try:
@@ -253,7 +252,7 @@ def load_engine(directory: Path, role: Role) -> Engine:
             )
 
     files = []
-    for file_role in sorted(files_raw):  # Rust keeps them in a BTreeMap
+    for file_role in sorted(files_raw):
         name = files_raw[file_role]
         if not is_plain_filename(name):
             raise ModelError(
@@ -306,7 +305,7 @@ def _check_varieties(variety_list: list[str], languages: list[str], where: Path)
     """Every variety must be one Volis knows, and belong to a listed language."""
     for variety in variety_list:
         if varieties.lookup(variety) is None:
-            reason = "not a variety Volis knows (add it to volis/varieties.py and src/varieties.rs)"
+            reason = "not a variety Volis knows (add it to volis/varieties.py)"
         elif not varieties.has_variety(variety):
             reason = 'a variety names a region, like "es-MX"; plain languages go in `languages`'
         else:
@@ -649,7 +648,7 @@ class Translator:
     path: Path  # the .gguf, or the folder for a transformers model
     name: str
     backend: str  # "llamacpp" | "transformers" | "seq2seq"
-    top_level: bool  # True: the file volis-rust uses
+    top_level: bool  # True: the default, at the top of models/mt/
     architecture: str = ""
     has_chat_template: bool = False
     named: bool = False  # True when the folder's volis-python.toml gives the name

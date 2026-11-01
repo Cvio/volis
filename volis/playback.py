@@ -1,5 +1,4 @@
 """Playback, and the half-duplex gate that keeps volis from hearing itself.
-Port of Rust `playback.rs`.
 
 With the voice playing through speakers and the microphone live, the detector
 triggers on the translated speech and the recognizer transcribes it: a loop.

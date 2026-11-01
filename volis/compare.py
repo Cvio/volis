@@ -1,12 +1,11 @@
-"""The dual-run comparison harness. Port of Rust `compare.rs`.
+"""The dual-run comparison harness.
 
 Runs one utterance through every usable segment recognizer and reports, side
 by side: the transcript, the wall-clock time, and the segment's duration
 (Whisper pads to 30 s internally, so time means nothing without it).
 
-New in volis: engines run through the hallucination guards too, and GPU
-memory is managed. Rust keeps every engine loaded; on an 8 GB GPU the
-downloaded models don't all fit at once. So each engine is loaded if it fits
+Engines run through the hallucination guards too, and GPU memory is managed:
+on an 8 GB GPU the downloaded models don't all fit at once. So each engine is loaded if it fits
 beside the others and kept; one that doesn't fit is loaded for its turn and
 released straight after ("swapped"). Engines always run one after another,
 never at once, so the timings measure the models, not contention.
@@ -124,7 +123,7 @@ def run_all(engines: Engines, utterance: Utterance, language: str, guards=None) 
 
 
 def format_table(comparison: Comparison, selected_engine: str) -> str:
-    """Rust's table, line for line, plus a note line where volis has one."""
+    """The table, plus a note line where there is one."""
     lines = [f"utterance {comparison.utterance_index} at {comparison.start_ms} ms - "
              f"{comparison.segment_ms} ms of audio"]
     width = max((len(r.engine) for r in comparison.runs), default=0)

@@ -1,6 +1,6 @@
 """Voice activity detection: Silero through sherpa-onnx.
 
-Port of Rust `vad.rs`. sherpa's VoiceActivityDetector does the segmenting
+sherpa's VoiceActivityDetector does the segmenting
 itself: it is fed fixed windows and hands back complete speech segments with
 their start offset. The `[vad]` keys in volis.toml map straight onto its
 config.
@@ -8,9 +8,8 @@ config.
 On top of it, the pre-roll: the detector reports a segment from the point
 where it became confident someone was speaking, and a soft onset comes before
 that point (the breath of "Hola", the "¿D" of "¿Dónde", a quiet "No"). The
-audio just before each segment is kept and put back on the front of it. Rust
-restores a fixed 600 ms; in volis the amount is `[vad].pre_roll_ms` in
-volis-python.toml (default 600, the Rust value; 0 turns it off) so its effect can
+audio just before each segment is kept and put back on the front of it. The amount is `[vad].pre_roll_ms` in
+volis-python.toml (default 600; 0 turns it off) so its effect can
 be measured.
 """
 
@@ -34,7 +33,7 @@ BUFFER_SECONDS = 30.0
 # Longest single segment before the detector cuts one anyway.
 MAX_SPEECH_SECONDS = 20.0
 
-# Rust's PRE_ROLL_MS: 300 ms fixed "¿Dónde"; "¿Cuántos años tienes?" needed 600.
+# 300 ms fixed "¿Dónde"; "¿Cuántos años tienes?" needed 600.
 DEFAULT_PRE_ROLL_MS = 600
 
 
@@ -167,7 +166,7 @@ class Segmenter:
         position of the next sample that will be fed (the half-duplex gate
         holds the detector reset while the voice speaks)."""
         self._pending = np.zeros(0, np.float32)
-        # Rust calls clear() then reset(); the Python binding has no clear(),
+        # The Python binding has no clear(),
         # so the queued segments are popped instead.
         while not self._vad.empty():
             self._vad.pop()

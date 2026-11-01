@@ -1,4 +1,4 @@
-"""Port of the tests in Rust `models.rs`, then volis's own discovery."""
+"""Finding models: engine.toml folders, then downloaded ones."""
 
 import json
 import struct
@@ -36,7 +36,7 @@ def model(root: Path, name: str, engine_toml: str | None, files=(), **extra: str
     return d
 
 
-# ---------------------------------------------------------------- Rust's tests
+# ---------------------------------------------------------------- engine.toml folders
 
 
 def test_loads_the_spec_example(tmp_path):
@@ -135,7 +135,7 @@ def test_a_files_value_may_not_escape_the_model_directory(tmp_path):
 
 
 def test_a_tts_directory_without_engine_toml_is_skipped(tmp_path):
-    """Rust's rule, kept for voices. (ASR folders are looked at instead.)"""
+    """For voices. (ASR folders are looked at instead.)"""
     (tmp_path / "random-folder").mkdir()
     model(tmp_path, "vits", 'name = "V"\nkind = "segment"\nbackend = "vits"\n\n[files]\n'
           'model = "m.onnx"\ntokens = "t.txt"\n')

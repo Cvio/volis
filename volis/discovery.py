@@ -1,8 +1,7 @@
 """Finding other Volis PCs on the local link (SPEC §9), so the peer panel can
 offer a pick-list instead of making someone type an address.
 
-Port of Rust `discovery.rs`; the announcement is the same, so volis and
-volis-rust find each other. Convenience only: managed switches and VLANs drop
+Convenience only: managed switches and VLANs drop
 broadcast, so typing the address must always work and nothing depends on
 this. A UDP broadcast on port 47801: every couple of seconds each Volis
 announces its name and port to every local network it is on, and listens for

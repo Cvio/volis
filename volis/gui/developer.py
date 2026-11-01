@@ -1,4 +1,4 @@
-"""Developer mode (`volis-ui-plan.md`, U6): the pages a customer's copy never
+"""Developer mode: the pages a customer's copy never
 shows. Models, Test bench, Performance and every option that a customer's setup
 fixes. Made only when Volis opens with --developer, and this file is not even
 imported otherwise. The test bench and the performance panel read their models

@@ -1,5 +1,5 @@
 """Does volis hear itself? The live pipeline with the voice on, run twice
-through the VB-Audio cable: half-duplex on, then off (Rust's M4 check).
+through the VB-Audio cable: half-duplex on, then off.
 
     .venv\\Scripts\\python.exe scripts\\gate_check.py [--clips 2]
 

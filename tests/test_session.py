@@ -1,5 +1,4 @@
-"""Port of the tests of Rust `gui::Session` that apply before turns, pairing
-and sharing, plus volis's rows per sentence. No Qt is imported here."""
+"""What the events do to the window's state, one row per sentence. No Qt is imported here."""
 
 import sys
 
@@ -206,7 +205,7 @@ def test_stopping_clears_provisional_text():
     assert s.provisional is None
 
 
-# ---------------------------------------------------------------- P9: paired mode (Rust's gui.rs tests)
+# ---------------------------------------------------------------- two computers
 
 
 def connected(name: str) -> ev.PeerMsg:

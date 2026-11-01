@@ -14,8 +14,7 @@ dependencies = [
     "sherpa-onnx==1.13.8",
     # sherpa-onnx's wheels require this, but its sdist declares no
     # dependencies and uv locks from the sdist's metadata, so without this line
-    # it is silently left out. It puts onnxruntime.dll (1.28.2, the version
-    # volis-rust links) beside sherpa-onnx's extension. Without it sherpa-onnx
+    # it is silently left out. It puts onnxruntime.dll (1.28.2) beside sherpa-onnx's extension. Without it sherpa-onnx
     # finds the old onnxruntime.dll in System32 and crashes.
     "sherpa-onnx-core==1.13.8",
     # Runs the Arabic vowel-marking model (volis/tashkeel.py), which sherpa-onnx

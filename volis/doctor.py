@@ -6,7 +6,7 @@ Modelled on model-converter's `0_doctor.py`. In order:
      unaltered, against the SHA-256 in each package's RECORD. Security
      software on this machine has removed DLLs before; a package missing one
      imports fine until the moment it needs it.
-  2. sherpa-onnx loads onnxruntime 1.28.2 (the version volis-rust links) from
+  2. sherpa-onnx loads onnxruntime 1.28.2 from
      this environment, not another copy (Windows 11 has an old one in System32
      that crashes it).
   3. torch sees the GPU.

@@ -1,5 +1,4 @@
-"""Turn-based mode (P6): port of Rust's turn tests from `gui.rs` (the turn
-state and the turn key) and `pipeline.rs` (trimming and splitting a turn).
+"""Turn-based mode: the turn state, the turn key, and trimming and splitting a turn.
 `scripts/turn_check.py` is the check against real devices."""
 
 import os

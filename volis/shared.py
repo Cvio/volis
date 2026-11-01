@@ -1,5 +1,5 @@
 """Shared-machine mode: two people who speak different languages use one
-machine, each with their own key. Port of Rust `shared.rs`.
+machine, each with their own key.
 
 The key says who is talking, and so which language they speak. Each side has
 its own recognizer, chosen for that side's language, so a model tuned for one

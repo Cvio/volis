@@ -1,4 +1,4 @@
-"""The last few utterances, kept so they can be re-run. Port of Rust `ring.rs`."""
+"""The last few utterances, kept so they can be re-run."""
 
 from __future__ import annotations
 

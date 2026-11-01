@@ -1,9 +1,6 @@
 """The translator's system text, from a prompt file in `prompts\\`.
 
-`prompts\\rust.txt` is volis-rust's prompt exactly: its `system_prompt`
-(translate.rs) word for word, and the text alone as the user turn.
-`prompts\\default.txt`, which volis uses unless told otherwise, has the
-same system text and also frames the text (see below). Other files in the
+`prompts\\default.txt` is what volis uses unless told otherwise. Other files in the
 folder are variants the user can pick (`[translate].prompt` in volis-python.toml,
 by file name without `.txt`).
 
@@ -15,11 +12,11 @@ table:
   {article}  "a" or "an", for the target's name
 
 Lines after a line reading `--- when the target is a variety ---` are added
-only when the target names a region (es-MX, ar-IQ), as Rust does.
+only when the target names a region (es-MX, ar-IQ).
 
-volis only: lines after a line reading `--- the text ---` say how the text
+Lines after a line reading `--- the text ---` say how the text
 to translate is handed over, with `{text}` where it goes. Without that
-section the text is the whole user turn, as in Rust. Framing it ("Translate
+section the text is the whole user turn. Framing it ("Translate
 into {target}: ...") is what keeps a model from answering a question it was
 meant to translate; the system text alone doesn't.
 """
@@ -34,7 +31,6 @@ from .. import varieties
 VARIETY_MARKER = "--- when the target is a variety ---"
 TEXT_MARKER = "--- the text ---"
 DEFAULT = "default"
-RUST = "rust"  # volis-rust's prompt, for parity checks
 
 
 class PromptError(Exception):
@@ -50,7 +46,7 @@ class PromptFile:
     wrap: str = ""  # how the text is handed over, with {text} ("" = the text alone)
 
     def system_text(self, source: str, target: str) -> str:
-        """The system turn for this pair, exactly as Rust's system_prompt."""
+        """The system turn for this pair."""
         fill = names(source, target)
         text = self.base.format(**fill)
         if self.variety and varieties.has_variety(target):

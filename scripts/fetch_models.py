@@ -62,7 +62,6 @@ class Model:
     url: str = ""  # or a file or .tar.bz2 that is not on Hugging Face
     members: tuple[str, ...] = ()  # of an archive: the files to keep; () = the whole folder
     expect: tuple[str, ...] = ()  # for a url: the files that mean "already here"
-    link: str = ""  # a file of another model to hard-link here instead of downloading it twice
     write: dict[str, str] = field(default_factory=dict)  # settings files, written when absent
     piper_language: str = ""  # a raw Piper voice: make it loadable by sherpa-onnx
     gated: bool = False
@@ -76,12 +75,6 @@ class Model:
         return MODELS / self.role / self.folder if self.folder else MODELS / self.role
 
 
-GGUF_SPEECH = ("# Settings for this model in volis. No engine.toml here: that file is for\n"
-               "# sherpa-onnx models, and would send this one to the wrong loader. The two\n"
-               "# .gguf files (the model and its audio encoder, mmproj-*) are found by name.\n")
-# Only English, Spanish and Arabic were measured; the rest is from the model cards.
-SPEECH_LANGUAGES = 'languages = ["en", "es", "ar", "fa", "de", "fr", "it", "pt", "ru", "nl", "pl"]\n'
-
 # The plain name the window shows for each model (P14), by folder. Written into
 # the folder's volis-python.toml when the model is fetched; a file that is
 # already there is never changed. Voices and the -onnx-int8 recognizers carry
@@ -92,9 +85,6 @@ PLAIN_NAMES = {
     "asr/whisper-large-v3-turbo-arabic-dialectal-hf": "Whisper turbo — Arabic dialects",
     "asr/cohere-transcribe-arabic-07-2026": "Cohere Transcribe — Arabic and English",
     "asr/mms-1b-all": "MMS — Arabic, English, Persian, Spanish (no punctuation)",
-    "asr/Qwen3-ASR-0.6B-GGUF": "Qwen3-ASR small — very fast",
-    "asr/Qwen3-ASR-1.7B-GGUF": "Qwen3-ASR large",
-    "asr/gemma-4-E4B-it-GGUF": "Gemma 4 E4B — listens; good for Arabic",
     "asr/whisper-small": "Whisper small — lighter, less accurate",
     "asr/whisper-algerian-darja-small": "Whisper small — Algerian Arabic (adapter)",
     "mt/gemma-3-4b-it-GGUF": "Gemma 3 4B — good all-round",
@@ -116,7 +106,7 @@ LIST = [
     Model("tashkeel", "", "use", "libtashkeel, the Arabic vowel-marking model Piper uses ([tts] diacritize)",
           url="https://raw.githubusercontent.com/rhasspy/piper-phonemize/master/etc/libtashkeel_model.ort",
           expect=("libtashkeel_model.ort",)),
-    # Model("mt", "", "use", "Qwen3 1.7B Q4_K_M, the translator volis-rust uses (the one .gguf at the top of mt)",
+    # Model("mt", "", "use", "Qwen3 1.7B Q4_K_M (the one .gguf at the top of mt)",
     #       repo="unsloth/Qwen3-1.7B-GGUF", file="Qwen3-1.7B-Q4_K_M.gguf", save_as="qwen3-1.7b-q4_k_m.gguf"),
     # Model("asr", "parakeet-tdt-0.6b-v3-onnx-int8", "use", "Parakeet TDT 0.6B v3, ONNX int8 (sherpa-onnx, CPU)",
     #       url=f"{SHERPA_ASR}/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2",
@@ -136,7 +126,7 @@ LIST = [
     #                             'tokens  = "turbo-tokens.txt"\n'}),
 
 
-    # ------------------------------------------------------------ recognizers, volis only
+    # ------------------------------------------------------------ recognizers
     Model("asr", "whisper-large-v3-turbo", "use", "Whisper large-v3-turbo as published, all languages (transformers, GPU)",
           repo="openai/whisper-large-v3-turbo"),
     # Model("asr", "whisper-large-v3-turbo-es", "use", "Whisper large-v3-turbo tuned for Spanish (transformers, GPU)",
@@ -151,23 +141,6 @@ LIST = [
           repo="facebook/mms-1b-all",
           include=("model.safetensors", "adapter.ara.safetensors", "adapter.eng.safetensors",
                    "adapter.fas.safetensors", "adapter.spa.safetensors")),
-    Model("asr", "Qwen3-ASR-0.6B-GGUF", "use", "Qwen3-ASR 0.6B Q8 and its audio encoder (llama.cpp audio)",
-          repo="ggml-org/Qwen3-ASR-0.6B-GGUF", include=("*Q8_0.gguf",),
-          write={"volis-python.toml": GGUF_SPEECH + f'name = "{PLAIN_NAMES["asr/Qwen3-ASR-0.6B-GGUF"]}"\n' + SPEECH_LANGUAGES}),
-    Model("asr", "gemma-4-E4B-it-GGUF", "use",
-          "Gemma 4 E4B as a recognizer: its audio encoder, and a hard link to the translator's file",
-          repo="unsloth/gemma-4-E4B-it-GGUF", include=("mmproj-F16.gguf",),
-          link="mt/gemma-4-E4B-it-GGUF/gemma-4-E4B-it-Q4_K_M.gguf",
-          write={"volis-python.toml": GGUF_SPEECH + f'name = "{PLAIN_NAMES["asr/gemma-4-E4B-it-GGUF"]}"\n' + SPEECH_LANGUAGES + (
-              "\n# No prompt line: volis's own wording is used (\"Transcribe this audio exactly\n"
-              "# as spoken, in {language}. Output only the transcript, ...\"). The wording on\n"
-              "# Google's model card was tried and scored worse on the test recordings\n"
-              "# (Arabic CER 3.4% against 1.5%, Spanish 1.7% against 1.1%). To try another:\n"
-              '# prompt = "Transcribe the following speech segment in {language} into {language} text."\n')}),
-    Model("asr", "Qwen3-ASR-1.7B-GGUF", "tested", "Qwen3-ASR 1.7B (Q8)",
-          repo="ggml-org/Qwen3-ASR-1.7B-GGUF", include=("*Q8_0.gguf",),
-          write={"volis-python.toml": GGUF_SPEECH + f'name = "{PLAIN_NAMES["asr/Qwen3-ASR-1.7B-GGUF"]}"\n' + SPEECH_LANGUAGES}),
-  
     # Model("asr", "whisper-small", "tested", "Whisper small (transformers); the base of the LoRA adapter below",
     #       repo="openai/whisper-small"),
     # Model("asr", "whisper-algerian-darja-small", "tested",
@@ -175,7 +148,7 @@ LIST = [
     #       repo="touati-kamel/whisper-algerian-darja-small",
     #       include=("adapter_config.json", "adapter_model.safetensors")),
 
-    # ------------------------------------------------------------ translators, volis only
+    # ------------------------------------------------------------ translators
     Model("mt", "gemma-3-4b-it-GGUF", "use", "Gemma 3 4B Q4_K_M",
           repo="unsloth/gemma-3-4b-it-GGUF", include=("*Q4_K_M.gguf",)),
     Model("mt", "gemma-4-E4B-it-GGUF", "use", "Gemma 4 E4B Q4_K_M",
@@ -228,10 +201,10 @@ LIST = [
     #       url=f"{SHERPA_TTS}/vits-piper-es_ES-carlfm-x_low.tar.bz2",
     #       expect=("es_ES-carlfm-x_low.onnx", "tokens.txt", "espeak-ng-data/phontab"),
     #       write={"engine.toml": piper_engine("Piper es_ES carlfm (x_low)", "es", "es_ES-carlfm-x_low.onnx", "es-ES")}),
-    # Model("tts", "vits-piper-es_MX-claude-high", "use", "Piper voice, Spanish (Mexico)",
-    #       url=f"{SHERPA_TTS}/vits-piper-es_MX-claude-high.tar.bz2",
-    #       expect=("es_MX-claude-high.onnx", "tokens.txt", "espeak-ng-data/phontab"),
-    #       write={"engine.toml": piper_engine("Piper es_MX claude (high)", "es", "es_MX-claude-high.onnx", "es-MX")}),
+    Model("tts", "vits-piper-es_MX-claude-high", "use", "Piper voice, Spanish (Mexico)",
+          url=f"{SHERPA_TTS}/vits-piper-es_MX-claude-high.tar.bz2",
+          expect=("es_MX-claude-high.onnx", "tokens.txt", "espeak-ng-data/phontab"),
+          write={"engine.toml": piper_engine("Piper es_MX claude (high)", "es", "es_MX-claude-high.onnx", "es-MX")}),
 ]
 
 
@@ -281,7 +254,7 @@ def plan(api: HfApi, m: Model) -> tuple[int, dict[str, int]]:
             return 0, {}
         others = [p.name for p in m.target.glob("*.gguf")] if m.target.is_dir() else []
         if others:
-            raise Skip(f"{m.target} already has {others[0]} at its top level, and volis-rust refuses two. "
+            raise Skip(f"{m.target} already has {others[0]} at its top level, and only one belongs there. "
                        "Move it into a folder of its own, or leave this one out.")
         return files[m.file], files
     missing = {f: size for f, size in files.items()
@@ -337,14 +310,6 @@ def fetch_repo(m: Model, missing: dict[str, int]) -> None:
         shutil.move(got, m.target / m.save_as)
         return
     wanted = list(missing)
-    if m.link:
-        source, here = MODELS / m.link, m.target / Path(m.link).name
-        if source.is_file() and not here.exists():
-            m.target.mkdir(parents=True, exist_ok=True)
-            os.link(source, here)  # the same bytes: no more disk
-            print(f"    linked {here.name} to {source}")
-        elif not here.exists():
-            wanted.append(Path(m.link).name)  # the translator isn't installed: fetch the file here
     if wanted:
         snapshot_download(m.repo, local_dir=m.target, allow_patterns=wanted)
 

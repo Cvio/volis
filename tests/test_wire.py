@@ -1,4 +1,4 @@
-"""Port of the tests in Rust `wire.rs`, `floor.rs` and `discovery.rs`."""
+"""The wire protocol, the floor and discovery."""
 
 import json
 
@@ -7,7 +7,7 @@ import pytest
 from volis import discovery, floor, wire
 from volis.floor import ASKING, FREE, ME, THEM, BeginTurn, EndTurn, Floor, Holder, Refused, Send
 
-# ---------------------------------------------------------------- wire.rs
+# ---------------------------------------------------------------- wire
 
 SPEC_LINES = [
     '{"t":"Hello","name":"laptop-a","speaks":"es","sends":"en","proto":3}',
@@ -36,9 +36,8 @@ def test_what_is_sent_is_one_line_that_decodes_to_itself():
     assert wire.decode(line.encode()) == message
 
 
-def test_what_is_sent_is_byte_for_byte_what_rust_sends():
-    """serde_json's output for the same messages: field order, no spaces,
-    non-ASCII as it is."""
+def test_what_is_sent_byte_for_byte():
+    """Field order, no spaces, non-ASCII as it is."""
     assert wire.encode(wire.Hello("laptop-a", "es", "en")) == SPEC_LINES[0] + "\n"
     assert wire.encode(wire.Utterance(17, "en", "Where is the station?", "es", "¿Dónde está la estación?")) \
         == SPEC_LINES[1] + "\n"
@@ -74,7 +73,7 @@ def test_hostile_input_is_refused_or_made_harmless():
     assert wire.decode(sneaky.encode()).name == "a b c"
 
 
-def test_what_serde_refuses_python_refuses_too():
+def test_malformed_messages_are_refused():
     for line in (
         '{"t":"Utterance","seq":-1,"lang":"en","text":"x","source_lang":"es","source_text":"y"}',
         '{"t":"Utterance","seq":1.5,"lang":"en","text":"x","source_lang":"es","source_text":"y"}',
@@ -91,7 +90,7 @@ def test_what_serde_refuses_python_refuses_too():
             wire.decode(line.encode())
     with pytest.raises(wire.NotUtf8):  # half a surrogate pair
         wire.decode(b'{"t":"Hello","name":"\\ud800","speaks":"es","sends":"en","proto":3}')
-    # Fields nobody asked for are ignored, as serde ignores them.
+    # Fields nobody asked for are ignored.
     assert wire.decode(b'{"t":"Ping","extra":1}') == wire.Ping()
 
 
@@ -100,7 +99,7 @@ def test_a_bye_may_say_why():
     assert wire.encode(wire.Bye()) == '{"t":"Bye"}\n'
 
 
-# ---------------------------------------------------------------- floor.rs
+# ---------------------------------------------------------------- floor
 
 
 def sent(actions) -> list:
@@ -188,7 +187,7 @@ def test_ties_between_equal_names_are_still_decided_the_same_way_on_both_ends():
     assert a != b
 
 
-# ---------------------------------------------------------------- discovery.rs
+# ---------------------------------------------------------------- discovery
 
 
 def packet(name: str, port: int, proto: int, ident: int) -> bytes:

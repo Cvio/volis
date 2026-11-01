@@ -1,4 +1,4 @@
-"""Port of the tests in Rust `peer.rs`: two ends on this PC, over loopback.
+"""Two computers: two ends on this PC, over loopback.
 What SPEC §9 asks for, without a microphone or a model: the handshake, an
 utterance each way, the floor, and a dropped connection force-releasing the
 floor on both ends."""

@@ -1,5 +1,4 @@
-"""Shared-machine mode in the window's state: port of Rust's shared tests in
-`gui.rs`. No Qt here."""
+"""Shared-machine mode in the window's state. No Qt here."""
 
 from volis import events as ev
 from volis.gui import session as ses

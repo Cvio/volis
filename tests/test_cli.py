@@ -1,4 +1,4 @@
-"""Port of the tests in Rust `cli.rs` (for the commands that exist so far)."""
+"""The command line."""
 
 import pytest
 

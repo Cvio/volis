@@ -1,4 +1,4 @@
-"""`--listen`: the pipeline with no window. Port of Rust `listen.rs`.
+"""`--listen`: the pipeline with no window.
 
 The pipeline logs everything worth reading itself; this only starts it, stops
 it when time is up, and makes sure an error reaches the exit code.
