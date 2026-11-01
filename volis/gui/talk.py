@@ -300,6 +300,8 @@ class Link:
     bad: bool = False
     can_connect: bool = False  # the address box and Connect are for now
     connected: bool = False
+    asking: bool = False  # the person here is to say yes or no
+    button: str = ""  # Cancel or Disconnect
 
 
 def link(s: ses.Session) -> Link:
@@ -308,15 +310,28 @@ def link(s: ses.Session) -> Link:
     if state is None:
         return Link("Getting ready...")
     if state.kind == "waiting":
-        return Link("Waiting for the other computer. Type its address here, or type this computer's address there.",
-                    can_connect=True)
+        words = "Choose the other computer, type its address here, or type this computer's address there."
+        return Link(words if s.discovered else "Waiting for the other computer. Type its address here, or type this "
+                    "computer's address there.", can_connect=True)
     if state.kind == "connecting":
-        return Link("Connecting...")
+        return Link("Waiting for the other computer to accept...", button="Cancel")
+    if state.kind == "asking":
+        return Link(f"{state.name} wants to connect. They speak {varieties.display_name(state.speaks)}.", asking=True)
     if state.kind == "connected":
-        return Link(f"Connected to {state.name}", good=True, connected=True)
+        return Link(f"Connected to {state.name}", good=True, connected=True, button="Disconnect")
     if state.kind == "disconnected":
         return Link(f"Not connected. {state.reason}", bad=True, can_connect=True)
     return Link(f"Volis can't connect to another computer. {state.reason}", bad=True)
+
+
+def swap_words(progress: tuple[int, int] | None) -> str:
+    words = "Sharing the conversation's audio with the other computer"
+    return f"{words}: {progress[0]} of {progress[1]} sentences..." if progress and progress[1] else f"{words}..."
+
+
+THEY_ENDED = "The other person ended the conversation."
+SWAP_FAILED = ("The other computer's audio didn't arrive. To add it later, ask them to save this conversation and "
+               "share it as a Volis conversation file, then open that file here.")
 
 
 def addresses_to_show(found: list[tuple[str, str]]) -> list[str]:

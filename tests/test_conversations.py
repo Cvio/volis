@@ -209,8 +209,8 @@ def test_a_shared_file_opens_the_same_in_another_volis(tmp_path):
     saved = a_saved(tmp_path / "one")
     shared = conversations.share_file(saved, tmp_path / "Menu")
     assert shared.name == "Menu.volis"
-    opened, already = conversations.open_file(tmp_path / "two", shared)
-    assert not already and opened.folder.parent == paths.conversations_dir(tmp_path / "two")
+    opened, outcome = conversations.open_file(tmp_path / "two", shared)
+    assert outcome == conversations.NEW and opened.folder.parent == paths.conversations_dir(tmp_path / "two")
     again = conversations.load(opened.folder)
     assert (again.name, again.speakers, again.lines) == (saved.name, saved.speakers, saved.lines)
     line = again.sentences()[0]
@@ -222,8 +222,8 @@ def test_a_shared_file_opens_the_same_in_another_volis(tmp_path):
 def test_opening_the_same_file_again_makes_no_copy(tmp_path):
     shared = conversations.share_file(a_saved(tmp_path / "one"), tmp_path / "Menu.volis")
     first, _ = conversations.open_file(tmp_path / "two", shared)
-    second, already = conversations.open_file(tmp_path / "two", shared)
-    assert already and second.folder == first.folder
+    second, outcome = conversations.open_file(tmp_path / "two", shared)
+    assert outcome == conversations.ALREADY and second.folder == first.folder
     assert len(conversations.load_all(tmp_path / "two")[0]) == 1
 
 
@@ -331,3 +331,51 @@ def test_no_audio_means_nothing_to_share(tmp_path):
         conversations.share_audio(saved, tmp_path / "all.wav")
     shared = conversations.share_file(saved, tmp_path / "Menu.volis")
     assert not conversations.open_file(tmp_path / "two", shared)[0].has_audio()
+
+
+# ---------------------------------------------------------------- two computers
+
+
+def half(tmp_path, name, lines, audio):
+    store = clips.Clips()
+    keeper = Keeper(tmp_path, ("fa", "en"), "two-computers", store, "2026-10-31 14:05")
+    for key, clip in audio.items():
+        store.put_spoken(key, np.ones(160, np.float32) / clip, 16000)
+    keeper.update(lines)
+    return keeper.save(name)
+
+
+MINE = [{"kind": "bubble", "key": "1.1", "side": "right", "speaker": "Persian", "original": "سلام", "translation": "Hello", "speech": "1.1x"}]
+THEIRS = [{"kind": "bubble", "key": "remote-9", "side": "left", "speaker": "Persian", "original": "سلام", "translation": "Hello", "speech": "r"}]
+
+
+def test_the_other_computers_file_adds_its_audio_to_this_copy(tmp_path):
+    mine = half(tmp_path / "one", "Ours", [dict(l) for l in MINE], {})
+    theirs = half(tmp_path / "two", "Theirs", [dict(l) for l in THEIRS], {"r": 2})
+    assert not mine.has_audio()
+    shared = conversations.share_file(theirs, tmp_path / "theirs")
+    combined, outcome = conversations.open_file(tmp_path / "one", shared)
+    assert outcome == conversations.COMBINED and combined.folder == mine.folder and combined.name == "Ours"
+    again = conversations.load(mine.folder)
+    assert again.clip(again.sentences()[0], conversations.TRANSLATION).rate == 16000
+    assert len(conversations.load_all(tmp_path / "one")[0]) == 1
+
+
+def test_another_conversation_is_not_taken_for_the_other_half(tmp_path):
+    half(tmp_path / "one", "Ours", [dict(l) for l in MINE], {})
+    other = [dict(THEIRS[0], translation="Something else altogether")]
+    shared = conversations.share_file(half(tmp_path / "two", "Other", other, {}), tmp_path / "other")
+    assert conversations.open_file(tmp_path / "one", shared)[1] == conversations.NEW
+
+
+def test_received_audio_is_kept_with_the_sentence(tmp_path):
+    store = clips.Clips()
+    store.put_received(clips.TRANSLATION, "Hello  there", np.ones(10, np.int16).tobytes(), 22050)
+    store.put_received(clips.ORIGINAL, "Hi", np.ones(10, np.int16).tobytes(), 16000)
+    keeper = Keeper(tmp_path, ("fa", "en"), "two-computers", store, "2026-10-31 14:05")
+    keeper.update([{"kind": "bubble", "key": "1.1", "side": "right", "translation": "Hello there", "speech": "1.1", "utterance": 1},
+                   {"kind": "bubble", "key": "remote-1", "side": "left", "translation": "Hi", "speech": "r"}])
+    saved = keeper.save("Menu")
+    first, second = saved.sentences()
+    assert first["audio_translation"] and not first["audio_original"]
+    assert second["audio_original"] and not second["audio_translation"]

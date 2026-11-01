@@ -58,6 +58,18 @@ class FakePipeline:
     def connect(self, address):
         self.asked.append(("connect", address.host))
 
+    def accept_peer(self):
+        self.asked.append(("accept",))
+
+    def decline_peer(self):
+        self.asked.append(("decline",))
+
+    def disconnect(self):
+        self.asked.append(("disconnect",))
+
+    def finish_with_peer(self, parts):
+        self.asked.append(("finish", [(track, text) for track, text, _clip in parts]))
+
     def translate_typed(self, lines, direction=None):
         self.asked.append(("typed", tuple(lines), direction.side if direction else ""))
 
@@ -1317,3 +1329,117 @@ def test_settings_from_the_old_window_still_load(tmp_path):
     path = paths.python_config_file(tmp_path)
     path.write_text("[window]\nadvanced_open = true\ntext_size = 14\n", encoding="utf-8")
     assert PythonConfig.load(path)[0].window.text_size == 14
+
+
+# ---------------------------------------------------------------- nearby computers, accepting, swapping
+
+
+def two_computers(w, peer_state=None):
+    w.way_buttons[talk.TWO_COMPUTERS].click()
+    w.start_button.click()
+    for event in (ev.Listening(), ev.Mode("turn"), peer_state or ev.PeerMsg("waiting", port=47800)):
+        w.events.put(event)
+    w.tick()
+    return w.pipeline
+
+
+def test_nearby_computers_are_buttons_and_typing_stays(window):
+    pipeline = two_computers(window)
+    assert pipeline.options.ask_first
+    assert window.found_list.count() == 0 and not window.peer_input.isHidden()
+    window.events.put(ev.Discovered([("Front desk", "192.168.1.9", 47800)]))
+    window.tick()
+    button = window.found_list.itemAt(0).widget()
+    assert "Front desk" in button.text() and not window.peer_input.isHidden()
+    button.click()
+    assert pipeline.asked == [("connect", "192.168.1.9")]
+
+
+def test_someone_asking_gets_an_answer_from_the_person_here(window):
+    pipeline = two_computers(window)
+    window.events.put(ev.PeerMsg("asking", name="Front desk", addr="192.168.1.9:47800", speaks="fa", sends="en"))
+    window.tick()
+    assert not window.asking_box.isHidden() and "Front desk wants to connect" in window.asking_words.text()
+    assert "Persian" in window.asking_words.text() and not window.speak_one.isEnabled()
+    window.asking_yes.click()
+    window.asking_no.click()
+    assert pipeline.asked == [("accept",), ("decline",)]
+
+
+def test_waiting_for_an_answer_can_be_cancelled_and_a_connection_ended(window):
+    pipeline = two_computers(window, ev.PeerMsg("connecting", addr="192.168.1.9:47800"))
+    assert "accept" in window.link_words.text() and window.link_button.text() == "Cancel"
+    window.link_button.click()
+    window.events.put(ev.PeerMsg("connected", name="Desk"))
+    window.tick()
+    assert window.link_button.text() == "Disconnect"
+    assert pipeline.asked == [("disconnect",)]
+
+
+def connected_with_a_sentence(w):
+    pipeline = two_computers(w, ev.PeerMsg("connected", name="Desk"))
+    for event in (ev.SentenceMsg("1.1", 1, "سلام", "fa", 1.0, 2.0), ev.Translated("1.1", "Hello", "en", 300, "cuda", "m"),
+                  ev.Remote("Desk", "fa", "خوبم", "en", "I am fine")):
+        w.events.put(event)
+    w.tick()
+    w.clips.put_heard(1, 1.0, np.ones(16000, np.float32) / 2)
+    w.clips.put_spoken(clips.remote_key("fa", "خوبم"), np.ones(2205, np.float32) / 2, 22050)
+    return pipeline
+
+
+def test_ending_swaps_first_and_stops_only_when_that_is_done(window):
+    pipeline = connected_with_a_sentence(window)
+    window.end_button.click()
+    assert pipeline.asked[-1] == ("finish", [("original", "Hello"), ("translation", "خوبم")])
+    assert ("stop",) not in pipeline.asked and window.swapping and "Sharing" in window.link_words.text()
+    window.end_button.click()
+    assert sum(a[0] == "finish" for a in pipeline.asked) == 1
+    window.clips.put_received(clips.TRANSLATION, "Hello", np.ones(10, np.int16).tobytes(), 22050)
+    window.clips.put_received(clips.ORIGINAL, "خوبم", np.ones(10, np.int16).tobytes(), 16000)
+    window.events.put(ev.SwapDone(True))
+    window.tick()
+    assert ("stop",) in pipeline.asked
+    window.tick()
+    window.save_button.click()
+    first, second = only_saved(window).sentences()
+    assert first["audio_original"] and first["audio_translation"] and second["audio_original"] and second["audio_translation"]
+
+
+def test_when_the_other_person_ends_it_ends_here_too(window):
+    pipeline = connected_with_a_sentence(window)
+    window.events.put(ev.PeerEnding())
+    window.tick()
+    assert pipeline.asked[-1][0] == "finish" and window.swap_note.text() == talk.THEY_ENDED
+
+
+def test_a_failed_swap_says_how_to_finish_it_later(window):
+    pipeline = connected_with_a_sentence(window)
+    window.end_button.click()
+    window.events.put(ev.SwapDone(False, "gone"))
+    window.tick()
+    assert ("stop",) in pipeline.asked and window.swap_note.text() == talk.SWAP_FAILED and not window.swap_note.isHidden()
+
+
+def test_with_never_save_nothing_of_it_is_sent(make):
+    py = PythonConfig()
+    py.saving.mode = "never"
+    w = make(pyconfig=py)
+    pipeline = connected_with_a_sentence(w)
+    w.end_button.click()
+    assert pipeline.asked[-1] == ("finish", [])
+
+
+def test_a_dropped_connection_ends_at_once_and_says_how_to_finish_it_later(window):
+    pipeline = connected_with_a_sentence(window)
+    window.events.put(ev.PeerMsg("disconnected", reason="gone"))
+    window.tick()
+    window.end_button.click()
+    assert ("stop",) in pipeline.asked and window.swap_note.text() == talk.SWAP_FAILED
+
+
+def test_nobody_can_start_a_turn_or_type_during_the_swap(window):
+    pipeline = connected_with_a_sentence(window)
+    window.end_button.click()
+    assert "Please wait" in window.speak_one.text() and not window.speak_one.isEnabled()
+    assert not window.turn_key_active() and window.type_toggle.isHidden()
+    assert ("begin",) not in pipeline.asked

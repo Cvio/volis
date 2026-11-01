@@ -31,15 +31,15 @@ from pathlib import Path
 import numpy as np
 
 from . import audio, paths
-from .clips import Clip, Clips
+from .clips import ORIGINAL, TRANSLATION, Clip, Clips
 
 log = logging.getLogger(__name__)
 
 VERSION = 1
 JSON_NAME, TEXT_NAME, AUDIO_DIR = "conversation.json", "conversation.txt", "audio"
-ORIGINAL, TRANSLATION = "original", "translation"
 RECOVERED_NAME = "Recovered conversation"
 LEFT, RIGHT = "left", "right"
+TWO_COMPUTERS = "two-computers"  # talk.TWO_COMPUTERS, as a conversation.json says it
 FILE_SUFFIX = ".volis"
 _AUDIO_NAME = re.compile(r"audio/\d+-(original|translation)\.wav")  # the only names a Keeper gives
 BETWEEN_PARTS, BETWEEN_SENTENCES = 0.4, 0.8  # seconds of silence in a conversation's whole audio
@@ -363,11 +363,54 @@ def share_audio(c: Conversation, target: Path) -> Path:
     return target
 
 
-def open_file(root: Path, path: Path) -> tuple[Conversation, bool]:
+def _other_half(known: list[Conversation], incoming: Conversation) -> Conversation | None:
+    """The saved conversation that a file is the other computer's copy of: both
+    were on two computers on the same day, and at least half of the sentences of
+    the shorter one are the same words seen from the other side."""
+    if incoming.way != TWO_COMPUTERS:
+        return None
+    theirs = {(line.get("side"), line.get("translation")) for line in incoming.sentences() if line.get("translation")}
+    for c in known:
+        if c.way != TWO_COMPUTERS or c.created[:10] != incoming.created[:10]:
+            continue
+        ours = [line for line in c.sentences() if line.get("translation")]
+        flipped = sum((RIGHT if line.get("side") == LEFT else LEFT, line["translation"]) in theirs for line in ours)
+        if flipped and flipped * 2 >= min(len(ours), len(theirs)):
+            return c
+    return None
+
+
+def _combine(c: Conversation, incoming: Conversation, zipped: zipfile.ZipFile) -> None:
+    """The audio this copy lacks, from the other computer's copy of it."""
+    by_words = {}
+    for line in incoming.sentences():
+        by_words[(line.get("side"), line.get("translation"))] = line
+    names = set(zipped.namelist())
+    (c.folder / AUDIO_DIR).mkdir(exist_ok=True)
+    for number, line in enumerate(c.sentences(), 1):
+        other = by_words.get((RIGHT if line.get("side") == LEFT else LEFT, line.get("translation")))
+        if other is None:
+            continue
+        for track in (ORIGINAL, TRANSLATION):
+            source = incoming.audio_path(other, track)
+            member = f"{AUDIO_DIR}/{source.name}" if source is not None else ""
+            if line.get(f"audio_{track}") or member not in names or not _AUDIO_NAME.fullmatch(member):
+                continue
+            name = f"{number:04d}-{track}.wav"
+            (c.folder / AUDIO_DIR / name).write_bytes(zipped.read(member))
+            line[f"audio_{track}"] = name
+    c.write()
+
+
+NEW, ALREADY, COMBINED = "new", "already", "combined"
+
+
+def open_file(root: Path, path: Path) -> tuple[Conversation, str]:
     """A shared conversation, into this Volis's Saved: the conversation, and
-    whether it was there already. Only the two kinds of file a conversation has
-    are read out of the zip, each under a name decided here, so a file from
-    elsewhere can't write anywhere else."""
+    what became of it: NEW, ALREADY there, or COMBINED with this computer's own
+    copy, the other computer's audio joining it. Only the two kinds of file a
+    conversation has are read out of the zip, each under a name decided here, so
+    a file from elsewhere can't write anywhere else."""
     source = path.absolute()
     try:
         with zipfile.ZipFile(path) as zipped:
@@ -379,7 +422,11 @@ def open_file(root: Path, path: Path) -> tuple[Conversation, bool]:
             known, _ = load_all(root)
             same = next((c for c in known if (c.created, c.lines) == (incoming.created, incoming.lines)), None)
             if same is not None:
-                return same, True
+                return same, ALREADY
+            half = _other_half(known, incoming)
+            if half is not None:
+                _combine(half, incoming, zipped)
+                return half, COMBINED
             members = {f"{AUDIO_DIR}/{p.name}" for line in incoming.sentences() for p in
                        (incoming.audio_path(line, ORIGINAL), incoming.audio_path(line, TRANSLATION)) if p is not None}
             wanted = [i for i in zipped.infolist() if i.filename in members and _AUDIO_NAME.fullmatch(i.filename)]
@@ -401,7 +448,7 @@ def open_file(root: Path, path: Path) -> tuple[Conversation, bool]:
         raise
     except (OSError, ValueError, KeyError, TypeError, zipfile.BadZipFile) as e:
         raise ConversationError(f"cannot open {source}: {e}") from e
-    return incoming, False
+    return incoming, NEW
 
 
 class Keeper:
@@ -434,10 +481,15 @@ class Keeper:
             if line.get("kind") != "bubble":
                 continue
             heard = None
+            words = line.get("translation", "")
             if line.get("utterance", -1) >= 0:
                 heard = self.clips.original(line["utterance"], line.get("start", 0.0), line.get("end", 0.0))
+            else:
+                heard = self.clips.received(ORIGINAL, words) if words else None
             line["audio_original"] = self._audio(line, ORIGINAL, heard)
             speech = self.clips.spoken(line["speech"]) if line.get("speech") else None
+            if speech is None and words:
+                speech = self.clips.received(TRANSLATION, words)
             line["audio_translation"] = self._audio(line, TRANSLATION, speech)
         self.conversation.lines = lines
         self.conversation.write()

@@ -51,7 +51,7 @@ enabled = false
 listen_addr = "0.0.0.0:47800"        # two copies on one PC need different ports
 peer_addr = ""                       # the last address typed
 display_name = ""                    # "" = the computer's name
-discovery = true                     # announce this PC on the local network
+discovery = true                     # announce this PC, and list others, on the local network
 
 [shared]                             # shared machine mode: two people, a key each
 left_language = "en"

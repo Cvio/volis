@@ -200,7 +200,8 @@ with it in three ways, each a rule in `CLAUDE.md`:
 - **`volis.toml`** is the same file in both, same keys and meanings. volis-rust refuses
   settings it doesn't know, which is why the settings only Volis has are in
   `volis-python.toml`.
-- **Paired mode** speaks the same protocol, so either app can be at either end.
+- **Paired mode** began with the same protocol, but version 3 (the accept step and the audio swap) is Volis's own.
+  Both computers need a Volis of the same version; a different one isn't listed, and is refused by name if typed.
 - **`models\`** has the same layout. volis-rust uses the one `.gguf` at the top of
   `models\mt\` and refuses to start with two, so every other translator goes in a folder of
   its own. Its recognizers are the `-onnx-int8` folders.

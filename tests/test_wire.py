@@ -10,7 +10,7 @@ from volis.floor import ASKING, FREE, ME, THEM, BeginTurn, EndTurn, Floor, Holde
 # ---------------------------------------------------------------- wire.rs
 
 SPEC_LINES = [
-    '{"t":"Hello","name":"laptop-a","speaks":"es","sends":"en","proto":2}',
+    '{"t":"Hello","name":"laptop-a","speaks":"es","sends":"en","proto":3}',
     '{"t":"Utterance","seq":17,"lang":"en","text":"Where is the station?","source_lang":"es",'
     '"source_text":"¿Dónde está la estación?"}',
     '{"t":"FloorRequest","seq":18}',
@@ -70,7 +70,7 @@ def test_hostile_input_is_refused_or_made_harmless():
     with pytest.raises(wire.Malformed):
         wire.decode(long.encode())
     # Control characters, including escaped newlines, become spaces.
-    sneaky = '{"t":"Hello","name":"a\\nb\\u0007c","speaks":"es","sends":"en","proto":2}'
+    sneaky = '{"t":"Hello","name":"a\\nb\\u0007c","speaks":"es","sends":"en","proto":3}'
     assert wire.decode(sneaky.encode()).name == "a b c"
 
 
@@ -83,14 +83,14 @@ def test_what_serde_refuses_python_refuses_too():
         '{"t":"Utterance","seq":1,"lang":"en","text":"x","source_lang":"es"}',
         '{"t":"FloorRequest"}',
         '{"t":"Hello","name":"x","speaks":"es","sends":"en","proto":"2"}',
-        '{"t":"Hello","name":"x","speaks":"","sends":"en","proto":2}',
-        '{"t":"Hello","name":"x","speaks":"español","sends":"en","proto":2}',
+        '{"t":"Hello","name":"x","speaks":"","sends":"en","proto":3}',
+        '{"t":"Hello","name":"x","speaks":"español","sends":"en","proto":3}',
         '[1,2]', '"Ping"', '{"t":7}', '{"t":"Ping","x":NaN}',
     ):
         with pytest.raises(wire.WireError):
             wire.decode(line.encode())
     with pytest.raises(wire.NotUtf8):  # half a surrogate pair
-        wire.decode(b'{"t":"Hello","name":"\\ud800","speaks":"es","sends":"en","proto":2}')
+        wire.decode(b'{"t":"Hello","name":"\\ud800","speaks":"es","sends":"en","proto":3}')
     # Fields nobody asked for are ignored, as serde ignores them.
     assert wire.decode(b'{"t":"Ping","extra":1}') == wire.Ping()
 

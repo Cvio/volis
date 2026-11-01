@@ -129,6 +129,8 @@ class Options:
     prompt: str = ""
     # A conversation's audio is kept here (clips.Clips); None = not kept.
     clips: object = None
+    # Paired: someone dialling in waits until the person here says yes.
+    ask_first: bool = False
     # Voices' folders to prefer for the languages they speak (Settings' Voice).
     voices: tuple = ()
 
@@ -323,6 +325,22 @@ class Pipeline:
         if self.peer is not None:
             self.peer.disconnect()
 
+    def accept_peer(self) -> None:
+        if self.peer is not None:
+            self.peer.accept()
+
+    def decline_peer(self) -> None:
+        if self.peer is not None:
+            self.peer.decline()
+
+    def finish_with_peer(self, parts: list) -> None:
+        """The conversation is over: swap its audio, keeping the connection until SwapDone."""
+        self.peer.finish(parts)
+
+    def _received(self, track: str, text: str, raw: bytes, rate: int) -> None:
+        if self.clips is not None:
+            self.clips.put_received(track, text, raw, rate)
+
     def _speak_remote(self, lang: str, text: str) -> str:
         """Say what arrived from the other PC. "off" when this run has no voice."""
         speaker = self._speaker_thread
@@ -378,7 +396,8 @@ class Pipeline:
             self.peer = peer.start(self.config, kind if kind in (CONTINUOUS, TURN) else TURN, peer.Wiring(
                 begin_turn=lambda: self._commands.put(Command("begin_turn")),
                 end_turn=lambda: self._commands.put(Command("end_turn")),
-                speak=self._speak_remote, emit=self.emit))
+                speak=self._speak_remote, emit=self.emit, received=self._received),
+                self.options.ask_first)
         self._thread.start()
         return self
 

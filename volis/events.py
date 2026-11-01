@@ -307,8 +307,9 @@ TRANSLATION = (SentenceMsg, Held, Translated, NotTranslated, Revised)
 @dataclass
 class PeerMsg(Event):
     """The connection to the other PC changed. `kind`: "waiting" (listening,
-    not connected), "connecting", "connected", "disconnected" (was, or tried
-    to be; still listening) or "unavailable" (the port could not be opened)."""
+    not connected), "connecting", "asking" (someone wants to connect, and the
+    person here is to say), "connected", "disconnected" (was, or tried to be;
+    still listening) or "unavailable" (the port could not be opened)."""
 
     kind: str
     port: int = 0
@@ -360,6 +361,27 @@ class NotSent(Event):
 
     id: str
     reason: str
+
+
+@dataclass
+class PeerEnding(Event):
+    """The other person ended the conversation."""
+
+
+@dataclass
+class SwapProgress(Event):
+    """How much of this computer's audio has gone to the other."""
+
+    sent: int
+    total: int
+
+
+@dataclass
+class SwapDone(Event):
+    """The audio swap is over; `why` is what went wrong, if it did."""
+
+    ok: bool
+    why: str = ""
 
 
 @dataclass

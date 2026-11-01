@@ -3,7 +3,8 @@ ends of one conversation. Port of Rust `peer.rs`; the two pair with each other.
 
 Each machine runs its own complete pipeline and sends the other only the
 translated **text**. The receiver shows it and speaks it with its own voice.
-No audio, no models and no inference cross the wire.
+No models and no inference cross the wire, and no audio until the conversation
+ends: then, over the same connection, each sends the other the audio it lacks.
 
 Everything here runs on its own threads, so a stalled or dead peer can never
 block local capture, recognition or the window:
@@ -22,6 +23,7 @@ and no DNS.
 
 from __future__ import annotations
 
+import base64
 import errno
 import ipaddress
 import logging
@@ -32,7 +34,8 @@ import time
 from dataclasses import dataclass
 
 from . import discovery, floor, varieties, wire
-from .events import Discovered, Error, FloorChanged, FloorRefused, NotSent, PeerMsg, Remote, Sent
+from .events import (Discovered, Error, FloorChanged, FloorRefused, NotSent, PeerEnding, PeerMsg, Remote, Sent, SwapDone,
+                     SwapProgress)
 
 log = logging.getLogger(__name__)
 
@@ -45,6 +48,9 @@ DEAD_AFTER = 6.0
 HELLO_TIMEOUT = 5.0  # how long a connection may go without saying Hello
 WRITE_TIMEOUT = 2.0  # a write that takes longer than this means the link is gone
 TICK = 0.1  # how often the peer thread wakes with nothing to do, for the timers
+SWAP_STALL = 30.0  # seconds with nothing moving, after which the audio swap is given up
+SWAP_CHUNK = 9_000  # bytes of audio to a line: as base64, well inside wire.MAX_LINE
+SWAP_MAX = 2 * 1024 * 1024 * 1024  # bytes of audio accepted from the other side, in all
 
 
 class AddressError(ValueError):
@@ -126,6 +132,7 @@ class Wiring:
     end_turn: callable
     speak: callable  # (lang, text) -> "ok" | "off" | "full": a received utterance to say aloud
     emit: callable  # an event for the window
+    received: callable = None  # (track, text, int16 samples as bytes, rate): audio from the swap
 
 
 class _Link:
@@ -163,8 +170,16 @@ class Peer:
     """Paired mode, running. Every public method only queues a request for
     the peer thread and returns at once."""
 
-    def __init__(self, me: Me, mode: str, listen_addr: str, discovery_on: bool, wiring: Wiring) -> None:
+    def __init__(self, me: Me, mode: str, listen_addr: str, discovery_on: bool, wiring: Wiring,
+                 ask_first: bool = False) -> None:
         self.me = me
+        self.ask_first = ask_first  # someone dialling in waits for the person here to say yes
+        self._asking: int | None = None  # the connection waiting for that
+        self._swap_sending = None  # the messages still to go
+        self._swap_started = self._swap_sent = self._swap_got = self._swap_over = False
+        self._swap_moved = 0.0
+        self._incoming = None  # the sentence's audio arriving: [AudioBegin, bytearray]
+        self._incoming_total = 0
         self.mode = mode
         self.wiring = wiring
         self.port = 0
@@ -200,6 +215,18 @@ class Peer:
     def disconnect(self) -> None:
         self._inbox.put(("disconnect",))
 
+    def accept(self) -> None:
+        """The person here said yes to whoever is asking."""
+        self._inbox.put(("accept",))
+
+    def decline(self) -> None:
+        self._inbox.put(("decline",))
+
+    def finish(self, parts: list) -> None:
+        """The conversation has ended: tell the other side, and send it these
+        (track, text, clips.Clip). SwapDone says when both directions are over."""
+        self._inbox.put(("finish", parts))
+
     def want_turn(self) -> None:
         """The turn key asked for a turn. In turn mode, while connected, this
         asks for the floor; otherwise the turn starts at once."""
@@ -231,7 +258,8 @@ class Peer:
         self._listen()
         while not self._stop.is_set():
             try:
-                self._handle(self._inbox.get(timeout=TICK))
+                self._send_swap()
+                self._handle(self._inbox.get_nowait() if self._swap_sending else self._inbox.get(timeout=TICK))
             except queue.Empty:
                 pass
             except Exception:  # a bug here must not take pairing down silently
@@ -344,6 +372,10 @@ class Peer:
         kind = item[0]
         if kind == "connect":
             address = item[1]
+            asking = self._link(self._asking) if self._asking is not None else None
+            if asking is not None and asking.remote.host == address.host:  # each has chosen the other
+                self._say_yes(asking.id)
+                return
             link = self._active_link()
             if link is not None:
                 self._emit(Error(f"Already paired with {link.name()}. Disconnect first."))
@@ -364,10 +396,22 @@ class Peer:
             threading.Thread(target=dial, name="volis-dial", daemon=True).start()
         elif kind == "disconnect":
             self._dialling = None
+            for link in [x for x in self._links if x.outbound and x.id != self._active]:
+                self._discard(link.id, f"{self.me.name} cancelled")
             if self._active is not None:
                 self._close(self._active, None, "you disconnected")
             else:
                 self._state("waiting", port=self.port)
+        elif kind == "accept":
+            if self._asking is not None:
+                self._say_yes(self._asking)
+        elif kind == "decline":
+            if self._asking is not None:
+                ident, self._asking = self._asking, None
+                self._discard(ident, f"{self.me.name} said no")
+                self._state("waiting", port=self.port)
+        elif kind == "finish":
+            self._begin_swap(item[1])
         elif kind == "want_turn":
             if self._floor is not None and self.mode == "turn":
                 self._act(self._floor.request(time.monotonic()))
@@ -406,6 +450,14 @@ class Peer:
             why = f"{name} ended the connection" + (f": {message.reason}" if message.reason else "")
             self._drop_link(ident, why)
             return
+        if isinstance(message, wire.Ping):  # someone waiting to be accepted must stay alive too
+            self._write_to(ident, wire.Pong())
+            return
+        if isinstance(message, wire.Accept):
+            link = self._link(ident)
+            if link is not None and link.outbound and link.hello is not None:
+                self._admitted(ident)
+            return
         if self._active != ident:
             return  # nothing but Hello and Bye counts before the handshake
         if isinstance(message, wire.Utterance):
@@ -419,15 +471,117 @@ class Peer:
         elif isinstance(message, (wire.FloorRequest, wire.FloorGrant, wire.FloorRelease)):
             if self._floor is not None:
                 self._act(self._floor.receive(message))
-        elif isinstance(message, wire.Ping):
-            self._write_to(ident, wire.Pong())
+        elif isinstance(message, wire.Ending):
+            if not self._swap_started:
+                self._emit(PeerEnding())
+        elif isinstance(message, wire.AudioBegin):
+            self._incoming = [message, bytearray()]
+            self._swap_moved = time.monotonic()
+        elif isinstance(message, wire.AudioData):
+            self._audio_data(message)
+        elif isinstance(message, wire.AudioDone):
+            self._swap_got, self._swap_moved = True, time.monotonic()
+            self._swap_check()
+
+    # ---- the audio swap
+
+    def _begin_swap(self, parts: list) -> None:
+        if self._swap_started:
+            return
+        self._swap_started, self._swap_moved = True, time.monotonic()
+        if self._active is None:
+            self._swap_finished(False, "the other computer is not connected")
+            return
+        self._write_to(self._active, wire.Ending())
+        self._swap_sending = _swap_messages(parts)
+
+    def _send_swap(self) -> None:
+        if not self._swap_sending or self._active is None:
+            return
+        step = next(self._swap_sending, None)
+        if step is None:
+            self._swap_sending = None
+            self._swap_sent = True
+            self._write_to(self._active, wire.AudioDone())
+            self._swap_check()
+            return
+        message, progress = step
+        if self._write_to(self._active, message) is not None:
+            self._swap_moved = time.monotonic()
+            if progress is not None:
+                self._emit(SwapProgress(*progress))
+
+    def _audio_data(self, message: wire.AudioData) -> None:
+        if self._incoming is None:
+            return
+        begin, gathered = self._incoming
+        self._swap_moved = time.monotonic()
+        try:
+            gathered += base64.b64decode(message.data, validate=True)
+        except ValueError:
+            log.warning("paired mode: audio that was not base64 arrived; it is dropped")
+            self._incoming = None
+            return
+        if len(gathered) < begin.size:
+            return
+        self._incoming = None
+        self._incoming_total += len(gathered)
+        if len(gathered) == begin.size and self._incoming_total <= SWAP_MAX and self.wiring.received is not None:
+            self.wiring.received(begin.track, begin.text, bytes(gathered), begin.rate)
+        else:
+            log.warning("paired mode: audio of the wrong size, or too much of it, arrived; it is dropped")
+
+    def _swap_check(self) -> None:
+        if self._swap_sent and self._swap_got:
+            self._swap_finished(True)
+
+    def _swap_finished(self, ok: bool, why: str = "") -> None:
+        if not self._swap_over:
+            self._swap_over = True
+            self._swap_sending = None
+            self._emit(SwapDone(ok, why))
+
+    # ---- who the other end is
 
     def _hello(self, ident: int, hello: Me) -> None:
-        """A connection has said who it is: make it the peer, or refuse it."""
+        """A connection has said who it is. If we dialled it, we wait for its
+        person to say yes. If it dialled us, ours is asked."""
         new = self._link(ident)
         if new is None or new.hello is not None:
             return
         new.hello = hello
+        if new.outbound:
+            return
+        already_with_us = self._active is not None
+        if already_with_us or not self.ask_first or self._dialled(new.remote.host):
+            self._say_yes(ident)
+        elif self._asking is not None:
+            self._discard(ident, f"{self.me.name} is deciding about another computer")
+        else:
+            self._asking = ident
+            self._state("asking", name=hello.name, addr=str(new.remote), speaks=hello.speaks, sends=hello.sends)
+
+    def _dialled(self, host: str) -> bool:
+        """Whether we are dialling that computer too: each has chosen the other."""
+        if self._dialling is not None and self._dialling.host == host:
+            return True
+        return any(x.outbound and x.remote.host == host for x in self._links)
+
+    def _say_yes(self, ident: int) -> None:
+        if self._asking == ident:
+            self._asking = None
+        self._admitted(ident)
+        if self._link(ident) is not None:  # not refused: it is told
+            self._write_to(ident, wire.Accept())
+
+    def _admitted(self, ident: int) -> None:
+        """Both ends have agreed: make it the peer, or refuse it."""
+        new = self._link(ident)
+        if new is None or new.hello is None:
+            return
+        hello = new.hello
+        if self._active == ident:
+            return
         if self._active is None:
             self._activate(ident)
             return
@@ -491,12 +645,14 @@ class Peer:
 
     def _timers(self) -> None:
         now = time.monotonic()
+        if self._swap_started and not self._swap_over and now - self._swap_moved > SWAP_STALL:
+            self._swap_finished(False, f"nothing moved for {SWAP_STALL:g} s")
         if self._floor is not None:
             self._act(self._floor.tick(now))
         for link in list(self._links):
             if link.hello is None and now - link.opened > HELLO_TIMEOUT:
                 self._close(link.id, "no Hello", f"{link.name()} connected but never said who it was; is it Volis?")
-            elif link.id == self._active and now - link.last_ping >= PING_EVERY:
+            elif link.hello is not None and now - link.last_ping >= PING_EVERY:
                 link.last_ping = now
                 self._write_to(link.id, wire.Ping())
 
@@ -605,7 +761,10 @@ class Peer:
             return
         self._links.remove(link)
         link.shut()
-        if self._active == ident:
+        if self._asking == ident:
+            self._asking = None
+            self._state("waiting", port=self.port)
+        elif self._active == ident:
             self._active = None
             held, self._floor = self._floor, None
             # Both ends dialled at once, and the other end closed the spare
@@ -618,12 +777,14 @@ class Peer:
                 self._activate(spare.id)
                 return
             log.warning("paired mode: disconnected: %s", why)
+            if self._swap_started:
+                self._swap_finished(False, why)
             # The disconnected state first, so the window never shows a free
             # floor on a link that is already gone.
             self._state("disconnected", port=self.port, reason=why)
             if held is not None:
                 self._act(held.disconnected())
-        elif link.outbound and link.hello is None:
+        elif link.outbound and self._active is None:
             # Our own dial, refused before it was ever a pairing.
             self._state("disconnected", port=self.port, reason=why)
 
@@ -647,12 +808,22 @@ class Peer:
         self._links.clear()
 
 
-def start(config, mode: str, wiring: Wiring) -> Peer:
+def _swap_messages(parts: list):
+    """Each sentence's audio as lines, with how far along each sentence's start is."""
+    usable = [p for p in parts if len(p[1]) <= wire.MAX_TEXT and 0 < p[2].samples.nbytes <= wire.MAX_CLIP]
+    for done, (track, text, clip) in enumerate(usable):
+        raw = clip.samples.astype("<i2").tobytes()
+        yield wire.AudioBegin(track, text, clip.rate, len(raw)), (done, len(usable))
+        for start in range(0, len(raw), SWAP_CHUNK):
+            yield wire.AudioData(base64.b64encode(raw[start:start + SWAP_CHUNK]).decode("ascii")), None
+
+
+def start(config, mode: str, wiring: Wiring, ask_first: bool = False) -> Peer:
     """Start listening, and the thread that runs paired mode. Returns at
     once; a port that cannot be opened is reported as "unavailable", not as
     an error, so the rest of volis still runs."""
     me = Me(display_name(config.peer.display_name), config.languages.source, config.languages.target)
-    return Peer(me, mode, config.peer.listen_addr, config.peer.discovery, wiring).start()
+    return Peer(me, mode, config.peer.listen_addr, config.peer.discovery, wiring, ask_first).start()
 
 
 REFUSED = {errno.ECONNREFUSED, 10061}

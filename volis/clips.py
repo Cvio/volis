@@ -29,8 +29,16 @@ class Clip:
         return self.samples[int(start * self.rate):].astype(np.float32) / 32767.0
 
 
+ORIGINAL, TRANSLATION = "original", "translation"
+
+
 def _compact(samples: np.ndarray) -> np.ndarray:
     return (np.clip(np.asarray(samples, np.float32), -1.0, 1.0) * 32767.0).astype(np.int16)
+
+
+def _same_words(text: str) -> str:
+    """The wire tidies the spaces in what it carries."""
+    return " ".join(text.split())
 
 
 def remote_key(language: str, text: str) -> str:
@@ -44,6 +52,7 @@ class Clips:
         self._lock = threading.Lock()
         self._spoken: dict[str, Clip] = {}
         self._heard: dict[int, tuple[float, Clip]] = {}  # utterance -> where it starts, its audio
+        self._received: dict[tuple[str, str], Clip] = {}  # from the other computer: (track, translation's words)
 
     def put_spoken(self, key: str, samples: np.ndarray, rate: int) -> None:
         clip = Clip(_compact(samples), rate)
@@ -55,6 +64,16 @@ class Clips:
         clip = Clip(_compact(samples), SAMPLE_RATE)
         with self._lock:
             self._heard[utterance] = (start, clip)
+
+    def put_received(self, track: str, text: str, raw: bytes, rate: int) -> None:
+        """What the other computer has and this one doesn't, when a conversation ends."""
+        clip = Clip(np.frombuffer(raw, "<i2"), rate)
+        with self._lock:
+            self._received[(track, _same_words(text))] = clip
+
+    def received(self, track: str, text: str) -> Clip | None:
+        with self._lock:
+            return self._received.get((track, _same_words(text)))
 
     def spoken(self, key: str) -> Clip | None:
         with self._lock:

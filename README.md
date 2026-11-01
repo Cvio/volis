@@ -223,7 +223,7 @@ Before your first conversation, open **Settings** on the left, choose your **Mic
 | How you talk | What to do |
 |---|---|
 | **Two people, this computer** | Each person has a big button, or the left and right arrow keys. Press once to start speaking and again when you finish. Escape cancels a turn. |
-| **Two computers** | Each person has their own computer, on the same local network. Press Start on both. Type the address one of them shows into the other, and press **Connect**. Then press **Talk** (or Space) to speak, and again when you finish. |
+| **Two computers** | Each person has their own computer, on the same local network. Press Start on both. On one of them, click the other computer's name in the list. If it isn't listed (some office and guest networks hide it), type the address the other computer shows and press **Connect**. The other person then presses **Accept**. After that, press **Talk** (or Space) to speak, and again when you finish. |
 | **Hands-free** | One person speaks, and Volis translates each time they pause. No buttons. Settings has the length of the pause. |
 
 ![A conversation](docs/images/volis-ready.png)
@@ -249,6 +249,15 @@ there is one. **Details** shows the technical message, to pass on to whoever set
 Press **End conversation**. Volis asks for a name, and whether to keep the audio. **Save** keeps it
 and **Delete** throws it away. To name the speakers, type their names; otherwise each is shown by
 their language.
+
+**On two computers,** either person can end it, and it ends for both. The computers then share the
+conversation's audio, so that each has every sentence and its translation. Wait for that to finish.
+If the connection has dropped, Volis says so: ask the other person to share the conversation as a
+**Volis conversation file**, and open that file to add their audio to yours.
+
+**Each computer then has its own copy.** Deleting a conversation on one leaves the other's, and everything
+said on either computer can be kept on the other. With **Never save**, a computer doesn't send its audio
+or keep the other's, but the other person's computer still has the words.
 
 **Settings** can change this to **Always save** or **Never save**. Never save means nothing about the
 conversation is written to the computer at all.
@@ -288,7 +297,8 @@ delete theirs.
 
 Press **Open...** in **Saved** (or the link on the start screen), or drop a file on the window.
 
-- **A Volis conversation file** goes into **Saved**.
+- **A Volis conversation file** goes into **Saved**. If it's the other computer's copy of a conversation you
+  already have, its audio joins yours.
 - **A recording** (WAV, MP3, M4A, FLAC, OGG, Opus and others): choose its language and the language to
   translate into, then press **Translate**. It becomes a conversation you can save, read and listen to.
   A long recording takes a while, and you can stop at any point and keep what is done.
@@ -345,7 +355,8 @@ transcript and subtitles too:
 | Translation takes several seconds per sentence | The translator may be running on the processor. Run `.\doctor.ps1`: if it says `GPU offload: no`, do step 3 of the setup. If it's on the graphics card, the translator is simply a large one. |
 | Setup finished, but `.\doctor.ps1` says `GPU offload: no` | Step 3 of the setup was skipped or didn't finish. Do it (or do it again); its Part C must end with `Successfully built`. |
 | It starts, then says a model "is not in" the models folder | The model named in your settings isn't installed. Choose another in **Volis (developer)**, on **Models**. |
-| Two computers won't connect | Both must be on the same network, and Windows Firewall must allow Volis. The message in the window says which of the two it is. |
+| The other computer isn't in the list | Some networks hide it. Type the address it shows. |
+| Two computers won't connect | Both must be on the same network, Volis must be started on both, and Windows Firewall must allow it. The message in the window says which it is. |
 
 To check the installation at any time:
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 
-from ..clips import remote_key
+from ..clips import ORIGINAL, TRANSLATION, remote_key
 from . import session as ses
 
 LEFT, RIGHT = "left", "right"
@@ -127,6 +127,23 @@ def lines_from(s: ses.Session) -> list[dict]:
         data.pop("speaking", None)
         lines.append(data)
     return lines
+
+
+def parts_to_send(s: ses.Session, clips) -> list[tuple]:
+    """What the other computer lacks, as (track, translation's words, clip): the
+    original of what was said here, and the voice this computer spoke its words in."""
+    parts: dict = {}
+    for item in items(s):
+        if not isinstance(item, Bubble) or not item.translation or item.key == "live":
+            continue
+        if item.key.startswith("remote-"):
+            track, clip = TRANSLATION, clips.spoken(item.speech)
+        else:
+            track = ORIGINAL
+            clip = clips.original(item.utterance, item.start, item.end) if item.utterance >= 0 else None
+        if clip is not None:
+            parts.setdefault((track, item.translation), clip)
+    return [(track, text, clip) for (track, text), clip in parts.items()]
 
 
 def saved_items(conversation, playing: str = "") -> list:

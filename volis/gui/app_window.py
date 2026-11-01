@@ -159,6 +159,9 @@ class AppWindow(QMainWindow):
         self.events: queue.Queue = queue.Queue()
         self.pipeline: Pipeline | None = None
         self.ending = False
+        self.swapping = False  # the two computers are swapping audio before the conversation stops
+        self.swap_progress: tuple[int, int] | None = None
+        self.found_shown: list = []  # the nearby computers on the buttons now
         self.reading = False  # the conversation on the Talk page came from a recording
         self.recording_name = ""
         self.recording_path: Path | None = None
@@ -482,11 +485,27 @@ class AppWindow(QMainWindow):
         self.peer_input.setPlaceholderText("The other computer's address")
         self.peer_input.returnPressed.connect(self.connect_peer)
         self.peer_input.setText(self.config.peer.peer_addr)
+        self.found_list = QVBoxLayout()
+        column.addLayout(self.found_list)
         self.connect_button = QPushButton("Connect")
         self.connect_button.clicked.connect(self.connect_peer)
         row.addWidget(self.peer_input, 1)
         row.addWidget(self.connect_button)
         column.addLayout(row)
+        return box
+
+    def _build_asking_box(self) -> QFrame:
+        """Another computer wants to connect: the person here says."""
+        box = _named(QFrame(), "peerBox")
+        row = QHBoxLayout(box)
+        self.asking_words = _text("", "heading", 12)
+        row.addWidget(self.asking_words, 1)
+        self.asking_no, self.asking_yes = QPushButton("No"), _named(QPushButton("Accept"), "primary")
+        self.asking_no.clicked.connect(self.decline_peer)
+        self.asking_yes.clicked.connect(self.accept_peer)
+        row.addWidget(self.asking_no)
+        row.addWidget(self.asking_yes)
+        box.hide()
         return box
 
     def _build_audio_bar(self) -> QWidget:
@@ -534,7 +553,18 @@ class AppWindow(QMainWindow):
         column.setContentsMargins(16, 10, 16, 10)
         column.setSpacing(8)
         self.link_words = _text("", "muted")
-        column.addWidget(self.link_words)
+        link_row = QHBoxLayout()
+        link_row.addWidget(self.link_words, 1)
+        self.link_button = QPushButton()
+        self.link_button.clicked.connect(self.disconnect_peer)
+        self.link_button.hide()
+        link_row.addWidget(self.link_button)
+        column.addLayout(link_row)
+        self.asking_box = self._build_asking_box()
+        column.addWidget(self.asking_box)
+        self.swap_note = _text("", "muted")
+        self.swap_note.hide()
+        column.addWidget(self.swap_note)
         self.peer_box = self._build_peer_box()
         column.addWidget(self.peer_box)
         self.side_note = _text("", "muted")
@@ -1042,7 +1072,9 @@ class AppWindow(QMainWindow):
         talk.apply_voices(self.config.shared, self.pyconfig, self.voices)
         self.addresses = talk.addresses_to_show(peer_mod.local_addresses()) if paired else []
         full_speed = source is not None and not source.realtime
-        options = Options(speak=True, pair=paired, asr=self.preferred_asr, mt=speed_mt, clips=self.clips,
+        self.swapping, self.swap_progress = False, None
+        self.swap_note.setText("")
+        options = Options(speak=True, pair=paired, ask_first=paired, asr=self.preferred_asr, mt=speed_mt, clips=self.clips,
                           streaming=False if full_speed else None, voices=tuple(self.pyconfig.window.voices),
                           **(self.dev.options() if self.dev is not None else {}))
         if self.dev is not None:
@@ -1057,7 +1089,23 @@ class AppWindow(QMainWindow):
     def _way_name(self) -> str:
         return talk.RECORDING if self.reading else self.way.name
 
+    def _can_swap(self) -> bool:
+        return self.session.paired and talk.link(self.session).connected and not self.reading
+
     def end_conversation(self) -> None:
+        if self.pipeline is None or self.swapping:
+            return
+        if self._can_swap():
+            # The connection stays until the audio has gone both ways. With Never
+            # save, nothing of this conversation is sent or kept here.
+            self.ending = self.swapping = True
+            self.close_bar()
+            keeping = self.pyconfig.saving.mode != "never"
+            self.pipeline.finish_with_peer(bubbles.parts_to_send(self.session, self.clips) if keeping else [])
+            self.refresh()
+            return
+        if self.session.paired and self.session.lines and not self.reading and self.pyconfig.saving.mode != "never":
+            self.swap_note.setText(talk.SWAP_FAILED)
         if self.pipeline is not None:
             self.ending = True
             self.close_bar()  # its player goes with the conversation
@@ -1098,6 +1146,13 @@ class AppWindow(QMainWindow):
             elif isinstance(event, ev.SpeakingStarted):
                 self.replay.forget()  # a new sentence is queued: closing the bar mustn't clear it
                 self.close_bar()
+            elif isinstance(event, ev.PeerEnding):
+                self.swap_note.setText(talk.THEY_ENDED)
+                self.end_conversation()
+            elif isinstance(event, ev.SwapProgress):
+                self.swap_progress = (event.sent, event.total)
+            elif isinstance(event, ev.SwapDone):
+                self._swap_done(event)
             elif isinstance(event, ev.Stopped):
                 self._finished()
         silent = self.mic_watch.silent(talk.microphone_open(self.session) and not self.reading, time.monotonic())
@@ -1118,6 +1173,16 @@ class AppWindow(QMainWindow):
             changed = True
         if changed:
             self.refresh()
+
+    def _swap_done(self, event: ev.SwapDone) -> None:
+        """The audio has gone both ways, or won't: now the conversation stops."""
+        self.swapping = False
+        if not event.ok:
+            log.warning("the audio swap failed: %s", event.why)
+            if self.pyconfig.saving.mode != "never":
+                self.swap_note.setText(talk.SWAP_FAILED)
+        if self.pipeline is not None:
+            self.pipeline.stop()
 
     def _finished(self) -> None:
         if self.pipeline is not None:
@@ -1248,14 +1313,16 @@ class AppWindow(QMainWindow):
         self.saved_search.clear()
         self.rail_buttons[SAVED].click()
         try:
-            opened, already = conversations.open_file(self.root, path)
+            opened, outcome = conversations.open_file(self.root, path)
         except conversations.ConversationError as e:
             self.saved_problem.setText(str(e))
             self.saved_problem.show()
             return
         self.saved_current = opened
         self.load_saved()
-        self._say_saved(f"This conversation was already in Saved: {opened.name}" if already else f"Opened {opened.name}")
+        self._say_saved({conversations.ALREADY: f"This conversation was already in Saved: {opened.name}",
+                         conversations.COMBINED: f"Added the other computer's audio to {opened.name}"}.get(
+                             outcome, f"Opened {opened.name}"))
 
     def _open_recording(self, path: Path) -> None:
         if self.pipeline is not None or self.pending_save:
@@ -1643,7 +1710,7 @@ class AppWindow(QMainWindow):
     def turn_key_active(self) -> bool:
         link = talk.link(self.session)
         return self.pipeline is not None and self.session.mode == "turn" and self.session.state == ses.LISTENING \
-            and link.connected
+            and link.connected and not self.ending
 
     def turn_key_event(self, raw: ses.KeyEdges) -> None:
         edges = self.turn_key_state.update(raw, self.isActiveWindow())
@@ -1677,6 +1744,37 @@ class AppWindow(QMainWindow):
         else:
             self.close_bar()
             self.pipeline.begin_turn()
+
+    def accept_peer(self) -> None:
+        if self.pipeline is not None:
+            self.pipeline.accept_peer()
+
+    def decline_peer(self) -> None:
+        if self.pipeline is not None:
+            self.pipeline.decline_peer()
+
+    def disconnect_peer(self) -> None:
+        if self.pipeline is not None:
+            self.pipeline.disconnect()
+
+    def connect_to_found(self, typed_address: str) -> None:
+        self.peer_input.setText(typed_address)
+        self.connect_peer()
+
+    def _draw_found(self, can_connect: bool) -> None:
+        """A button for each nearby computer. A network that blocks this shows
+        none, and typing the address still works."""
+        found = list(self.session.discovered) if can_connect else []
+        if found == self.found_shown:
+            return
+        self.found_shown = found
+        while self.found_list.count():
+            self.found_list.takeAt(0).widget().deleteLater()
+        for name, host, port in found:
+            address = host if port == peer_mod.DEFAULT_PORT else f"{host}:{port}"
+            button = QPushButton(f"{name}  ({host})")
+            button.clicked.connect(lambda _checked=False, typed=address: self.connect_to_found(typed))
+            self.found_list.addWidget(button)
 
     def connect_peer(self) -> None:
         if self.pipeline is None:
@@ -1742,7 +1840,7 @@ class AppWindow(QMainWindow):
         if not talk.can_replay(self.session):
             self._show_bar_note(talk.WAIT_TO_LISTEN)
             return
-        clip = self.clips.spoken(item.speech)
+        clip = self.clips.spoken(item.speech) or self.clips.received(clips.TRANSLATION, item.translation)
         if clip is None:
             self.replay.stop()
             self._show_bar_note(talk.no_clip_words(self.session, item.side))
@@ -1971,7 +2069,7 @@ class AppWindow(QMainWindow):
         self.end_button.setText("Ending..." if self.ending else "Stop reading" if self.reading else "End conversation")
 
     def _draw_speak(self, button: QPushButton, state: talk.Speak) -> None:
-        button.setText(f"{state.label}\n{state.hint}")
+        button.setText(f"{state.label}\n{talk.PLEASE_WAIT if self.ending else state.hint}")
         button.setEnabled(state.enabled and not self.ending)
         _restyle(button, "tone", state.tone)
 
@@ -1984,8 +2082,8 @@ class AppWindow(QMainWindow):
         self.speak_one.setVisible(two)
         self.hands_free.setVisible(running and talk.one_speaker(name))
         self.read_bar.setVisible(running and self.reading)
-        self.type_toggle.setVisible(running and not self.reading)
-        self.type_box.setVisible(self.type_box.isVisible() and running and not self.reading)
+        self.type_toggle.setVisible(running and not self.reading and not self.ending)
+        self.type_box.setVisible(self.type_box.isVisible() and running and not self.reading and not self.ending)
         self.save_box.setVisible(self.pending_save and not running)
         self.new_button.setVisible(not running and not self.pending_save)
         self.saved_words.setVisible(bool(self.saved_words.text()))
@@ -2005,12 +2103,18 @@ class AppWindow(QMainWindow):
         self.hands_free.setText(talk.reading_words(s.progress) if self.reading else talk.hands_free_words(s))
         self.read_bar.setValue(talk.reading_share(s.progress))
         link = talk.link(s)
-        self.link_words.setVisible(two)
+        self.link_words.setVisible(two and not link.asking)
         self.peer_box.setVisible(two and link.can_connect)
+        self.asking_box.setVisible(two and link.asking)
+        self.asking_words.setText(link.words)
+        self.link_button.setVisible(two and bool(link.button) and not self.ending)
+        self.link_button.setText(link.button)
+        self.swap_note.setVisible(bool(self.swap_note.text()))
+        self._draw_found(two and link.can_connect)
         if two:
             self._draw_speak(self.speak_one, talk.talk_button(s))
             words = link.words + (f" {s.floor_note}" if s.floor_note else "")
-            self.link_words.setText(words)
+            self.link_words.setText(talk.swap_words(self.swap_progress) if self.swapping else words)
             self.link_words.setObjectName("problem" if link.bad else "status" if link.good else "muted")
             self.link_words.style().unpolish(self.link_words)
             self.link_words.style().polish(self.link_words)

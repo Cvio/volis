@@ -12,7 +12,7 @@ progress, P13 to P20). `volis-build.md` is the first plan, P0 to P12, and is fin
 what was built and found.
 
 **In progress (2026-10-31): the new window, `volis-ui-plan.md`, stages U1 to U7, ahead of P18 to
-P20.** U1 to U6 are built; the old window is gone.
+P20.** U1 to U7 are built; the old window is gone.
 
 - **U1 done:** `gui/theme.py` (three themes, `[window].theme`, a test that every word stays readable),
   `gui/bubbles.py` (what the conversation shows, no Qt), `gui/chat.py` (draws it),
@@ -65,6 +65,18 @@ P20.** U1 to U6 are built; the old window is gone.
   (the plan's "two-way hands-free", for later); typing with no conversation running (the test bench compares
   typed text, and typing works during a conversation); the found-computers buttons and Disconnect (U7);
   picking a row's stretch of a recording to play (the bubble plays that sentence's original in Saved).
+- **U7 built:** wire protocol 3. **Accept:** someone dialled always waits for the wire's `Accept`; with
+  `ask_first` (the window) the person dialled is asked first, and two computers choosing each other need no
+  asking. Links waiting for this are pinged, or the read timeout would close them. **Nearby list:** the
+  discovery that already existed, as buttons; typing stays. **Swap:** ending sends `Ending`, which ends the
+  other side too; each then sends over the same connection, so no new firewall opening, the audio the other
+  lacks, base64 in lines: its originals, and the voice it spoke the other's words in. Sentences are named by
+  their translation's words, as the speech clips of remote lines already are, so the same words twice share
+  their audio. The pipeline stops at `SwapDone`, or after 30 s of nothing moving, or when the link drops.
+  A sentence still being translated or spoken as the conversation ends may miss the swap; opening the other's
+  file adds it. `Never save` sends nothing and keeps nothing. **Combining:** `open_file` recognises the other
+  computer's copy (both two-computers, same day, at least half the shorter one's sentences match from the other
+  side) and adds the audio this copy lacks. Clocks a day apart, across midnight, open as a separate conversation.
 
 ## Priorities (2026-10-10)
 

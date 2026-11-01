@@ -1,8 +1,8 @@
 """The paired-mode wire protocol (SPEC §9): newline-delimited JSON over TCP.
 
-Port of Rust `wire.rs`, version 2, unchanged: volis pairs with volis-rust.
-Only text crosses it: never audio, never models, never context, never a
-revision.
+Began as a port of Rust `wire.rs`. During a conversation only text crosses it:
+never audio, never models, never context, never a revision. When a conversation
+ends, the two computers swap the audio of what was said (version 3).
 
 Everything that arrives is untrusted. `decode` bounds every length, refuses
 a line that is not UTF-8, refuses an unknown protocol version, and strips
@@ -17,11 +17,14 @@ import json
 import unicodedata
 from dataclasses import dataclass
 
-PROTO = 2  # 2: languages may be varieties (es-MX)
+PROTO = 3  # 2: languages may be varieties (es-MX). 3: Accept, and the audio swap
 MAX_LINE = 16 * 1024  # bytes, newline included
 MAX_TEXT = 2_000  # characters
 MAX_NAME = 64
 MAX_LANG = 16
+MAX_CLIP = 64 * 1024 * 1024  # bytes of one sentence's audio: about half an hour
+RATES = (8_000, 192_000)
+TRACKS = ("original", "translation")
 U64_MAX = 2**64 - 1
 
 
@@ -72,14 +75,47 @@ class Bye:
     reason: str | None = None  # how a second connection learns why it was refused
 
 
-Wire = Hello | Utterance | FloorRequest | FloorGrant | FloorRelease | Ping | Pong | Bye
-_KINDS = {c.__name__: c for c in (Hello, Utterance, FloorRequest, FloorGrant, FloorRelease, Ping, Pong, Bye)}
+@dataclass(frozen=True)
+class Accept:
+    """The person at the end that was dialled has said yes."""
+
+
+@dataclass(frozen=True)
+class Ending:
+    """The conversation has ended: audio follows from both ends."""
+
+
+@dataclass(frozen=True)
+class AudioBegin:
+    """One sentence's audio, named by its translation's words. AudioData follows until `size` bytes have come."""
+
+    track: str
+    text: str
+    rate: int
+    size: int
+
+
+@dataclass(frozen=True)
+class AudioData:
+    data: str  # base64
+
+
+@dataclass(frozen=True)
+class AudioDone:
+    """This end has sent all it will."""
+
+
+Wire = (Hello | Utterance | FloorRequest | FloorGrant | FloorRelease | Ping | Pong | Bye | Accept | Ending | AudioBegin
+        | AudioData | AudioDone)
+_KINDS = {c.__name__: c for c in (Hello, Utterance, FloorRequest, FloorGrant, FloorRelease, Ping, Pong, Bye, Accept,
+                                  Ending, AudioBegin, AudioData, AudioDone)}
 # What serde requires of each variant: field -> its JSON type.
 _FIELDS = {
     Hello: {"name": str, "speaks": str, "sends": str, "proto": int},
     Utterance: {"seq": int, "lang": str, "text": str, "source_lang": str, "source_text": str},
     FloorRequest: {"seq": int}, FloorGrant: {"seq": int}, FloorRelease: {"seq": int},
-    Ping: {}, Pong: {}, Bye: {},
+    Ping: {}, Pong: {}, Bye: {}, Accept: {}, Ending: {}, AudioDone: {},
+    AudioBegin: {"track": str, "text": str, "rate": int, "size": int}, AudioData: {"data": str},
 }
 
 
@@ -180,6 +216,12 @@ def _sanitise(message: Wire) -> Wire:
                          lang(message.source_lang), bounded(message.source_text, MAX_TEXT, "source_text"))
     if isinstance(message, Bye) and message.reason is not None:
         return Bye(bounded(message.reason, MAX_TEXT, "reason"))
+    if isinstance(message, AudioBegin):
+        if message.track not in TRACKS:
+            raise Malformed(f'"{message.track}" is not a kind of audio')
+        if not RATES[0] <= message.rate <= RATES[1] or not 0 < message.size <= MAX_CLIP or message.size % 2:
+            raise Malformed("its audio's rate or size is not believable")
+        return AudioBegin(message.track, bounded(message.text, MAX_TEXT, "text"), message.rate, message.size)
     return message
 
 
