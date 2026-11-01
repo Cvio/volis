@@ -208,168 +208,126 @@ so use the line below and not another way of installing it.
 
 A window opens, with a console window behind it that shows what Volis is doing.
 
-1. Under **Spoken**, choose the language you will speak. Under **Translate into**, choose
-   the other one. **Swap** between them exchanges the two.
-2. Choose a **Recognizer** and a **Translator** from the lists. Volis remembers your choices.
-   Hold the mouse over a name to see the details of that model. If an orange line appears
-   under them, the two won't fit in your computer's memory together: choose a smaller
-   translator.
-3. Choose your **Microphone** and **Speakers**, and press **Test** beside each:
-   - **Test** beside Speakers says a short sentence. If you don't hear it, choose other speakers.
-   - **Test** beside Microphone records you for 3 seconds, plays it back, and shows what
-     Volis heard.
-4. Press the big green **START** button (or Ctrl+Enter). The first time, loading the models
-   takes a few seconds. The button always shows what Volis is doing; press it again to stop.
-5. Speak. Each sentence appears with its translation, and the translation is spoken.
+![The start screen](docs/images/volis-start-together.png)
 
-While a conversation runs, the settings fold away so the text has the whole window. **A−** and
-**A+** above the text make it smaller or larger. **Settings** brings the settings back.
+1. Choose the two languages. The **⇄** button swaps them.
+2. Choose how you will talk (see the table below).
+3. Press **Start**. The first time, loading takes a minute or so. Volis remembers your choices.
 
-A setting that is greyed out says why in small grey text beside it, and when you hold the mouse
-over it.
+Before your first conversation, open **Settings** on the left, choose your **Microphone** and
+**Speakers**, and press **Test** beside each. **Test** beside Speakers says a short sentence.
+**Test** beside Microphone records you for 3 seconds, plays it back and shows what Volis heard.
 
-## Ways to use it
+## Have a conversation
 
-Choose one under **Mode**. You can switch while it is running.
-
-| Mode | How it works |
+| How you talk | What to do |
 |---|---|
-| **Take turns** | The microphone stays closed until you press Space. Press it, speak, press it again: everything you said is translated and spoken. The easiest mode to start with. |
-| **Listen continuously** | Hands-free. Every pause ends a sentence. |
-| **Shared machine** | Two people, one computer, a key each (the left and right arrow keys). Each side has its own language, and what one says is spoken in the other's. Escape cancels a turn. If no voice is installed for one of the languages, that side's translations are shown on the screen but not spoken. |
-| **Pair with another PC** | Two computers, one conversation. Each translates what its own person says and sends the text to the other, which shows and speaks it. Tick the box on both, press Start on both, then type the address the other one shows and press Connect. They must be on the same local network. |
+| **Two people, this computer** | Each person has a big button, or the left and right arrow keys. Press once to start speaking and again when you finish. Escape cancels a turn. |
+| **Two computers** | Each person has their own computer, on the same local network. Press Start on both. Type the address one of them shows into the other, and press **Connect**. Then press **Talk** (or Space) to speak, and again when you finish. |
+| **Hands-free** | One person speaks, and Volis translates each time they pause. No buttons. Settings has the length of the pause. |
 
-### Translate a recording
+![A conversation](docs/images/volis-ready.png)
 
-Choose **File** at the top, open a recording (or drop it on the window), and press Start.
-Each sentence becomes a row; click a row to hear that part of the recording. **Export** saves
-the transcript, the translation and subtitles.
+Each person's words stay on their own side. The translation is in large letters, with what was
+said smaller above it. The buttons always say what is happening, and everyone waits while Volis
+speaks.
 
-From the command line:
+**To hear a sentence again,** click it. A small player appears, with play, pause and a timer.
+
+**Sound on** at the top turns the spoken translations off or on; they are always shown. **A-** and
+**A+** make the text smaller or larger. The **Microphone** bar turns red if Volis can't hear
+anything.
+
+**To type instead,** press **Type a sentence instead**. It is useful in a noisy room, or for a
+name, an address or a number.
+
+**If something goes wrong,** a box says what happened in plain words, with a button to fix it when
+there is one. **Details** shows the technical message, to pass on to whoever set up Volis.
+
+## When it ends
+
+Press **End conversation**. Volis asks for a name, and whether to keep the audio. **Save** keeps it
+and **Delete** throws it away. To name the speakers, type their names; otherwise each is shown by
+their language.
+
+**Settings** can change this to **Always save** or **Never save**. Never save means nothing about the
+conversation is written to the computer at all.
+
+If Volis or the computer stops during a conversation, the conversation isn't lost, unless Never save
+is on: next time, the start screen says it has been recovered and you'll find it in **Saved**.
+
+**Saved conversations aren't protected by a password.** Anyone who can open the Volis folder can read
+them and listen to them. They are in its `conversations` folder.
+
+## Saved conversations
+
+![A saved conversation](docs/images/volis-saved.png)
+
+**Saved** on the left lists them. You can:
+
+- **Search** everything that was said, the names and the speakers.
+- **Click a sentence** to hear it. **Play all** plays them all in order. The **Translation** button
+  switches between hearing the translation and hearing what was first said.
+- **Rename it, name the speakers,** or **Delete** it. Volis asks first, and a deleted conversation can't
+  be brought back.
+
+### Share a conversation
+
+Open it and press **Share**:
+
+| Choose | You get |
+|---|---|
+| **Volis conversation file** | One file with everything, including the audio. Someone else with Volis can open it. |
+| **Text** | The speaker, what was said and the translation, to read in Word or Notepad. |
+| **Audio** | One sound file of the whole conversation, each sentence followed by its translation. |
+
+A shared file is an ordinary copy: anyone you send it to can read it, and deleting your copy doesn't
+delete theirs.
+
+## Open a recording or a shared file
+
+Press **Open...** in **Saved** (or the link on the start screen), or drop a file on the window.
+
+- **A Volis conversation file** goes into **Saved**.
+- **A recording** (WAV, MP3, M4A, FLAC, OGG, Opus and others): choose its language and the language to
+  translate into, then press **Translate**. It becomes a conversation you can save, read and listen to.
+  A long recording takes a while, and you can stop at any point and keep what is done.
+
+## Settings
+
+| Setting | What it does |
+|---|---|
+| **Microphone, Speakers, Test** | Which to use, and a check that they work. |
+| **Using a headset** | Tick this if you wear one. Leave it off with speakers: Volis then stops listening while it talks, so that it doesn't hear itself. |
+| **Look for microphones and speakers again** (F5) | After plugging something in, without restarting. |
+| **Pause before a sentence ends** | Hands-free only: how long a pause ends a sentence. |
+| **Saving** | Always ask, Always save or Never save. |
+| **Theme** | Graphite, Midnight or Warm charcoal. |
+
+Your copy may also offer a **Voice** and **Faster** or **More accurate**, if whoever prepared it included
+them.
+
+### Persian
+
+Persian text is tidied before it is translated, because two things a recognizer often gets slightly
+wrong can throw a translator off: letters that look the same in Arabic and Persian but are different
+characters, and the "half-space" that joins the parts of a Persian word. The conversation shows the
+tidied text. Hold the mouse over a sentence to see it exactly as it was heard. [SETTINGS.md](SETTINGS.md)
+says how to turn this off.
+
+### Choosing other models
+
+Volis uses the best recognizer it has for your language, and the translator in your settings. To
+choose among several, or to compare them on your own voice, use
+[**Volis (developer)**](DEVELOPMENT.md#developer-mode): double-click that file in the Volis folder.
+You don't need it to hold a conversation. [MODELS.md](MODELS.md) says which models to try.
+
+From the command line, a recording can also be translated with no window at all, which saves the
+transcript and subtitles too:
 
 ```powershell
 .\.venv\Scripts\python.exe -m volis --file talk.m4a --from es --to en --fast
 ```
-
-WAV, MP3, M4A, FLAC, OGG and Opus all work.
-
-### Type a sentence
-
-Under the conversation is a box for typing. Type or paste text and press **Enter** (or
-**Translate**). It is translated with the languages and translator you have chosen, shown in
-the conversation marked "typed", and spoken if "Speak translations" is on. Shift+Enter starts
-a new line; each line is translated on its own.
-
-Use it in a noisy room, or for a name, an address or a number. It works whether or not a
-conversation is running.
-
-To try translators against each other on the same text, use the Test bench (below).
-
-### Save a conversation
-
-Once a sentence is on the screen, a **Save conversation...** button appears at the top (also
-**File > Export**). Choose a folder; Volis saves:
-
-- `conversation.txt`: the conversation to read later, each sentence with its time, its language
-  and its translation;
-- the transcript, the translation and subtitles, as separate files.
-
-Saving is not automatic. Pressing START again clears the screen for a new conversation, so save
-first if you want to keep it.
-
-### The options in the window
-
-**Speak translations** is with the main settings: it says each translation aloud. Turn it off
-for captions only. If no voice is installed for a language you translate into, a grey line under
-it says so; those translations are shown but not spoken.
-
-The rest are under **Advanced**, which stays closed until you open it:
-
-| Option | What it does |
-|---|---|
-| **Half-duplex** | Mutes the microphone while Volis is speaking. Leave it on unless you wear a headset. |
-| **Add vowel marks to Arabic before it is spoken** | Helps the Arabic voices pronounce words correctly. Needs one more small model: `.\fetch-models.ps1 -Only tashkeel`. |
-| **Show text while speaking** | Shows words as you say them, before the sentence is finished. Costs more work. |
-| **Translate with the earlier sentences as context** | Each sentence is translated knowing the few before it, so "it", "her" and the like come out right. |
-| **Revise earlier translations** | Looks again at a short sentence once the next one is heard, and corrects it on screen if its meaning changed. |
-| **Wait for the next sentence before speaking a short one** | With the option above: a short sentence is spoken only after the next is heard, so it is spoken corrected. |
-| **Join short fragments to what follows** | A few words with no full stop wait a moment for the rest of the sentence. |
-| **Glossary** | Names and terms to keep exactly as written, separated by commas. |
-| **Pair with another PC** | Two computers, one conversation (see above). |
-
-[SETTINGS.md](SETTINGS.md) lists every setting and every command-line option.
-
-### Persian
-
-Persian text is tidied before it is translated, because two things a recognizer often gets
-slightly wrong can throw a translator off:
-
-- letters that look the same in Arabic and Persian but are different characters;
-- the "half-space" that joins the parts of a Persian word, which recognizers often write as an
-  ordinary space, or leave out.
-
-The conversation shows the tidied text. Hold the mouse over a sentence to see it exactly as it
-was heard. This is on by default; [SETTINGS.md](SETTINGS.md) says how to turn it off.
-
-### Translators that only translate
-
-Most translators Volis uses are chat models that are asked to translate. Some models do nothing
-but translate (NLLB-200 is one), and for some languages they do it better: in our tests
-NLLB-200 gave the best Persian. Pick one in the Translator list like any other. Two things are
-different:
-
-- Each sentence is translated on its own. Earlier sentences, your list of names and terms, and
-  dialect wording are not used.
-- If the model has no entry for a regional variety, it translates as the plain language and
-  says so beside the sentence.
-
-[MODELS.md](MODELS.md) says how to get one, and which licence each has.
-
-### Try models against each other: the Test bench
-
-You don't need this to hold a conversation. It is for finding out which model is best for
-you, before you rely on one.
-
-**View > Test bench** (Ctrl+Shift+T) opens a window of its own, with three tabs:
-
-| Tab | The question it answers | What you give it |
-|---|---|---|
-| **Recognizers** | Which one hears this best? | A recording you make there, or an audio file. If you also type what was really said, each recognizer is marked against it. |
-| **Translators** | Which one translates this best? | Text you type or paste, or a recording or an audio file (one recognizer writes it down first, and every translator gets the same words). If you also paste a translation you trust, each is scored against it. |
-| **Whole set** | Will this recognizer, translator and voice run together on this computer? | Your choice of the three. It answers at once, without loading anything, and can then time the set on a recording. |
-
-Before you start: the Test bench works only while no conversation is running, because it
-needs the same memory. If one is running, a line at the top says so and a button beside it
-stops the conversation.
-
-1. Choose the tab.
-2. Give it the sound or the text. To record, press **Record**, speak, and press
-   **Stop recording**.
-3. Tick the models to try.
-4. Press **Compare**. If the button is grey, the line beside it says what is still missing.
-5. Wait. A line at the top says what it is doing. Models are loaded one at a time, so this can
-   take a minute or more; there is nothing else for you to do. **Cancel** stops it after the
-   model that is running.
-6. Read the table. To use one of the models, click its row and press
-   **Use in the conversation**.
-
-How to read the numbers:
-
-- **Letters wrong** and **Words wrong** (recognizers): how far what was heard is from the text
-  you typed. Lower is better.
-- **Score** (translators): from 0 to 100, how close the translation is to the one you pasted.
-  Higher means closer, not "correct": a good translation in different words scores lower.
-- **Time** and **Speed**: how long the model took, without the time to load it.
-
-Every comparison is kept. The list above the table shows earlier ones, and **Copy as a table**
-copies the one on screen so you can paste it into your notes.
-
-### See what it costs your computer
-
-**View > Performance** (Ctrl+Shift+P) opens a panel showing how much of the graphics card,
-memory and processor Volis is using, and how long each sentence takes. To find out whether a
-different choice of models would fit before you load them, use the Test bench's **Whole set**
-tab.
 
 ## If something goes wrong
 
@@ -379,15 +337,15 @@ tab.
 | `setup.ps1` says uv is not installed, in a window where you just installed it | Close PowerShell and open a new window, then run `.\setup.ps1` again. |
 | `setup.ps1` says uv is the wrong version | Another uv was installed earlier. Run `winget uninstall astral-sh.uv` (it may say nothing was found; that's fine), then `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/0.11.26/install.ps1 | iex"`, then open a new PowerShell window. |
 | `--report` shows a model as `DISABLED` or `broken` | The line under it says which file is missing or what is wrong. Fetch the model again. |
-| You added a model, or plugged in a headset, while Volis was open | Press **Rescan models and devices** (or F5). The lists update without restarting, and a line under the button says what changed. |
-| A model you downloaded isn't in the lists | Run `--report`: every folder Volis found is listed, with the reason if it can't be used. |
-| Nothing happens when you speak | Check the level meter at the top right moves when you talk. If it doesn't, pick another **Microphone**, and check the microphone isn't muted in Windows. |
-| Volis translates its own voice | Tick **Half-duplex**, or use a headset. |
-| Everything is very slow | The models probably don't fit on your graphics card together. Open **View > Test bench**; the **Whole set** tab says whether they fit. Choose a smaller translator. |
-| Translation takes several seconds per sentence | The translator is running on the processor, not the graphics card. Run `.\doctor.ps1`: if it says `GPU offload: no`, do step 3 of the setup. |
+| Volis says it can't hear a language | No recognizer for that language is installed. Run `--report`: every folder Volis found is listed, with the reason if it can't be used. |
+| You plugged in a headset while Volis was open | Press F5, or **Look for microphones and speakers again** in **Settings**. |
+| Nothing happens when you speak, or the bar at the top is red | Choose another **Microphone** in **Settings**, and check it isn't muted in Windows. |
+| Volis translates its own voice | Untick **Using a headset**, or use a headset. |
+| Everything is very slow | The models probably don't fit on your graphics card together. Open **Volis (developer)**: **Models** warns when they won't, and **Test bench** has the details. Choose a smaller translator. |
+| Translation takes several seconds per sentence | The translator may be running on the processor. Run `.\doctor.ps1`: if it says `GPU offload: no`, do step 3 of the setup. If it's on the graphics card, the translator is simply a large one. |
 | Setup finished, but `.\doctor.ps1` says `GPU offload: no` | Step 3 of the setup was skipped or didn't finish. Do it (or do it again); its Part C must end with `Successfully built`. |
-| It starts, then says a model "is not in" the models folder | The model named in your settings isn't installed. Pick one from the list in the window. |
-| Pairing won't connect | Both computers must be on the same network, and Windows Firewall must allow Volis. The message in the window says which of the two it is. |
+| It starts, then says a model "is not in" the models folder | The model named in your settings isn't installed. Choose another in **Volis (developer)**, on **Models**. |
+| Two computers won't connect | Both must be on the same network, and Windows Firewall must allow Volis. The message in the window says which of the two it is. |
 
 To check the installation at any time:
 
@@ -401,7 +359,7 @@ Someone can build Volis into a folder that needs no setup. If you have one:
 
 1. Copy the whole folder anywhere on your computer. You need an NVIDIA graphics card and its
    driver; nothing else has to be installed, and no internet is needed.
-2. Double-click `volis.exe`. Everything under [Start it](#start-it) applies from there.
+2. Double-click `volis.exe`. Everything from [Start it](#start-it) on applies.
 
 If it doesn't start, open a terminal in the folder and run `volis.exe --doctor`. It checks that
 every file the program needs is present and names any that isn't. Security software removing

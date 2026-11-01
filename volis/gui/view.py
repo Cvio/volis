@@ -51,21 +51,6 @@ def details(rows: list[tuple[str, str]]) -> str:
     return "\n".join(f"{label}: {value}" for label, value in rows if value)
 
 
-def voice_note(speak: bool, targets: list[str], has_voice) -> str:
-    """Before Start, under "Speak translations": the languages translations
-    will go into that no installed voice speaks. They are shown, not spoken."""
-    if not speak:
-        return ""
-    missing = [t for t in dict.fromkeys(targets) if t and not has_voice(t)]
-    if not missing:
-        return ""
-    from .. import varieties
-
-    names = " or ".join(varieties.display_name(t) for t in missing)
-    it = "them" if len(missing) > 1 else "it"
-    return f"No voice is installed for {names}: translations into {it} are shown on the screen but not spoken."
-
-
 def translator_limits(backend: str) -> str:
     """What a dedicated translation model can't do, in plain words; "" for a
     chat model, which can do all of it."""
@@ -76,52 +61,9 @@ def translator_limits(backend: str) -> str:
     return LIMITS
 
 
-@dataclass(frozen=True)
-class TypedControl:
-    """The Translate button under the text box, and the line beside it."""
-
-    label: str
-    enabled: bool
-    message: str  # what is happening
-    working: bool = False  # True: show the moving bar; the user has nothing more to do
-
-
-def typed_control(busy: bool, status: str = "") -> TypedControl:
-    """What the button says and whether it can be pressed. While a
-    translation is under way it says so itself and can't be pressed again."""
-    if busy:
-        doing = (status or "Translating...").rstrip(".")
-        return TypedControl("Working...", False, f"{doing}. Nothing more to do: please wait.", True)
-    return TypedControl("Translate", True, "")
-
-
 def quantization(file_name: str) -> str:
     found = re.search(r"(?i)(?:^|[-_.])(i?q\d(?:_[0-9a-z]+)*|int8|f16|fp16|bf16|f32)(?=$|[-_.])", file_name)
     return found.group(1).upper() if found else ""
-
-
-# ---------------------------------------------------------------- the big control
-
-START_SHORTCUT = "Ctrl+Enter"
-
-
-@dataclass(frozen=True)
-class Control:
-    label: str  # the state, in the button's large letters
-    hint: str  # what pressing it does, and its key, in small letters under it
-    colour: str
-
-
-def start_control(s: ses.Session, key: str, hold: bool, paused: bool = False, file_mode: bool = False) -> Control:
-    """The Start/Stop button: one large control whose label and colour are
-    the state (it replaces a small Start button beside a state banner)."""
-    if s.state == ses.STOPPED:
-        what = "translate the file" if file_mode else "start a conversation"
-        return Control("START", f"Press to {what}  ·  {START_SHORTCUT}", "#268246")
-    text, colour = ses.indicator(s, key, hold, paused, file_mode)
-    if s.state == ses.STARTING:
-        return Control(text, f"Press to cancel  ·  {START_SHORTCUT}", colour)
-    return Control(text, f"Press to stop  ·  {START_SHORTCUT}", colour)
 
 
 # ---------------------------------------------------------------- why a control is greyed out
@@ -228,18 +170,6 @@ def fit_warning(verdict, speed: dict | None = None) -> Warning:
     if verdict.level == "tight":
         return Warning("These models only just fit. Close other programs that use the graphics card.", detail)
     return Warning("", detail)
-
-
-# ---------------------------------------------------------------- while a conversation runs
-
-
-def conversation_bar(source: str, target: str, recognizer: str, translator: str, shared: bool = False,
-                     sides: tuple[str, str] = ("", "")) -> str:
-    """The slim bar that takes the settings' place while running: the two
-    languages and the two models."""
-    languages = f"{sides[0]}  ⇄  {sides[1]}" if shared else f"{source}  →  {target}"
-    models = "  ·  ".join(x for x in (recognizer, translator) if x)
-    return f"{languages}      {models}" if models else languages
 
 
 TEXT_SIZES = (9, 10, 11, 12, 14, 16, 18, 22, 26, 32)

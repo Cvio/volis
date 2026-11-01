@@ -44,10 +44,19 @@ def tree(source: Path, target: Path, skip=lambda p: False) -> dict[str, int]:
     return counts
 
 
+def for_a_customer(settings: str) -> str:
+    """volis-python.toml for a customer's copy: no developer mode."""
+    line = "developer = false\n"
+    if "[setup]" in settings:
+        return settings.replace("[setup]\n", "[setup]\n" + line, 1)
+    return settings.rstrip("\n") + "\n\n[setup]\n" + line
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("dist", type=Path)
     parser.add_argument("--no-models", action="store_true", help="only the README files in models\\")
+    parser.add_argument("--customer", action="store_true", help="no developer shortcut, and no developer mode")
     args = parser.parse_args()
     dist = args.dist.resolve()
     if not (dist / "volis.exe").is_file():
@@ -63,6 +72,15 @@ def main() -> int:
         if (REPO / name).is_file():
             shutil.copy2(REPO / name, dist / name)
             print(f"  {name}")
+    shortcut = "Volis (developer).cmd"
+    if args.customer:
+        target = dist / "volis-python.toml"
+        target.write_text(for_a_customer(target.read_text(encoding="utf-8") if target.is_file() else ""), encoding="utf-8")
+        (dist / shortcut).unlink(missing_ok=True)
+        print("  a customer's copy: no developer mode")
+    else:
+        shutil.copy2(REPO / shortcut, dist / shortcut)
+        print(f"  {shortcut}")
 
     models = REPO / "models"
     shutil.rmtree(dist / "models", ignore_errors=True)

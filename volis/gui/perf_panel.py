@@ -20,7 +20,7 @@ import time
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QColor, QPainter, QPen
-from PySide6.QtWidgets import (QDockWidget, QGridLayout, QHBoxLayout, QLabel, QTableWidget, QTableWidgetItem,
+from PySide6.QtWidgets import (QGridLayout, QHBoxLayout, QLabel, QTableWidget, QTableWidgetItem,
                                QVBoxLayout, QWidget)
 
 from .. import events as ev
@@ -75,10 +75,9 @@ class Graph(QWidget):
                 p.drawLine(x(t), h - 8, x(t), h)
 
 
-class PerfPanel(QDockWidget):
+class PerfPanel(QWidget):
     def __init__(self, window) -> None:
-        super().__init__("Performance", window)
-        self.setObjectName("performance")
+        super().__init__()
         self.window_ = window
         self.root = window.root
         self.measured = perf.Measurements.load(self.root)
@@ -91,9 +90,9 @@ class PerfPanel(QDockWidget):
         self.run_began = 0.0
         self.run_peak = 0
 
-        self.setWidget(self._now_tab())
-        self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea | Qt.BottomDockWidgetArea)
-        self.visibilityChanged.connect(self._shown)
+        whole = QVBoxLayout(self)
+        whole.setContentsMargins(0, 0, 0, 0)
+        whole.addWidget(self._now_tab())
         self._timer = QTimer(self)
         self._timer.timeout.connect(self.refresh)
 
@@ -123,14 +122,24 @@ class PerfPanel(QDockWidget):
         layout.addWidget(self.graph)
         self.models_table = QTableWidget(0, 4)
         self.models_table.setHorizontalHeaderLabels(["Loaded", "On", "GPU", "System"])
+        self.models_table.verticalHeader().hide()
         layout.addWidget(self.models_table)
         self.sentence_table = QTableWidget(0, 6)
         self.sentence_table.setHorizontalHeaderLabels(["Sentence", "Speech ms", "Recognize ms", "Context",
                                                        "Translate ms", "To first sound ms"])
+        self.sentence_table.verticalHeader().hide()
         layout.addWidget(self.sentence_table)
         return page
 
     # -------------------------------------------------------------- events
+
+    def showEvent(self, event) -> None:  # noqa: N802 - Qt's name
+        super().showEvent(event)
+        self._shown(True)
+
+    def hideEvent(self, event) -> None:  # noqa: N802 - Qt's name
+        super().hideEvent(event)
+        self._shown(False)
 
     def _shown(self, visible: bool) -> None:
         if visible:

@@ -92,6 +92,19 @@ QProgressBar {{ background: {t.surface}; border: none; border-radius: 4px; max-h
 QProgressBar::chunk {{ background: {t.accent}; border-radius: 4px; }}
 QProgressBar[silent="true"] {{ background: {t.listening}; }}
 
+QTabWidget::pane {{ border: 1px solid {t.border}; border-radius: 8px; }}
+QTabBar::tab {{ background: transparent; color: {t.muted}; padding: 8px 14px; }}
+QTabBar::tab:selected {{ color: {t.accent}; border-bottom: 2px solid {t.accent}; }}
+QTableWidget {{
+    background: {t.surface}; gridline-color: {t.border}; border: 1px solid {t.border};
+    selection-background-color: {t.accent}; selection-color: {t.on_accent};
+}}
+QHeaderView::section {{ background: {t.rail}; color: {t.muted}; border: none; padding: 5px; }}
+QPlainTextEdit {{
+    background: {t.surface}; border: 1px solid {t.border}; border-radius: 8px; padding: 6px;
+    selection-background-color: {t.accent}; selection-color: {t.on_accent};
+}}
+
 QWidget#savedList {{ background: {t.rail}; border-right: 1px solid {t.border}; }}
 QListWidget {{ background: transparent; border: none; outline: none; }}
 QListWidget::item {{ padding: 8px; border-radius: 8px; color: {t.text}; }}

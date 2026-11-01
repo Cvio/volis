@@ -19,6 +19,7 @@ HEARING = "Listening..."
 WAITING_FOR_MORE = "Waiting for the rest of the sentence..."
 NO_WORDS = "Volis heard something, but no words. Please say it again."
 UNSURE = "Volis wasn't sure what it heard. Please say it again."
+REVISED = "Corrected after hearing what followed."
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,8 @@ class Bubble:
     utterance: int = -1
     start: float = 0.0
     end: float = 0.0
+    heard: str = ""  # as heard, when a clean-up step changed it
+    earlier: str = ""  # the wordings a revised translation replaced
 
     kind = "bubble"
 
@@ -78,9 +81,10 @@ def _row_bubble(s: ses.Session, row: ses.Row, playing: str) -> Bubble:
     elif row.target is None and row.problem is None:
         status = TRANSLATING
     return Bubble(row.id, _side(s, row), native_name(row.source_lang), ses.clock(row.wall if row.typed else row.start),
-                  row.source, row.target or "", status, row.problem or "", row.note,
+                  row.source, row.target or "", status, row.problem or "",
+                  " ".join(n for n in (row.note, REVISED if row.revised else "") if n),
                   (s.speaking and s.speaking_id == row.id) or playing == row.id, row.id if row.target else "",
-                  -1 if row.typed else row.utterance, row.start, row.end)
+                  -1 if row.typed else row.utterance, row.start, row.end, row.original or "", " | ".join(row.history))
 
 
 def _live_bubble(s: ses.Session) -> Bubble:
@@ -135,7 +139,8 @@ def saved_items(conversation, playing: str = "") -> list:
             shown.append(Bubble(line["key"], line.get("side", LEFT), conversation.speaker(line), line.get("when", ""),
                                 line.get("original", ""), line.get("translation", ""),
                                 problem=line.get("problem", ""), note=line.get("note", ""),
-                                speaking=playing == line["key"]))
+                                speaking=playing == line["key"], heard=line.get("heard", ""),
+                                earlier=line.get("earlier", "")))
     return shown
 
 

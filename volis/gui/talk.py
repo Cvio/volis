@@ -72,10 +72,11 @@ def languages_of(config: Config, way: str) -> tuple[str, str]:
     return config.languages.source, config.languages.target
 
 
-def choose(config: Config, way: str, first: str, second: str) -> None:
+def choose(config: Config, way: str, first: str, second: str, keep_style: bool = False) -> None:
     """Put a way and its two languages in the settings the pipeline reads."""
     config.mode.kind = {TOGETHER: "shared", HANDS_FREE: "continuous"}.get(way, "turn")
-    config.mode.turn_style = "toggle"  # press to start, press again to finish
+    if not keep_style:  # developer mode can hold the key while speaking
+        config.mode.turn_style = "toggle"  # press to start, press again to finish
     config.peer.enabled = way == TWO_COMPUTERS
     config.languages.source, config.languages.target = first, second
     if way == TOGETHER:
@@ -86,6 +87,48 @@ def choose(config: Config, way: str, first: str, second: str) -> None:
         if s.right_language != second:
             s.right_asr, s.left_voice = "", ""
         s.left_language, s.right_language = first, second
+
+
+# ---------------------------------------------------------------- what a setup can offer in Settings
+
+
+FASTER, ACCURATE = "faster", "accurate"
+
+
+def speed_offered(pyconfig: PythonConfig) -> bool:
+    """Whether this setup names a recognizer and a translator for each of Faster and More accurate."""
+    return len(pyconfig.setup.faster) == 2 and len(pyconfig.setup.accurate) == 2
+
+
+def speed_models(pyconfig: PythonConfig) -> tuple[str, str]:
+    """(recognizer, translator) for the choice made; ("", "") with no such choice: the settings say."""
+    if not speed_offered(pyconfig):
+        return "", ""
+    first, second = pyconfig.setup.faster if pyconfig.window.speed == FASTER else pyconfig.setup.accurate
+    return first, second
+
+
+def voice_choices(pyconfig: PythonConfig, voices: list) -> dict[str, list]:
+    """For each language the setup includes, the voices it offers, where there is a choice."""
+    named = [v for v in voices if v.dir_name in pyconfig.setup.voices and v.enabled()]
+    choices = {tag: [r.engine for r in models.rank(tag, named)] for tag in pyconfig.setup.languages}
+    return {tag: found for tag, found in choices.items() if len(found) > 1}
+
+
+def chosen_voice(pyconfig: PythonConfig, tag: str, voices: list) -> str:
+    """The voice chosen for a language; "" when there is no choice to make."""
+    offered = voice_choices(pyconfig, voices).get(tag, [])
+    names = [v.dir_name for v in offered]
+    return next((n for n in pyconfig.window.voices if n in names), names[0] if names else "")
+
+
+def apply_voices(shared, pyconfig: PythonConfig, voices: list) -> None:
+    """Two people, one computer: each person's words are spoken in a voice of the other's language."""
+    left, right = chosen_voice(pyconfig, shared.right_language, voices), chosen_voice(pyconfig, shared.left_language, voices)
+    if left:
+        shared.left_voice = left
+    if right:
+        shared.right_voice = right
 
 
 def recognizer_choice(tag: str, engines: list, configured: str) -> str:

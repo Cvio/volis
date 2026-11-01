@@ -6,6 +6,8 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+import time
+
 import pytest  # noqa: E402
 
 from volis import audio  # noqa: E402
@@ -69,7 +71,7 @@ def window(tmp_path, monkeypatch):
 
     from volis import paths, perf
     from volis.config import Config, PythonConfig
-    from volis.gui.window import MainWindow
+    from volis.gui.app_window import AppWindow
 
     QApplication.instance() or QApplication([])
     devices = {"in": [audio.Device("Laptop microphone", True, None)], "out": [audio.Device("Laptop speakers", True, None)]}
@@ -85,11 +87,14 @@ def window(tmp_path, monkeypatch):
     (tmp_path / "models" / "tts").mkdir()
     config = Config()
     config.asr.engine = "parakeet-one"
-    w = MainWindow(tmp_path, config, PythonConfig())
+    w = AppWindow(tmp_path, config, PythonConfig(), developer=True)
     w.save = lambda: None  # a test never writes settings
-    w.devices = devices
-    yield w
-    w.perf_panel.sampler.stop()
+    deadline = time.monotonic() + 10
+    while not w.found and time.monotonic() < deadline:
+        w.tick()
+        time.sleep(0.01)
+    w.dev.devices, w.dev.rescan = devices, w.rescan
+    yield w.dev
     w.close()
 
 
@@ -161,16 +166,42 @@ def test_a_translator_that_is_gone_is_replaced_by_one_that_works(window, tmp_pat
 
 
 def test_nothing_changed_is_said_too_and_f5_is_the_shortcut(window):
+    from PySide6.QtGui import QShortcut
+
     window.rescan()
-    assert window.notice.text() == "Rescanned: nothing has changed." and window.notice.isVisibleTo(window)
-    actions = [a for menu in window.menuBar().actions() for a in menu.menu().actions()]
-    assert any(a.shortcut().toString() == "F5" and "Rescan" in a.text() for a in actions)
+    assert window.notice.text() == "Rescanned: nothing has changed." and not window.notice.isHidden()
+    assert any(s.key().toString() == "F5" for s in window.window.findChildren(QShortcut))
 
 
-def test_while_running_the_lists_update_and_the_note_says_the_change_waits(window, tmp_path, monkeypatch):
-    monkeypatch.setattr(window, "running", lambda: True)
+def test_while_running_the_lists_update_and_the_note_says_the_change_waits(window, tmp_path):
+    window.window.pipeline = object()
     asr = tmp_path / "models" / "asr"
     (asr / "parakeet-one").rename(asr / "parakeet-moved")
     window.rescan()
     assert ids(window.recognizer) == ["parakeet-moved"]
     assert "keeps what it loaded" in window.notice.text() and "next Start" in window.notice.text()
+    window.window.pipeline = None
+
+
+def test_a_customer_rescan_speaks_only_of_devices(tmp_path, monkeypatch):
+    pytest.importorskip("PySide6")
+    from PySide6.QtWidgets import QApplication
+
+    from volis.config import Config, PythonConfig
+    from volis.gui.app_window import AppWindow
+
+    QApplication.instance() or QApplication([])
+    devices = [audio.Device("Laptop microphone", True, None)]
+    monkeypatch.setattr(audio, "list_input_devices", lambda: list(devices))
+    monkeypatch.setattr(audio, "list_output_devices", lambda: [])
+    w = AppWindow(tmp_path, Config(), PythonConfig())
+    w.save = lambda: None
+    deadline = time.monotonic() + 10
+    while not w.found and time.monotonic() < deadline:
+        w.tick()
+        time.sleep(0.01)
+    model(tmp_path / "models" / "asr", "parakeet-new", PARAKEET, PARAKEET_FILES)
+    devices.append(audio.Device("Headset microphone", False, None))
+    w.rescan()
+    assert w.rescan_notice.text() == "New microphone: Headset microphone."
+    w.close()

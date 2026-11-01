@@ -138,7 +138,7 @@ and some a particular accent.
 
 ### Will it fit?
 
-Once a model is in the `models` folder, open **View > Test bench** in the window and choose
+Once a model is in the `models` folder, open **Volis (developer)**, go to **Test bench** and choose
 the **Whole set** tab. Pick the recognizer, translator and voice you have in mind: it shows the
 memory they need and whether they fit on your card as it is now, without loading anything.
 
@@ -149,7 +149,7 @@ several times slower. That is the usual reason for Volis suddenly being slow.
 
 Published scores don't tell you how a model hears *your* voice in *your* room. To find out:
 
-Open **View > Test bench** in the window ([README.md](README.md#try-models-against-each-other-the-test-bench)
+Open **Volis (developer)** and go to **Test bench** ([DEVELOPMENT.md](DEVELOPMENT.md#using-the-test-bench)
 walks through it):
 
 1. **Recognizers.** Record yourself reading a few sentences, or choose a recording, and tick the
@@ -159,7 +159,7 @@ walks through it):
    With a translation you trust pasted into "Reference", each gets a score beside its time.
 3. **Whole set.** Choose the recognizer, translator and voice you settled on. It says whether
    they fit in this computer's memory together, and **Measure this set on a recording** times
-   them working together. Those measurements also feed the main window's warning that a
+   them working together. Those measurements also feed the Models page's warning that a
    choice won't fit.
 
 For a long recording scored as a whole, file mode does the same with a reference file beside

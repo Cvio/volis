@@ -1,14 +1,16 @@
-"""Pictures of the new window, made without showing it or saving any setting.
-No model is loaded: the pictures of a conversation are made by giving the window
-the events a real one would send.
+"""Pictures of the window, made without showing it or saving any setting, and
+with any conversations in a throwaway folder. No model is loaded: the pictures of
+a conversation are made by giving the window the events a real one would send.
+README.md's pictures:
 
-    .venv\\Scripts\\python.exe scripts\\app_shots.py <folder> [--prefix new] [--size 1180x760]
+    .venv\\Scripts\\python.exe scripts\\app_shots.py docs\\images --prefix volis
 """
 
 from __future__ import annotations
 
 import argparse
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -22,9 +24,10 @@ paths.apply_offline_environment(paths.app_root())
 from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
+from volis import clips, conversations  # noqa: E402
 from volis import events as ev  # noqa: E402
 from volis.config import Config, PythonConfig  # noqa: E402
-from volis.gui import app_window, sample, talk, theme  # noqa: E402
+from volis.gui import app_window, bubbles, sample, talk, theme  # noqa: E402
 
 
 class Stand:
@@ -48,8 +51,11 @@ def main() -> int:
     args.folder.mkdir(parents=True, exist_ok=True)
     app = QApplication.instance() or QApplication([])
     root = paths.app_root()
+    throwaway = Path(tempfile.mkdtemp())
+    paths.conversations_dir = lambda _root: throwaway  # never the user's conversations
     window = app_window.AppWindow(root, Config.load(paths.config_file(root))[0], PythonConfig.load(paths.python_config_file(root))[0])
     window.save = lambda: None  # pictures never change the user's settings
+    window.choose_theme("graphite")
     window.resize(*(int(n) for n in args.size.split("x")))
     # Drawn with the real fonts, but never put on the screen.
     window.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen)
@@ -86,6 +92,9 @@ def main() -> int:
     begin(talk.TOGETHER, "fa", "en", *sample.events())
     feed(ev.SpeakingEnded(), ev.Translated("6.1", "It is very good.", "en", 400, "cuda", "x"), ev.SpeakingEnded())
     window.session.turn = app_window.ses.IDLE
+    keeper = conversations.Keeper(root, ("fa", "en"), talk.TOGETHER, clips.Clips())
+    keeper.update(bubbles.lines_from(window.session))
+    keeper.save("At the restaurant", True, {"left": "Sara"})
     shot("ready")
     feed(ev.TurnStarted("left"), ev.Level(-20.0))
     shot("listening")
@@ -111,6 +120,7 @@ def main() -> int:
         shot(f"settings-{name}")
     window.choose_theme("graphite")
     window.rail_buttons[app_window.SAVED].click()
+    window.saved_items.setCurrentRow(0)
     shot("saved")
     window.close()
     return 0

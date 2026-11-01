@@ -81,6 +81,43 @@ internet.
 
 It uses PyInstaller in one-folder mode (`volis.spec`), installed from `uv.lock`'s `build` group.
 
+## Developer mode
+
+`Volis (developer).cmd` opens the same window with four more pages (`--developer`). A customer's copy,
+built with `.\build.ps1 -Customer`, has neither the file nor the mode: the build writes
+`[setup] developer = false`, and `--developer` then opens the ordinary window.
+
+| Page | What is there |
+|---|---|
+| **Models** | The recognizer and translator, with a warning if they won't fit or were too slow here; each side's recognizer and voice for two people on one computer; rescanning models and devices (F5). Hold the mouse over a name for its details. |
+| **Test bench** (Ctrl+Shift+T) | Comparing models; below. |
+| **Performance** (Ctrl+Shift+P) | The last sentence's timings and the run's summary, **Export this run** (transcript, translation, subtitles, `events.jsonl`, and scores if a reference sits beside the recording), and the panel below. |
+| **Developer** | Streaming, joining fragments, holding the key while speaking, context, revision, waiting before speaking, vowel marks, the glossary, and reading a recording at playing speed (with Pause), playing the original, and speaking the translations. |
+
+Everything the old window offered has a home here or in the ordinary pages, except what `HANDOFF.md`
+lists as left out.
+
+### Using the test bench
+
+| Tab | The question it answers | What you give it |
+|---|---|---|
+| **Recognizers** | Which one hears this best? | A recording you make there, or an audio file. If you also type what was really said, each recognizer is marked against it. |
+| **Translators** | Which one translates this best? | Text you type or paste, or a recording or an audio file (one recognizer writes it down first, and every translator gets the same words). If you also paste a translation you trust, each is scored against it. |
+| **Whole set** | Will this recognizer, translator and voice run together on this computer? | Your choice of the three. It answers at once, without loading anything, and can then time the set on a recording. |
+
+It works only while no conversation is running, because it needs the same memory. Tick the models,
+press **Compare**, and wait: models are loaded one at a time. **Cancel** stops after the model that is
+running. To use one, click its row and press **Use in the conversation**.
+
+- **Letters wrong** and **Words wrong** (recognizers): how far what was heard is from the text you
+  typed. Lower is better.
+- **Score** (translators): from 0 to 100, how close the translation is to the one you pasted. Higher
+  means closer, not "correct": a good translation in different words scores lower.
+- **Time** and **Speed**: how long the model took, without the time to load it.
+
+Every comparison is kept. The list above the table shows earlier ones, and **Copy as a table** copies
+the one on screen.
+
 ## The performance panel
 
 `volis\perf.py` and `volis\gui\perf_panel.py`. GPU figures come from `nvidia-smi`, read once a
@@ -88,13 +125,13 @@ second while the panel is open. Windows doesn't report one program's GPU memory,
 share is the sum of what its loaded models take, and "others" is the rest. Every run is
 recorded in `logs\performance.json`: the memory each model took when it loaded, and the run's
 speed. The panel itself shows only the running conversation. The measurements it keeps are
-also read by the main window's "won't fit" warning and by the test bench's Whole set tab, which
+also read by the Models page's "won't fit" warning and by the test bench's Whole set tab, which
 uses them once a model has been loaded here and its file sizes before that.
 
 ## The test bench
 
-View > Test bench: comparing recognizers, comparing translators, and checking a whole set, in
-a window of its own so the main window is only about holding a conversation.
+The Test bench page in developer mode: comparing recognizers, comparing translators, and checking a
+whole set.
 
 - `volis\bench.py` has the work and no Qt: `hear` (one clip through each recognizer), `ready`
   (whether a comparison can start, and the one line that says why not), `Recorder`, `History`
@@ -108,8 +145,7 @@ a window of its own so the main window is only about holding a conversation.
   working: both would need the same memory.
 - Comparisons are kept in `logs\test-bench.json` (the last 200). Whole-set runs go to
   `logs\performance.json` with every other run.
-- `scripts\window_shots.py` draws each tab with example results, for the pictures in
-  `docs\images\`.
+- `scripts\app_shots.py` draws the window, for the pictures in `docs\images\` that `README.md` uses.
 
 ## Test recordings and checks
 

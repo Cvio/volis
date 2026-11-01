@@ -2,7 +2,7 @@
 
 A window of its own, for whoever is choosing models or checking a change.
 Nothing in it is needed to hold a conversation, which is why it is not in
-the main window. Three tabs, each answering one question:
+Models. Three tabs, each answering one question:
 
 * Recognizers: which one hears this best? A recording or an audio file
   through each ticked recognizer, scored against the correct text if given.
@@ -33,13 +33,14 @@ import numpy as np
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QComboBox, QFileDialog, QFormLayout, QHBoxLayout, QLabel,
-                               QListWidget, QListWidgetItem, QPlainTextEdit, QProgressBar, QPushButton, QRadioButton,
+                               QListWidget, QListWidgetItem, QPlainTextEdit, QProgressBar, QPushButton, QRadioButton, QStyledItemDelegate,
                                QTableWidget, QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget)
 
 from .. import bench, models, perf, typed
 from .. import events as ev
 from ..audio import SAMPLE_RATE
 from . import view
+from .session import has_rtl
 
 log = logging.getLogger(__name__)
 
@@ -79,7 +80,7 @@ def _refill(box: QListWidget, items: list[tuple[str, str, str]]) -> None:
 
 
 def _copy_items(combo: QComboBox, other: QComboBox) -> None:
-    """The same choices as one of the main window's lists, and its choice."""
+    """The same choices as one of Models's lists, and its choice."""
     combo.blockSignals(True)
     combo.clear()
     for i in range(other.count()):
@@ -98,9 +99,20 @@ def _choices(combo: QComboBox, items: list[str], selected) -> None:
     combo.blockSignals(False)
 
 
-def _table() -> QTableWidget:
-    from .window import DirectionDelegate
+class DirectionDelegate(QStyledItemDelegate):
+    """Lays a cell out right to left when its text is Arabic, Persian or
+    Hebrew. Alignment alone isn't enough: with a left-to-right base direction
+    the final full stop lands on the wrong side, and English words or numbers
+    inside the sentence fall in the wrong order."""
 
+    def initStyleOption(self, option, index) -> None:  # noqa: N802 - Qt's name
+        super().initStyleOption(option, index)
+        if has_rtl(option.text):
+            option.direction = Qt.LayoutDirection.RightToLeft
+            option.displayAlignment = Qt.AlignmentFlag.AlignLeading | Qt.AlignmentFlag.AlignTop
+
+
+def _table() -> QTableWidget:
     table = QTableWidget(0, 0)
     table.setWordWrap(True)
     table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -136,12 +148,12 @@ class ClipInput(QWidget):
         self.path: Path | None = None
         self.recorder: bench.Recorder | None = None
         self.record_button = QPushButton("Record")
-        self.record_button.setToolTip("Record from the microphone chosen in the main window. Press again to stop.")
+        self.record_button.setToolTip("Record from the microphone chosen in Models. Press again to stop.")
         self.record_button.clicked.connect(self.toggle_record)
         self.file_button = QPushButton("Choose an audio file...")
         self.file_button.clicked.connect(self.choose_file)
         self.play_button = QPushButton("Play")
-        self.play_button.setToolTip("Play the sound through the speakers chosen in the main window.")
+        self.play_button.setToolTip("Play the sound through the speakers chosen in Models.")
         self.play_button.clicked.connect(self.play)
         self.label = QLabel("No sound yet.")
         self.label.setStyleSheet(GRAY)
@@ -235,9 +247,7 @@ class TestBench(QWidget):
     __test__ = False  # not a pytest class, whatever its name starts with
 
     def __init__(self, window, worker: bench.Worker | None = None) -> None:
-        super().__init__(window, Qt.WindowType.Window)
-        self.setWindowTitle("Test bench - Volis")
-        self.resize(1040, 780)
+        super().__init__()
         self.window_ = window
         self.root = window.root
         self.perf = window.perf_panel  # what has been measured on this machine lives there
@@ -355,7 +365,7 @@ class TestBench(QWidget):
         row.addWidget(self.r_run)
         row.addWidget(self.r_reason, 1)
         layout.addLayout(row)
-        results, self.r = self._results(bench.RECOGNIZERS, "Choose this recognizer in the main window.")
+        results, self.r = self._results(bench.RECOGNIZERS, "Choose this recognizer in Models.")
         layout.addLayout(results, 1)
         return page
 
@@ -418,7 +428,7 @@ class TestBench(QWidget):
         row.addWidget(self.t_run)
         row.addWidget(self.t_reason, 1)
         layout.addLayout(row)
-        results, self.t = self._results(bench.TRANSLATORS, "Choose this translator in the main window.")
+        results, self.t = self._results(bench.TRANSLATORS, "Choose this translator in Models.")
         layout.addLayout(results, 1)
         return page
 
@@ -438,10 +448,10 @@ class TestBench(QWidget):
         layout.addLayout(form)
         row = QHBoxLayout()
         self.w_fill = QPushButton("Take the conversation's choice")
-        self.w_fill.setToolTip("Set the lists above to what is chosen in the main window.")
+        self.w_fill.setToolTip("Set the lists above to what is chosen in Models.")
         self.w_fill.clicked.connect(self.fill_from_window)
         self.w_apply = QPushButton("Use this set in the conversation")
-        self.w_apply.setToolTip("Choose this recognizer and translator in the main window.")
+        self.w_apply.setToolTip("Choose this recognizer and translator on the Models page.")
         self.w_apply.clicked.connect(self.apply_set)
         row.addWidget(self.w_fill)
         row.addWidget(self.w_apply)
@@ -480,7 +490,7 @@ class TestBench(QWidget):
     # -------------------------------------------------------------- the lists
 
     def refill(self) -> None:
-        """Take the models and languages from the main window again (at
+        """Take the models and languages from Models again (at
         opening, and after a rescan there)."""
         w = self.window_
         _copy_items(self.r_language, w.source_lang)
@@ -655,7 +665,7 @@ class TestBench(QWidget):
         index = combo.findData(ident)
         if index < 0:
             self.said.setText(f"The main window doesn't offer that {what} for the language chosen there. "
-                              "Change the language in the main window first.")
+                              "Change the language in Models first.")
             return
         combo.setCurrentIndex(index)
         self.said.setText(f"{combo.currentText().strip()} is now the conversation's {what}.")
@@ -839,7 +849,7 @@ class TestBench(QWidget):
             parts["use"].setEnabled(bool(self._selected(kind)) and not running)
             parts["use"].setToolTip("Stop the conversation to change this." if running else
                                     "Click a row first." if not self._selected(kind) else
-                                    "Choose this model in the main window.")
+                                    "Choose this model in Models.")
             parts["copy"].setEnabled(self.shown[kind] is not None)
 
     # -------------------------------------------------------------- showing and closing

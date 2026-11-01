@@ -47,21 +47,6 @@ def session(state=ses.STOPPED, mode="continuous") -> ses.Session:
     return s
 
 
-def test_the_big_control_says_start_then_the_state_and_how_to_stop():
-    stopped = view.start_control(session(), "Space", False)
-    assert stopped.label == "START" and "start a conversation" in stopped.hint and "Ctrl+Enter" in stopped.hint
-    assert "translate the file" in view.start_control(session(), "Space", False, file_mode=True).hint
-    listening = view.start_control(session(ses.LISTENING), "Space", False)
-    assert listening.label == "LISTENING" and listening.hint.startswith("Press to stop")
-    assert listening.colour != stopped.colour or listening.label != stopped.label
-    loading = session(ses.STARTING)
-    loading.loading = "recognizer"
-    assert view.start_control(loading, "Space", False).hint.startswith("Press to cancel")
-    assert view.start_control(session(ses.LISTENING), "Space", False, paused=True).label == "PAUSED"
-    turn = view.start_control(session(ses.LISTENING, "turn"), "Space", False)
-    assert turn.label == "READY - press Space to talk"
-
-
 # ---------------------------------------------------------------- reasons
 
 
@@ -133,13 +118,6 @@ def test_too_slow_is_said_only_when_it_was_measured_here():
 # ---------------------------------------------------------------- the bar, the text size, the test sentence
 
 
-def test_the_bar_shown_while_running_names_the_languages_and_the_models():
-    assert view.conversation_bar("Spanish", "English", "Whisper turbo", "Gemma 3 4B") == (
-        "Spanish  →  English      Whisper turbo  ·  Gemma 3 4B")
-    assert view.conversation_bar("", "", "", "Gemma", shared=True, sides=("English", "Arabic")).startswith(
-        "English  ⇄  Arabic")
-
-
 def test_the_text_size_steps_up_and_down_and_stops_at_the_ends():
     assert view.text_size_step(12, True) == 14 and view.text_size_step(12, False) == 11
     assert view.text_size_step(32, True) == 32 and view.text_size_step(9, False) == 9
@@ -158,23 +136,4 @@ def test_a_test_sentence_for_each_language_and_its_varieties():
 
 # ---------------------------------------------------------------- the Translate button
 
-
-def test_the_languages_that_will_be_shown_not_spoken_are_named_before_start():
-    def has(tag):
-        return tag in ("en", "es")
-
-    assert view.voice_note(True, ["en"], has) == ""
-    assert view.voice_note(True, ["fa"], has) == ("No voice is installed for Persian: translations into it are shown "
-                                                  "on the screen but not spoken.")
-    assert "Persian or Arabic" in view.voice_note(True, ["fa", "en", "ar"], has)
-    assert "into them" in view.voice_note(True, ["fa", "ar"], has)
-    assert view.voice_note(False, ["fa"], has) == "", "Speak translations off: nothing to say"
-
-
-def test_the_typed_button_says_it_is_working_and_cannot_be_pressed_again():
-    busy = view.typed_control(True, "Loading Gemma 4 12B...")
-    assert (busy.label, busy.enabled, busy.working) == ("Working...", False, True)
-    assert busy.message == "Loading Gemma 4 12B. Nothing more to do: please wait."
-    assert view.typed_control(True).message.startswith("Translating. Nothing more to do")
-    assert view.typed_control(False) == view.TypedControl("Translate", True, "")
 

@@ -44,7 +44,7 @@ FILE_SUFFIX = ".volis"
 _AUDIO_NAME = re.compile(r"audio/\d+-(original|translation)\.wav")  # the only names a Keeper gives
 BETWEEN_PARTS, BETWEEN_SENTENCES = 0.4, 0.8  # seconds of silence in a conversation's whole audio
 _TEXT_FIELDS = ("key", "side", "speaker", "when", "original", "translation", "problem", "note", "text", "speech",
-                "audio_original", "audio_translation")
+                "audio_original", "audio_translation", "heard", "earlier")
 
 
 class ConversationError(Exception):

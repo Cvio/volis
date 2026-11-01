@@ -129,6 +129,8 @@ class Options:
     prompt: str = ""
     # A conversation's audio is kept here (clips.Clips); None = not kept.
     clips: object = None
+    # Voices' folders to prefer for the languages they speak (Settings' Voice).
+    voices: tuple = ()
 
 
 # ---------------------------------------------------------------- sources
@@ -454,7 +456,7 @@ class Pipeline:
         if not wanted or not self.options.translate or self.options.compare:
             return gate, None
         player = playback.Player(self.config.audio.output_device, gate, on_ended=lambda: self.emit(SpeakingEnded()))
-        return gate, SpeakThread(self, player)
+        return gate, SpeakThread(self, player, self.options.voices)
 
     def _loop(self) -> None:
         root, config = self.root, self.config
@@ -1397,11 +1399,12 @@ class SpeakThread:
     says. A voice is chosen per sentence by its language and loaded the first
     time it is needed."""
 
-    def __init__(self, pipeline: Pipeline, player) -> None:
+    def __init__(self, pipeline: Pipeline, player, preferred=()) -> None:
         self.pipeline = pipeline
         self.player = player
         self.voices = [e for e in models.discover(paths.tts_dir(pipeline.root), models.Role.TTS)
                        if isinstance(e, models.Engine)]
+        self.preferred = preferred
         self.loaded: dict = {}
         self.voiceless: set[str] = set()  # languages no installed voice speaks: shown, not spoken
         # Arabic vowel marks before the voice ([tts] diacritize); loaded when first needed.
@@ -1460,7 +1463,8 @@ class SpeakThread:
 
         engine = next((v for v in self.voices if v.dir_name == folder and v.enabled()), None) if folder else None
         if engine is None:
-            engine = tts.for_language(self.voices, language)
+            liked = [v for v in self.voices if v.dir_name in self.preferred and models.rank(language, [v])]
+            engine = tts.for_language(liked or self.voices, language)
         if engine.dir_name not in self.loaded:
             self.pipeline.emit(Loading(f"voice {engine.dir_name}"))
             began = time.perf_counter()

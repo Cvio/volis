@@ -74,7 +74,7 @@ prompt = "default"  # a file in prompts\
 device = "auto"     # "auto" = the graphics card when the translator can use it, "cpu", or "cuda"
 
 [asr]
-streaming = false   # show text while speaking (continuous and file mode)
+streaming = false   # show text while speaking (hands-free)
 interval_s = 1.0    # how often the growing sentence is transcribed
 
 [context]
@@ -100,9 +100,10 @@ persian_cleanup = true  # Persian: before translating, replace Arabic look-alike
                         # exactly what the recognizer wrote
 
 [window]             # what the window remembers about itself
-advanced_open = false   # whether the Advanced section is open
 text_size = 12          # the conversation's text size, in points (the A- and A+ buttons)
-theme = "graphite"      # the new window's colours: "graphite", "midnight" or "warm-charcoal"
+theme = "graphite"      # the colours: "graphite", "midnight" or "warm-charcoal"
+speed = "accurate"      # "faster" or "accurate", where [setup] offers the choice
+voices = []             # the voices chosen, where [setup] offers a choice
 
 [saving]
 mode = "ask"         # when a conversation ends: "ask", "always" or "never"; never also keeps no
@@ -111,6 +112,10 @@ mode = "ask"         # when a conversation ends: "ask", "always" or "never"; nev
 [setup]              # what this customer's copy offers, written when it is prepared
 ways = []            # "together", "two-computers", "hands-free"; empty = all three
 languages = []       # language tags, e.g. ["fa", "en"]; empty = every language installed
+developer = true     # false: --developer opens the ordinary window. build.ps1 -Customer sets this
+voices = []          # voices' folders; two speaking a language in `languages` offer Voice in Settings
+faster = []          # [recognizer, translator]: with `accurate`, offers Faster | More accurate in Settings
+accurate = []        # [recognizer, translator]
 
 [fragments]
 hold = true         # join a few words with no full stop to what follows
@@ -187,6 +192,7 @@ Everything the window does can be run from a terminal. From the repository:
 | Option | What it does |
 |---|---|
 | (none) | Opens the window. |
+| `--developer` | Opens it with its developer pages (see [DEVELOPMENT.md](DEVELOPMENT.md#developer-mode)). `Volis (developer).cmd` does this. A customer's copy opens the ordinary window. |
 | `--report` | Lists every model found, and why any can't be used. |
 | `--report --load` | Also loads each model in turn and prints where it runs and the memory it takes. |
 | `--doctor` | Checks the installation: every library present, the right version, the graphics card visible. |

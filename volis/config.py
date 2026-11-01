@@ -106,6 +106,7 @@ ENUMS: dict[tuple[str, str], tuple[str, ...]] = {
     ("window", "theme"): ("graphite", "midnight", "warm-charcoal"),  # volis-python.toml
     ("setup", "ways"): ("together", "two-computers", "hands-free"),  # volis-python.toml
     ("saving", "mode"): ("ask", "always", "never"),  # volis-python.toml
+    ("window", "speed"): ("faster", "accurate"),  # volis-python.toml
 }
 
 
@@ -277,9 +278,11 @@ class PyText:
 @dataclass
 class PyWindow:
     # What the window remembers about itself (P14).
-    advanced_open: bool = False  # the Advanced section, as the user left it
+    advanced_open: bool = False  # no longer used: accepted so that existing files still load
     text_size: int = 12  # the transcript's text size, in points (A- / A+)
-    theme: str = "graphite"  # the new window's colours
+    theme: str = "graphite"  # the window's colours
+    speed: str = "accurate"  # "faster" or "accurate", for a setup that offers the choice
+    voices: list[str] = field(default_factory=list)  # the voices chosen, for a setup that offers a choice
 
 
 @dataclass
@@ -295,6 +298,10 @@ class PySetup:
     # by the window. Empty = everything installed.
     ways: list[str] = field(default_factory=list)  # "together", "two-computers", "hands-free"
     languages: list[str] = field(default_factory=list)  # language tags, as in [languages]
+    developer: bool = True  # false in a customer's copy: --developer opens the ordinary window
+    voices: list[str] = field(default_factory=list)  # voices' folders; two for a language offer a choice in Settings
+    faster: list[str] = field(default_factory=list)  # [recognizer, translator] for Faster; with accurate, offers the choice
+    accurate: list[str] = field(default_factory=list)  # [recognizer, translator] for More accurate
 
 
 @dataclass
@@ -388,9 +395,10 @@ def save_python_selections(path: Path, pyconfig: PythonConfig) -> None:
     _set(doc, "context", "hold_speech", pyconfig.context.hold_speech)
     _set(doc, "fragments", "hold", pyconfig.fragments.hold)
     _set(doc, "tts", "diacritize", pyconfig.tts.diacritize)
-    _set(doc, "window", "advanced_open", pyconfig.window.advanced_open)
     _set(doc, "window", "text_size", pyconfig.window.text_size)
     _set(doc, "window", "theme", pyconfig.window.theme)
+    _set(doc, "window", "speed", pyconfig.window.speed)
+    _set(doc, "window", "voices", pyconfig.window.voices)
     _set(doc, "saving", "mode", pyconfig.saving.mode)
     try:
         path.write_text(tomlkit.dumps(doc), encoding="utf-8", newline="")

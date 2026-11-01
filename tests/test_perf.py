@@ -88,21 +88,20 @@ def window(monkeypatch, tmp_path):
     from PySide6.QtWidgets import QApplication
 
     from volis.config import Config, PythonConfig
-    from volis.gui.window import MainWindow
+    from volis.gui.app_window import AppWindow
 
     QApplication.instance() or QApplication([])
     monkeypatch.setattr(perf, "read_gpu", lambda: sample().gpu)
     monkeypatch.setattr(paths, "performance_file", lambda root: tmp_path / "performance.json")
-    w = MainWindow(paths.app_root(), Config(), PythonConfig())
+    w = AppWindow(tmp_path, Config(), PythonConfig(), developer=True)
     w.save = lambda: None
     yield w
-    w.perf_panel.sampler.stop()
     w.close()
 
 
-def test_the_panel_is_closed_at_start_and_follows_a_run(window):
-    panel = window.perf_panel
-    assert not panel.isVisible() and panel.toggleViewAction().shortcut().toString() == "Ctrl+Shift+P"
+def test_the_panel_follows_a_run_even_while_its_page_is_closed(window):
+    panel = window.dev.perf_panel
+    assert not panel.isVisible()
     for event in (ev.Loading("recognizer x"), ev.ModelLoaded("recognizer", "x", "cuda", 2 * GiB, 0, 1.0),
                   ev.ModelLoaded("translator", "t.gguf", "cuda", 3 * GiB, 0, 1.0),
                   ev.Final(1, "Hola.", "es", 1500, 120),
@@ -121,13 +120,12 @@ def test_the_panel_is_closed_at_start_and_follows_a_run(window):
 
 
 def test_falling_behind_turns_the_panel_red(window):
-    panel = window.perf_panel
+    panel = window.dev.perf_panel
     panel.observe(ev.Error("speech fell behind the conversation; sentence 3.1 was not spoken"))
     panel.sampler.history.append(sample())
     window.show()
-    panel.show()
+    window.rail_buttons[5].click()
     panel.refresh()
     assert "fell behind" in panel.now_labels["speech"].text()
     assert "#d03030" in panel.now_labels["speech"].styleSheet()
-    panel.hide()
 

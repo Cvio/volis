@@ -139,7 +139,7 @@ translations for common sentences, which is under consideration.
 
 ## Ways to use it
 
-![The main window as it is today, before a conversation starts](docs/images/overview-main-window.png)
+![The window before a conversation starts](docs/images/volis-start-together.png)
 
 ### Live conversation
 
@@ -185,7 +185,7 @@ conversation as well, and the typed line is translated with the conversation's c
 
 ## Checking quality: the Test bench
 
-The Test bench (View > Test bench) compares the AI models that can do each step, on real
+The Test bench, in developer mode, compares the AI models that can do each step, on real
 material, without technical help. It is how a customer's setup is chosen, and customers can use
 it to check quality for themselves. It answers three questions:
 
@@ -221,7 +221,7 @@ help plan for that:
   much is free, keeps every timed run on that computer, and so helps decide what hardware to buy.
   On a laptop with an 8 GB graphics card, a typical setup uses about 4.5 GB and leaves about
   3.5 GB for other programs. A 16 GB card can run larger models, which translate somewhat better.
-- **The performance panel** (View > Performance) shows, while a conversation runs, how much of
+- **The performance panel**, in developer mode, shows, while a conversation runs, how much of
   the graphics card, memory and processor Volis and other programs are using, how long each
   sentence took at each step, and whether Volis is keeping up with the speaker. It turns amber or
   red when memory is nearly full or speech is falling behind. Useful when Volis has to share the

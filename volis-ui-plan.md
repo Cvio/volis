@@ -11,8 +11,7 @@ tailored to them, so they see only the languages and ways of talking they have.
 
 - Build in the order below. **Stop after each stage, show its check passing, and wait for the
   user to say go on.** Commit after each stage; tests pass at every commit.
-- The old window (`gui/window.py`) stays the one that opens by default until U6, so there is a
-  working app throughout. Until then the new one opens with `--new-window`.
+- The old window (`gui/window.py`) stayed the default until U6, which removed it.
 - Window logic stays out of Qt: new state and rules go in Qt-free modules with tests.
 - Qt widgets and style sheets only. Nothing new to install.
 - New settings go in `volis-python.toml` and `SETTINGS.md`.

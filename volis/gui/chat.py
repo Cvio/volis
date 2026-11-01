@@ -21,6 +21,18 @@ ON_LEFT = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignAbsolute
 ON_RIGHT = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignAbsolute
 
 
+def scrolled(content: QWidget) -> QScrollArea:
+    """A page that scrolls when it is taller than the window."""
+    content.setObjectName("page")
+    area = QScrollArea()
+    area.setObjectName("page")
+    area.setWidget(content)
+    area.setWidgetResizable(True)
+    area.setFrameShape(QFrame.Shape.NoFrame)
+    area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+    return area
+
+
 def _label(name: str) -> QLabel:
     label = QLabel()
     label.setObjectName(name)
@@ -109,6 +121,8 @@ class BubbleRow(QWidget):
         _fit(self.status, item.status, small, inner)
         _fit(self.problem, item.problem, points, inner)
         _fit(self.note, item.note, small, inner)
+        self.original.setToolTip(f"As heard, before clean-up: {item.heard}" if item.heard else "")
+        self.translation.setToolTip(f"Earlier: {item.earlier}" if item.earlier else "")
         for line in (self.original, self.translation, self.status, self.problem, self.note):
             # Each line sits on the side its own script starts from.
             right = line.layoutDirection() == Qt.LayoutDirection.RightToLeft

@@ -1,4 +1,4 @@
-"""The test bench window (View > Test bench). Qt offscreen, a temporary models
+"""The test bench page. Qt offscreen, a temporary models
 folder, stand-in recognizers and translators: nothing is loaded, no sound
 device is opened."""
 
@@ -36,7 +36,7 @@ def window(tmp_path, monkeypatch):
     from PySide6.QtWidgets import QApplication
 
     from volis.config import Config, PythonConfig
-    from volis.gui.window import MainWindow
+    from volis.gui.app_window import AppWindow
 
     QApplication.instance() or QApplication([])
     monkeypatch.setattr(audio, "list_input_devices", lambda: [])
@@ -52,12 +52,15 @@ def window(tmp_path, monkeypatch):
     (tmp_path / "models" / "tts").mkdir()
     config = Config()
     config.languages.source, config.languages.target = "es", "en"
-    w = MainWindow(tmp_path, config, PythonConfig())
+    w = AppWindow(tmp_path, config, PythonConfig(), developer=True)
     w.save = lambda: None
     w.show()
-    yield w
+    deadline = time.monotonic() + 10
+    while not w.found and time.monotonic() < deadline:
+        w.tick()
+        time.sleep(0.01)
+    yield w.dev
     w.pipeline = None
-    w.perf_panel.sampler.stop()
     w.close()
 
 
@@ -117,20 +120,15 @@ class Running:
 # ---------------------------------------------------------------- where it lives
 
 
-def test_the_main_window_has_no_compare_controls_and_the_view_menu_opens_the_bench(window, monkeypatch):
-    for gone in ("compare", "typed_compare", "typed_models", "typed_reference", "compare_table"):
-        assert not hasattr(window, gone), gone
-    assert window.typed_button.text() == "Translate"
-    for gone in ("w_asr", "bench_button", "runs_table"):
-        assert not hasattr(window.perf_panel, gone), "the performance panel is only the live view now"
-    action = next(a for a in window.menuBar().actions()[1].menu().actions() if "Test bench" in a.text())
-    assert action.shortcut().toString() == "Ctrl+Shift+T"
+def test_the_page_opens_the_bench_when_first_asked_for(window, monkeypatch):
+    from volis.gui import developer
+
     made = []
     monkeypatch.setattr("volis.gui.testbench.bench.Worker",
                         lambda *a, **k: made.append(1) or SimpleNamespace(busy=False, status="", outcomes=__import__("queue").Queue(),
                                                                          close=lambda: None, cancel=lambda: None))
     assert window.test_bench is None, "nothing is made until it is asked for"
-    action.trigger()
+    window.window.rail_buttons[developer.TEST_BENCH].click()
     assert window.test_bench.isVisible() and made == [1]
     assert [window.test_bench.tabs.tabText(i) for i in range(3)] == ["Recognizers", "Translators", "Whole set"]
 
@@ -141,7 +139,7 @@ def test_the_lists_are_the_main_windows_models_and_languages(tb, window):
         "whisper-large-v3-turbo-es", "whisper-large-v3-turbo"], "the one made for Spanish first"
     assert tb.t_models.count() == 2
     assert tb.t_recognizer.currentData() == window.recognizer.currentData()
-    window._fill_pickers()  # a rescan in the main window
+    window.fill_pickers()  # a rescan
     assert tb.r_models.count() == 2 and tb.t_models.count() == 2
 
 
@@ -251,12 +249,12 @@ def test_while_a_conversation_runs_the_bench_says_so_once_and_offers_to_stop_it(
 
 def test_a_conversation_cannot_start_while_the_bench_is_working(tb, window):
     tb.worker.busy = True
-    window.toggle()
-    assert window.pipeline is None and window.notice.isVisibleTo(window)
-    assert window.notice.text() == window.BENCH_BUSY
-    window.typed_text.setPlainText(ES)
-    window.submit_typed()
-    assert window.typed_status.text() == window.BENCH_BUSY and window.typed_worker is None
+    w = window.window
+    assert w.start_problem() == window.BENCH_BUSY
+    w.start_button.click()
+    assert w.pipeline is None
+    w.refresh()
+    assert w.start_note.text() == window.BENCH_BUSY and not w.start_button.isEnabled()
     tb.worker.busy = False
 
 

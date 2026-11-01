@@ -1,8 +1,7 @@
-"""The new window (`volis-ui-plan.md`): an icon rail, a top bar, and the
-conversation filling the rest. It takes over from window.py at U6; until then it
-opens with --new-window. It only draws: the colours are in theme.py, what the
+"""The window (`volis-ui-plan.md`): an icon rail, a top bar, and the conversation
+filling the rest. It only draws: the colours are in theme.py, what the
 conversation shows in bubbles.py, the Talk page's rules in talk.py, what the
-events mean in session.py."""
+events mean in session.py. With --developer, developer.py adds its pages."""
 
 from __future__ import annotations
 
@@ -13,8 +12,8 @@ import threading
 import time
 from pathlib import Path
 
-from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QTimer
-from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPainterPath, QPen, QPixmap
+from PySide6.QtCore import QEvent, QPointF, QRectF, QSize, Qt, QTimer
+from PySide6.QtGui import QColor, QFont, QIcon, QKeySequence, QPainter, QPainterPath, QPen, QPixmap, QShortcut
 from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QLineEdit,
     QListWidget, QListWidgetItem, QMainWindow, QMenu, QMessageBox, QProgressBar, QPushButton, QSizePolicy, QStackedWidget,
@@ -29,9 +28,10 @@ from .. import shared as shared_mod
 from ..config import Config, ConfigError, PythonConfig, save_python_selections
 from ..pipeline import ArraySource, Options, Pipeline
 from . import bubbles, devicetest, talk, theme, view
+from . import rescan as rescan_mod
 from . import session as ses
-from .chat import AudioBar, ChatView
-from .window import KEY_SYMBOLS, TurnKeyFilter, qt_key
+from .chat import AudioBar, ChatView, scrolled
+from .keys import KEY_SYMBOLS, TurnKeyFilter, qt_key
 
 log = logging.getLogger(__name__)
 
@@ -44,14 +44,17 @@ KEEP_EVERY = 2.0  # seconds between updates of the conversation's temporary copy
 SAVING_CHOICES = (("ask", "Always ask"), ("always", "Always save"), ("never", "Never save"))
 
 
-def run(root: Path, config: Config) -> int:
+def run(root: Path, config: Config, developer: bool = False) -> int:
     app = QApplication.instance() or QApplication([])
     try:
         pyconfig, _ = PythonConfig.load(paths.python_config_file(root))
     except ConfigError as e:
         QMessageBox.critical(None, "Volis", str(e))
         return 1
-    window = AppWindow(root, config, pyconfig)
+    if developer and not pyconfig.setup.developer:
+        log.warning("this copy of Volis has no developer mode")
+        developer = False
+    window = AppWindow(root, config, pyconfig, developer)
     window.show()
     return app.exec()
 
@@ -137,9 +140,12 @@ def _restyle(widget: QWidget, name: str, value) -> None:
 
 
 class AppWindow(QMainWindow):
-    def __init__(self, root: Path, config: Config, pyconfig: PythonConfig) -> None:
+    def __init__(self, root: Path, config: Config, pyconfig: PythonConfig, developer: bool = False) -> None:
         super().__init__()
         self.root, self.config, self.pyconfig = root, config, pyconfig
+        self.developer = developer
+        self.dev = None  # developer.Hub: its pages, only with --developer
+        self.snapshot: rescan_mod.Snapshot = {}  # what the last search found, to compare a rescan with
         self.session = self._new_session()
         self.keeper: conversations.Keeper | None = None
         self.keep_dirty = False
@@ -155,6 +161,9 @@ class AppWindow(QMainWindow):
         self.ending = False
         self.reading = False  # the conversation on the Talk page came from a recording
         self.recording_name = ""
+        self.recording_path: Path | None = None
+        self.reading_source = None
+        self.reading_paused = False
         self.opening: Path | None = None  # a recording chosen, waiting for its languages
         self.opening_audio = None
         self._opened_now = None  # what the decoding thread produced, for the window's thread to take
@@ -183,7 +192,7 @@ class AppWindow(QMainWindow):
         self.test_message: str | None = None
         self.testing = False
         self._filling = False
-        self.setWindowTitle("Volis")
+        self.setWindowTitle("Volis (developer)" if developer else "Volis")
         self.resize(1180, 760)
         self.setFont(QFont("Segoe UI", 10))
         self.setAcceptDrops(True)
@@ -194,6 +203,12 @@ class AppWindow(QMainWindow):
         self._timer = QTimer(self)
         self._timer.timeout.connect(self.tick)
         self._timer.start(REFRESH_MS)
+        QShortcut(QKeySequence("F5"), self, activated=self.rescan)
+        if self.dev is not None:
+            from . import developer as developer_pages
+
+            QShortcut(QKeySequence("Ctrl+Shift+T"), self, activated=self.rail_buttons[developer_pages.TEST_BENCH].click)
+            QShortcut(QKeySequence("Ctrl+Shift+P"), self, activated=self.rail_buttons[developer_pages.PERFORMANCE].click)
         self._recover()
         self.refresh()
         # Reading the models takes seconds; the window is open meanwhile.
@@ -206,6 +221,14 @@ class AppWindow(QMainWindow):
         self.pages.addWidget(self._build_talk())
         self.pages.addWidget(self._build_saved())
         self.pages.addWidget(self._build_settings())
+        self.rail_items = RAIL
+        if self.developer:
+            from . import developer as developer_pages
+
+            self.dev = developer_pages.Hub(self)
+            for page, _words, _draw in developer_pages.RAIL:
+                self.pages.addWidget(self.dev.pages[page])
+            self.rail_items = RAIL + developer_pages.RAIL
         whole = QWidget()
         row = QHBoxLayout(whole)
         row.setContentsMargins(0, 0, 0, 0)
@@ -216,14 +239,14 @@ class AppWindow(QMainWindow):
 
     def _build_rail(self) -> QWidget:
         rail = _styled("rail")
-        rail.setFixedWidth(84)
+        rail.setFixedWidth(96 if self.dev is not None else 84)
         column = QVBoxLayout(rail)
         column.setContentsMargins(8, 12, 8, 12)
         column.setSpacing(6)
         self.rail_group = QButtonGroup(self)
         self.rail_group.setExclusive(True)
         self.rail_buttons: dict[int, QToolButton] = {}
-        for page, words, _draw in RAIL:
+        for page, words, _draw in self.rail_items:
             button = _named(QToolButton(), "railButton")
             button.setText(words)
             button.setCheckable(True)
@@ -267,6 +290,9 @@ class AppWindow(QMainWindow):
         self.larger.clicked.connect(lambda: self.change_text_size(True))
         row.addWidget(self.smaller)
         row.addWidget(self.larger)
+        self.pause_reading = QPushButton("Pause")
+        self.pause_reading.clicked.connect(self.toggle_reading)
+        row.addWidget(self.pause_reading)
         self.end_button = QPushButton("End conversation")
         self.end_button.clicked.connect(self.end_conversation)
         row.addWidget(self.end_button)
@@ -658,7 +684,7 @@ class AppWindow(QMainWindow):
         return page
 
     def _build_settings(self) -> QWidget:
-        page = _named(QWidget(), "page")
+        page = QWidget()
         column = QVBoxLayout(page)
         column.setContentsMargins(32, 28, 32, 28)
         column.setSpacing(10)
@@ -690,6 +716,15 @@ class AppWindow(QMainWindow):
         self.headset.setChecked(not self.config.tts.half_duplex)
         self.headset.toggled.connect(self.sound_settings_changed)
         column.addWidget(self.headset)
+        self.rescan_button = QPushButton("Look for microphones and speakers again (F5)")
+        self.rescan_button.setToolTip("After plugging in a headset, for example.")
+        self.rescan_button.clicked.connect(self.rescan)
+        column.addWidget(self.rescan_button, 0, Qt.AlignmentFlag.AlignLeft)
+        self.rescan_notice = _text("", "muted")
+        self.rescan_notice.hide()
+        column.addWidget(self.rescan_notice)
+        self.choices_box = self._build_choices()
+        column.addWidget(self.choices_box)
         column.addSpacing(10)
         self.pause_box = QWidget()
         pause_row = QHBoxLayout(self.pause_box)
@@ -753,7 +788,81 @@ class AppWindow(QMainWindow):
         self.settings_problem.hide()
         column.addWidget(self.settings_problem)
         column.addStretch(1)
-        return page
+        return scrolled(page)
+
+    def _build_choices(self) -> QWidget:
+        """Voice and Faster | More accurate, for a setup that includes those choices."""
+        box = QWidget()
+        column = QVBoxLayout(box)
+        column.setContentsMargins(0, 10, 0, 0)
+        self.speed_box = QWidget()
+        speed_column = QVBoxLayout(self.speed_box)
+        speed_column.setContentsMargins(0, 0, 0, 0)
+        speed_column.addWidget(_text("Translation", "heading", 12))
+        speeds = QHBoxLayout()
+        self.speed_group = QButtonGroup(self)
+        self.speed_group.setExclusive(True)
+        self.speed_buttons: dict[str, QPushButton] = {}
+        for speed, words in ((talk.FASTER, "Faster"), (talk.ACCURATE, "More accurate")):
+            button = QPushButton(words)
+            button.setCheckable(True)
+            button.clicked.connect(lambda _checked, chosen=speed: self.choose_speed(chosen))
+            self.speed_group.addButton(button)
+            self.speed_buttons[speed] = button
+            speeds.addWidget(button)
+        speeds.addStretch(1)
+        speed_column.addLayout(speeds)
+        self.speed_box.setVisible(talk.speed_offered(self.pyconfig))
+        self.speed_buttons[self.pyconfig.window.speed].setChecked(True)
+        column.addWidget(self.speed_box)
+        self.voice_box = QWidget()
+        self.voice_rows = QVBoxLayout(self.voice_box)
+        self.voice_rows.setContentsMargins(0, 0, 0, 0)
+        self.voice_combos: dict[str, QComboBox] = {}
+        self.voice_box.hide()
+        column.addWidget(self.voice_box)
+        return box
+
+    def _fill_voices(self) -> None:
+        """One list for each language this setup offers a choice of voices in."""
+        choices = talk.voice_choices(self.pyconfig, self.voices)
+        while self.voice_rows.count():
+            item = self.voice_rows.takeAt(0)
+            if item.layout() is not None:
+                while item.layout().count():
+                    item.layout().takeAt(0).widget().deleteLater()
+            elif item.widget() is not None:
+                item.widget().deleteLater()
+        self.voice_combos = {}
+        if choices:
+            self.voice_rows.addWidget(_text("Voice", "heading", 12))
+        self._filling = True
+        for tag, voices in choices.items():
+            row = QHBoxLayout()
+            label = _text(talk.language_choice(tag), "muted")
+            label.setFixedWidth(180)
+            combo = QComboBox()
+            combo.setMinimumWidth(320)
+            for voice in voices:
+                combo.addItem(view.plain_name(voice.named, voice.name, voice.dir_name), voice.dir_name)
+            combo.setCurrentIndex(max(0, combo.findData(talk.chosen_voice(self.pyconfig, tag, self.voices))))
+            combo.currentIndexChanged.connect(self.voices_chosen)
+            row.addWidget(label)
+            row.addWidget(combo)
+            row.addStretch(1)
+            self.voice_rows.addLayout(row)
+            self.voice_combos[tag] = combo
+        self._filling = False
+        self.voice_box.setVisible(bool(choices))
+
+    def choose_speed(self, speed: str) -> None:
+        self.pyconfig.window.speed = speed
+        self.save()
+
+    def voices_chosen(self) -> None:
+        if not self._filling:
+            self.pyconfig.window.voices = [c.currentData() for c in self.voice_combos.values()]
+            self.save()
 
     # -------------------------------------------------------------- what is installed
 
@@ -762,16 +871,21 @@ class AppWindow(QMainWindow):
         problem = ""
         found_asr = models.discover(paths.asr_dir(self.root), models.Role.ASR)
         found_tts = models.discover(paths.tts_dir(self.root), models.Role.TTS)
+        found_mt = models.discover_translators(paths.mt_dir(self.root)) if self.developer else []
         try:
             inputs, outputs = audio.list_input_devices(), audio.list_output_devices()
         except audio.AudioError as e:
             inputs, outputs, problem = [], [], str(e)
         self._found_now = ([e for e in found_asr if isinstance(e, models.Engine)],
-                           [e for e in found_tts if isinstance(e, models.Engine)], inputs, outputs, problem)
+                           [e for e in found_tts if isinstance(e, models.Engine)], inputs, outputs, problem,
+                           found_asr, found_tts, found_mt)
 
     def _take_found(self) -> None:
-        self.engines, self.voices, self.inputs, self.outputs, problem = self._found_now
+        self.engines, self.voices, self.inputs, self.outputs, problem, found_asr, found_tts, found_mt = self._found_now
         self._found_now = None
+        self.snapshot = {"recognizer": rescan_mod.engine_items(found_asr), "translator": rescan_mod.translator_items(found_mt),
+                         "voice": rescan_mod.engine_items(found_tts), "microphone": rescan_mod.device_items(self.inputs),
+                         "speakers": rescan_mod.device_items(self.outputs)}
         self.found = True
         if problem:
             self.session.last_error = problem
@@ -784,7 +898,54 @@ class AppWindow(QMainWindow):
                 combo.addItem(device.name, device.name)
             combo.setCurrentIndex(max(0, combo.findData(chosen)))
         self._filling = False
+        self._fill_voices()
+        if self.dev is not None:
+            self.dev.take_found(found_asr, found_mt)
         self._fill_languages()
+
+    def rescan(self) -> None:
+        """Read the devices, and in developer mode the models, again without
+        restarting; a choice that is gone is replaced, and plain lines say so. A
+        running conversation keeps what it loaded."""
+        running = self.pipeline is not None
+        pickers = {"microphone": self.input_device, "speakers": self.output_device}
+        if self.dev is not None:
+            pickers = {"recognizer": self.dev.recognizer, "translator": self.dev.translator, **pickers}
+        before = self.snapshot
+        names = {kind: {i.id: i.name for i in items} for kind, items in before.items()}
+        chosen = {kind: combo.currentData() or "" for kind, combo in pickers.items()}
+        self.session.last_error = None
+        self._search()
+        self._take_found()
+
+        def shown(snapshot: rescan_mod.Snapshot) -> rescan_mod.Snapshot:
+            return {kind: items for kind, items in snapshot.items() if self.dev is not None or kind in pickers}
+
+        lines = rescan_mod.compare(shown(before), shown(self.snapshot))
+        now_names = {kind: {i.id: i.name for i in items} for kind, items in self.snapshot.items()}
+        for kind, combo in pickers.items():
+            was, now = chosen[kind], combo.currentData() or ""
+            if was == now:
+                continue
+            why = ""
+            if kind == "recognizer" and now:
+                why = "the best match for " + (self.dev.source_lang.currentText() or "this language")
+            elif kind in ("microphone", "speakers"):
+                why = "Windows' default"
+            now_name = now_names[kind].get(now, "") if now else ("the system default" if why else "")
+            lines.append(rescan_mod.selection_line(kind, names[kind].get(was, was), now_name, why if now_name else "", running))
+        words = "\n".join(lines) if lines else "Rescanned: nothing has changed."
+        log.info("rescan: %s", words)
+        self.rescan_notice.setText(words)
+        self.rescan_notice.show()
+        if self.dev is not None:
+            self.dev.notice.setText(words)
+            self.dev.notice.show()
+            self.dev.save_choices()
+        self.config.audio.input_device = self.input_device.currentData() or ""
+        self.config.audio.output_device = self.output_device.currentData() or ""
+        self.save()
+        self.refresh()
 
     def _fill_languages(self) -> None:
         """The two lists, for the way chosen, with its last languages selected."""
@@ -828,9 +989,15 @@ class AppWindow(QMainWindow):
         self._filling = False
         self.refresh()
 
+    def bench_problem(self) -> str:
+        """Two sets of models would not fit."""
+        return self.dev.BENCH_BUSY if self.dev is not None and self.dev.bench_busy() else ""
+
     def start_problem(self) -> str:
         if not self.found:
             return "Getting ready..."
+        if self.bench_problem():
+            return self.bench_problem()
         return talk.can_start(self.way.name, self.first_language.currentData() or "",
                               self.second_language.currentData() or "", self.language_tags)
 
@@ -839,7 +1006,7 @@ class AppWindow(QMainWindow):
         if self.start_problem() or self.pipeline is not None:
             return
         first, second = self.first_language.currentData(), self.second_language.currentData()
-        talk.choose(self.config, self.way.name, first, second)
+        talk.choose(self.config, self.way.name, first, second, keep_style=self.dev is not None)
         self.save()
         self.reading = False
         self._begin(first, second, self.way.name == talk.TWO_COMPUTERS)
@@ -870,13 +1037,20 @@ class AppWindow(QMainWindow):
                 self.session.last_error = str(e)
         ev.restart_clock()
         self.events = queue.Queue()
-        self.preferred_asr = talk.recognizer_choice(first, self.engines, self.config.asr.engine)
+        speed_asr, speed_mt = talk.speed_models(self.pyconfig)
+        self.preferred_asr = talk.recognizer_choice(first, self.engines, speed_asr or self.config.asr.engine)
+        talk.apply_voices(self.config.shared, self.pyconfig, self.voices)
         self.addresses = talk.addresses_to_show(peer_mod.local_addresses()) if paired else []
-        options = Options(speak=True, pair=paired, asr=self.preferred_asr, clips=self.clips,
-                          streaming=False if source is not None else None)
+        full_speed = source is not None and not source.realtime
+        options = Options(speak=True, pair=paired, asr=self.preferred_asr, mt=speed_mt, clips=self.clips,
+                          streaming=False if full_speed else None, voices=tuple(self.pyconfig.window.voices),
+                          **(self.dev.options() if self.dev is not None else {}))
+        if self.dev is not None:
+            self.dev.begin(self.recording_path if source is not None else None)
         self.pipeline = Pipeline(self.root, dataclasses.replace(self.config), options, self.events, source,
                                  self.pyconfig)
-        self.pipeline.muted = source is not None or not self.config.tts.enabled
+        read_aloud = self.dev is not None and self.dev.read_speak.isChecked()
+        self.pipeline.muted = not self.config.tts.enabled if source is None else not read_aloud
         self.pipeline.start()
         self.refresh()
 
@@ -887,6 +1061,8 @@ class AppWindow(QMainWindow):
         if self.pipeline is not None:
             self.ending = True
             self.close_bar()  # its player goes with the conversation
+            if self.reading_paused:
+                self.toggle_reading()
             self.pipeline.stop()
             self.refresh()
 
@@ -915,6 +1091,8 @@ class AppWindow(QMainWindow):
                 break
             changed = True
             self.session.apply(event)
+            if self.dev is not None:
+                self.dev.observe(event)
             if isinstance(event, ev.Level):
                 self.mic_watch.heard(event.db, time.monotonic())
             elif isinstance(event, ev.SpeakingStarted):
@@ -948,6 +1126,8 @@ class AppWindow(QMainWindow):
         self.pipeline, self.ending = None, False
         self._keep()
         self._settle()
+        if self.dev is not None:
+            self.dev.finished()
         if self.reading and not self.session.lines and not stopped_by_hand and not self.session.last_error:
             self.start_notice.setText(talk.NO_SPEECH)
             self.start_notice.show()
@@ -1130,6 +1310,8 @@ class AppWindow(QMainWindow):
             return self.opening_note.text()
         if not self.found:
             return "Getting ready..."
+        if self.bench_problem():
+            return self.bench_problem()
         return talk.can_start(talk.HANDS_FREE, self.recording_language.currentData() or "",
                               self.recording_target.currentData() or "", self.language_tags)
 
@@ -1143,10 +1325,29 @@ class AppWindow(QMainWindow):
         first, second = self.recording_language.currentData(), self.recording_target.currentData()
         self.config.languages.source, self.config.languages.target = first, second
         self.save()
-        self.reading, self.recording_name = True, self.opening.stem
-        source = ArraySource(self.opening_audio)  # as fast as it can: nobody is listening along
+        self.reading, self.recording_name, self.recording_path = True, self.opening.stem, self.opening
+        # As fast as it can: nobody is listening along, unless a developer wants to.
+        realtime = self.dev is not None and self.dev.read_realtime.isChecked()
+        samples = self.opening_audio
+        source = self.reading_source = ArraySource(samples, realtime=realtime)
+        self.reading_paused = False
         self.opening, self.opening_audio = None, None
         self._begin(first, second, False, source)
+        if realtime and self.dev.read_original.isChecked():
+            try:
+                self._close_review_player()
+                self.review_player = playback.Player(self.config.audio.output_device, playback.Gate(False))
+                self.review_player.play(samples, audio.SAMPLE_RATE)
+            except playback.PlaybackError as e:
+                self.session.last_error = str(e)
+
+    def toggle_reading(self) -> None:
+        """A recording read at playing speed can be paused, with the original playing along."""
+        self.reading_paused = not self.reading_paused
+        (self.reading_source.pause if self.reading_paused else self.reading_source.resume)()
+        if self.review_player is not None:
+            self.review_player.pause(self.reading_paused)
+        self.refresh()
 
     # -------------------------------------------------------------- sharing
 
@@ -1187,6 +1388,8 @@ class AppWindow(QMainWindow):
     # -------------------------------------------------------------- the Saved page
 
     def page_chosen(self, page: int) -> None:
+        if self.dev is not None:
+            self.dev.page_chosen(page)
         if page == SAVED:
             self.load_saved()
         else:
@@ -1444,8 +1647,27 @@ class AppWindow(QMainWindow):
 
     def turn_key_event(self, raw: ses.KeyEdges) -> None:
         edges = self.turn_key_state.update(raw, self.isActiveWindow())
-        if edges.pressed and self.speak_one.isEnabled():
+        if self.dev is not None and self.config.mode.turn_style == "hold":
+            self._held_key(edges)
+        elif edges.pressed and self.speak_one.isEnabled():
             self.talk_clicked()
+
+    def _held_key(self, edges: ses.KeyEdges) -> None:
+        """Developer mode can hold the key while speaking."""
+        if not self.turn_key_active():
+            return
+        action, self.holding = ses.turn_key_action("hold", self.session.turn, edges, self.holding, self.isActiveWindow())
+        if action == "begin":
+            self.close_bar()
+            self.pipeline.begin_turn()
+        elif action == "end":
+            self.pipeline.end_turn()
+
+    def changeEvent(self, event) -> None:  # noqa: N802 - Qt's name
+        # Losing focus with the key down: the release would never arrive.
+        if event.type() == QEvent.Type.ActivationChange and not self.isActiveWindow() and self.holding:
+            self._held_key(self.turn_key_state.update(ses.KeyEdges(), False))
+        super().changeEvent(event)
 
     def talk_clicked(self) -> None:
         if self.pipeline is None:
@@ -1643,7 +1865,7 @@ class AppWindow(QMainWindow):
     def apply_theme(self) -> None:
         t = self.current_theme()
         self.setStyleSheet(theme.style_sheet(t))
-        for page, _words, draw in RAIL:
+        for page, _words, draw in self.rail_items:
             self.rail_buttons[page].setIcon(_icon(draw, t.muted, t.accent))
         self.theme_buttons[t.name].setChecked(True)
         self._draw_text_size()
@@ -1706,9 +1928,11 @@ class AppWindow(QMainWindow):
                 self.audio_bar.show()
                 self._draw_audio_bar()
         self.saving_words.setText(talk.SAVING_WORDS[self.pyconfig.saving.mode])
+        if self.dev is not None:
+            self.dev.draw()
         self.settings_busy.setVisible(running)
         for widget in (self.input_device, self.output_device, self.headset, self.pause, self.test_microphone,
-                       self.test_speakers):
+                       self.test_speakers, self.rescan_button, self.choices_box):
             widget.setEnabled(not running)
 
     def _draw_banner(self) -> None:
@@ -1738,6 +1962,8 @@ class AppWindow(QMainWindow):
         self.sound.setText("Sound on" if on else "Sound off")
         for widget in (self.sound, self.level_label, self.level):
             widget.setVisible(not self.reading)  # a recording has no microphone, and isn't read aloud
+        self.pause_reading.setVisible(running and self.reading and self.reading_source.realtime)
+        self.pause_reading.setText("Resume" if self.reading_paused else "Pause")
         self.level.setValue(talk.level_share(self.session.level_db))
         _restyle(self.level, "silent", self.mic_silent)
         self.end_button.setVisible(running)
@@ -1799,5 +2025,7 @@ class AppWindow(QMainWindow):
         self.replay.stop()
         self.saved_replay.stop()
         self._close_review_player()
+        if self.dev is not None:
+            self.dev.shutdown()
         QApplication.instance().removeEventFilter(self._key_filter)
         event.accept()

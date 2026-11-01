@@ -5,13 +5,14 @@
 #
 #     .\build.ps1               the whole folder, models included
 #     .\build.ps1 -NoModels     the program only (models\ holds just its README files)
+#     .\build.ps1 -Customer     a customer's copy: no developer shortcut, no developer mode
 #
 # Run .\setup.ps1 first. Uses PyInstaller (one-folder mode, volis.spec),
 # installed from uv.lock's "build" group. The GPU build of the translator is
 # what ships when wheels\cuda\ has one (build-llama.ps1 -Cuda); it needs an
 # NVIDIA GPU on the other PC.
 
-param([switch]$NoModels)
+param([switch]$NoModels, [switch]$Customer)
 $repo = $PSScriptRoot
 $python = Join-Path $repo ".venv\Scripts\python.exe"
 if (-not (Test-Path $python)) {
@@ -48,6 +49,7 @@ try {
     Write-Host "`n== Settings, prompts and models beside the program"
     $layout = @((Join-Path $repo "scripts\layout_build.py"), (Join-Path $repo "dist\volis"))
     if ($NoModels) { $layout += "--no-models" }
+    if ($Customer) { $layout += "--customer" }
     & $python @layout
     if ($LASTEXITCODE -ne 0) { Fail "laying out dist\volis\ failed" }
 

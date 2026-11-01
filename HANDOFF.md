@@ -12,7 +12,7 @@ progress, P13 to P20). `volis-build.md` is the first plan, P0 to P12, and is fin
 what was built and found.
 
 **In progress (2026-10-31): the new window, `volis-ui-plan.md`, stages U1 to U7, ahead of P18 to
-P20.** The old window stays the default until U6; the new one opens with `--new-window`.
+P20.** U1 to U6 are built; the old window is gone.
 
 - **U1 done:** `gui/theme.py` (three themes, `[window].theme`, a test that every word stays readable),
   `gui/bubbles.py` (what the conversation shows, no Qt), `gui/chat.py` (draws it),
@@ -50,7 +50,21 @@ P20.** The old window stays the default until U6; the new one opens with `--new-
   untrusted: every field's type is checked, only audio named as a `Keeper` names it is read, folder names
   are cleaned, nothing is left behind on failure; opening the same conversation again selects it rather than
   copying it. Engine change: `SpeakThread.submit` waits for a lossless source instead of dropping a sentence
-  when the queue is full, which `--file` with speech also gets. The old window keeps its own File mode until U6.
+  when the queue is full, which `--file` with speech also gets.
+- **U6 built:** `gui/window.py` is gone and `app_window` opens by default. `gui/developer.py` (imported only with
+  `--developer`) holds Models and the Developer settings and hosts the test bench and performance panel, which
+  read from its `Hub` as they did from the old window. `gui/keys.py` holds the turn-key filter. `Volis
+  (developer).cmd` is the shortcut, relative so that it survives copying; `build.ps1 -Customer` leaves it out and
+  writes `[setup] developer = false`. Settings gained rescan, and Voice and Faster | More accurate from `[setup]`.
+  Bubbles now carry the Persian as-heard text and a revision's earlier wordings as tooltips, and say a sentence was
+  corrected. `[window] advanced_open` is accepted and ignored, so existing files still load.
+  Old-window tests of what no longer exists were deleted (`test_window`, `test_window_p14`, `test_window_p15`,
+  `test_shared_window`, and parts of `test_view` and `test_no_voice`); those for the bench, performance, rescan and
+  the turn key were moved over. `session.indicator` is now only used by tests of it, and can go.
+  **Left out of the new window:** switching way during a conversation; two computers listening continuously
+  (the plan's "two-way hands-free", for later); typing with no conversation running (the test bench compares
+  typed text, and typing works during a conversation); the found-computers buttons and Disconnect (U7);
+  picking a row's stretch of a recording to play (the bubble plays that sentence's original in Saved).
 
 ## Priorities (2026-10-10)
 

@@ -70,7 +70,8 @@ function; no settings no milestone needs.
 
 ## Status
 
-P0 to P12 done (through the window, voice output, file mode, continuous and turn-based modes,
+U1 to U6 of `volis-ui-plan.md` done (the window is `gui/app_window.py`; developer pages are in
+`gui/developer.py`, only with `--developer`). P0 to P12 done (through the window, voice output, file mode, continuous and turn-based modes,
 streaming recognition, carry-forward context, revision mode, paired mode, the shared machine,
 the llama.cpp speech, LoRA and transformers-translator backends, and the copy-to-run folder
 built by `build.ps1`). See `HANDOFF.md`.

@@ -62,10 +62,14 @@ class FakePipeline:
         self.asked.append(("typed", tuple(lines), direction.side if direction else ""))
 
 
+FIT = type("Fit", (), {"label": lambda self, tag: "general"})()
+
+
 def _engine(name, languages):
     class E:
         dir_name, named, unusable = name, True, ""
         languages_known = True
+        files, detail = [], ""
 
         def enabled(self):
             return True
@@ -85,14 +89,14 @@ def make(tmp_path, monkeypatch):
     monkeypatch.setattr(audio, "list_output_devices", lambda: [])
     monkeypatch.setattr(app_window, "Pipeline", FakePipeline)
     monkeypatch.setattr(models, "rank", lambda tag, engines: [
-        type("R", (), {"engine": e, "fit": 0}) for e in engines if tag.split("-")[0] in e.languages])
+        type("R", (), {"engine": e, "fit": FIT}) for e in engines if tag.split("-")[0] in e.languages])
     FakePipeline.made = []
     windows = []
 
-    def build(config=None, pyconfig=None, found=True):
+    def build(config=None, pyconfig=None, found=True, developer=False):
         config = config or Config()
         config.asr.engine = ""
-        w = app_window.AppWindow(tmp_path, config, pyconfig or PythonConfig())
+        w = app_window.AppWindow(tmp_path, config, pyconfig or PythonConfig(), developer)
         w.resize(1000, 700)
         w.show()
         windows.append(w)
@@ -104,6 +108,8 @@ def make(tmp_path, monkeypatch):
             w.engines = [_engine("hears-all", ["fa", "en", "ar", "es"])]
             w.voices = [_engine("voice", ["fa", "en"])]
             w._fill_languages()
+            if developer:
+                w.dev.fill_pickers()
         return w
 
     yield build
@@ -138,10 +144,11 @@ def shown_sample(w):
     QApplication.processEvents()
 
 
-def test_the_flag_opens_it():
-    assert cli.parse(["--new-window"]) == cli.Command("new-window")
+def test_the_flag_opens_developer_mode():
+    assert cli.parse([]) == cli.Command("gui")
+    assert cli.parse(["--developer"]) == cli.Command("developer")
     with pytest.raises(cli.UsageError):
-        cli.parse(["--new-window", "extra"])
+        cli.parse(["--developer", "extra"])
 
 
 def test_the_rail_changes_page(window):
@@ -1100,3 +1107,213 @@ def test_open_is_offered_on_the_start_screen_and_in_saved(window, tmp_path, monk
     window.saved_open.click()
     assert opened == [tmp_path / "x.volis"] * 2
     assert not window.start_open.isHidden()
+
+
+# ---------------------------------------------------------------- developer mode
+
+
+def test_a_customer_has_no_route_to_the_developer_pages(window):
+    assert window.dev is None and window.pages.count() == 3 and set(window.rail_buttons) == {0, 1, 2}
+    assert "volis-developer" not in window.windowTitle()
+
+
+def test_the_flag_is_refused_where_the_setup_says_so(tmp_path, monkeypatch):
+    QApplication.instance() or QApplication([])
+    made = []
+
+    class Window:
+        def __init__(self, root, config, pyconfig, developer):
+            made.append(developer)
+
+        def show(self):
+            pass
+
+    monkeypatch.setattr(app_window, "AppWindow", Window)
+    monkeypatch.setattr(QApplication.instance(), "exec", lambda: 0, raising=False)
+    monkeypatch.setattr(QApplication, "exec", lambda *a: 0)
+    paths.python_config_file(tmp_path).write_text("[setup]\ndeveloper = false\n", encoding="utf-8")
+    assert app_window.run(tmp_path, Config(), True) == 0 and made == [False]
+    paths.python_config_file(tmp_path).write_text("", encoding="utf-8")
+    assert app_window.run(tmp_path, Config(), True) == 0 and made == [False, True]
+
+
+@pytest.fixture
+def developer(make, tmp_path):
+    w = make(developer=True)
+    return w
+
+
+def test_developer_mode_adds_its_pages_to_the_same_window(developer):
+    from volis.gui import developer as pages
+
+    assert developer.windowTitle() == "Volis (developer)" and developer.pages.count() == 7
+    for page, words, _draw in pages.RAIL:
+        developer.rail_buttons[page].click()
+        assert developer.pages.currentIndex() == page and developer.rail_buttons[page].text() == words
+
+
+def test_every_old_setting_has_a_home(developer):
+    """The old window's options, each found where a developer can change it."""
+    dev = developer.dev
+    for widget in (dev.recognizer, dev.translator, dev.source_lang, dev.sides["left"]["recognizer"], dev.sides["right"]["voice"],
+                   dev.rescan_button, dev.streaming, dev.hold_fragments, dev.style_hold, dev.use_context, dev.revise,
+                   dev.hold_speech, dev.diacritize, dev.glossary, dev.read_realtime, dev.read_original, dev.read_speak,
+                   dev.export_button, developer.input_device, developer.output_device, developer.test_microphone,
+                   developer.test_speakers, developer.headset, developer.sound, developer.pause, developer.smaller,
+                   developer.first_language, developer.second_language, developer.swap_button, developer.way_buttons[talk.HANDS_FREE],
+                   developer.peer_input, developer.type_text, developer.saved_open):
+        assert widget is not None
+
+
+def test_developer_settings_reach_the_settings_files(developer):
+    dev = developer.dev
+    dev.revise.setChecked(True)
+    dev.streaming.setChecked(True)
+    dev.diacritize.setChecked(True)
+    dev.style_hold.setChecked(True)
+    py, _ = PythonConfig.load(paths.python_config_file(developer.root))
+    assert (py.context.mode, py.asr.streaming, py.tts.diacritize) == ("revision", True, True)
+    assert developer.config.mode.turn_style == "hold"
+    dev.use_context.setChecked(False)
+    assert PythonConfig.load(paths.python_config_file(developer.root))[0].context.mode == "off"
+
+
+def test_a_greyed_out_option_says_why(developer):
+    dev = developer.dev
+    dev.use_context.setChecked(False)
+    assert not dev.revise.isEnabled() and "context" in dev.reasons["revise"].text() and not dev.reasons["revise"].isHidden()
+    dev.use_context.setChecked(True)
+    assert dev.revise.isEnabled() and dev.reasons["revise"].isHidden()
+
+
+def test_a_customer_is_always_press_and_press_again_but_a_developer_can_hold(window, developer):
+    window.config.mode.turn_style = "hold"
+    window.way_buttons[talk.TOGETHER].click()
+    window.start_button.click()
+    assert window.config.mode.turn_style == "toggle"
+    developer.config.mode.turn_style = "hold"
+    developer.way_buttons[talk.TOGETHER].click()
+    developer.start_button.click()
+    assert developer.config.mode.turn_style == "hold"
+
+
+def holding_a_turn(w):
+    w.way_buttons[talk.TWO_COMPUTERS].click()
+    w.config.mode.turn_style = "hold"
+    w.start_button.click()
+    w.config.mode.turn_style = "hold"
+    for event in (ev.Listening(), ev.Mode("turn"), ev.PeerMsg("connected", name="Desk")):
+        w.events.put(event)
+    w.tick()
+    w.isActiveWindow = lambda: True  # offscreen windows are never "active"
+    return w.pipeline
+
+
+def test_holding_the_key_is_a_turn(developer):
+    pipeline = holding_a_turn(developer)
+    developer.turn_key_event(ses.KeyEdges(pressed=True))
+    assert pipeline.asked == [("begin",)]
+    developer.session.apply(ev.TurnStarted())
+    developer.turn_key_event(ses.KeyEdges(released=True))
+    assert pipeline.asked == [("begin",), ("end",)]
+
+
+def test_the_turn_key_never_reaches_a_focused_widget(window):
+    """SPEC §8: Space must not also press whatever button has focus."""
+    from PySide6.QtTest import QTest
+
+    clicks = []
+    button = window.swap_button
+    button.clicked.disconnect()
+    button.clicked.connect(lambda: clicks.append(1))
+    window.activateWindow()
+    QApplication.processEvents()
+    button.setFocus()
+    QTest.keyClick(button, Qt.Key.Key_Space)
+    assert clicks == [1], "outside a turn the key belongs to the widgets"
+    window.way_buttons[talk.TWO_COMPUTERS].click()
+    window.start_button.click()
+    for event in (ev.Listening(), ev.Mode("turn"), ev.PeerMsg("connected", name="Desk")):
+        window.events.put(event)
+    window.tick()
+    window.isActiveWindow = lambda: True
+    QTest.keyClick(button, Qt.Key.Key_Space)
+    assert clicks == [1], "Space pressed the focused button"
+    assert window.pipeline.asked == [("begin",)]
+    QTest.keyClick(button, Qt.Key.Key_Return)
+    assert window.pipeline.asked == [("begin",)], "other keys are left for the widgets"
+
+
+def test_a_developer_can_read_a_recording_at_playing_speed_and_pause(make, tmp_path, monkeypatch):
+    w = make(developer=True)
+    w.dev.read_realtime.setChecked(True)
+    w.dev.read_speak.setChecked(True)
+    pipeline = reading(w, tmp_path, monkeypatch)
+    assert pipeline.source.realtime and not pipeline.muted and pipeline.options.streaming is None
+    assert not w.pause_reading.isHidden()
+    w.pause_reading.click()
+    assert w.reading_paused and w.pause_reading.text() == "Resume"
+    w.end_button.click()
+    assert not w.reading_paused, "stopping resumes the source, so that it can end"
+    pipeline.source.stop()
+
+
+def test_a_customers_recording_has_no_pause(window, tmp_path, monkeypatch):
+    reading(window, tmp_path, monkeypatch)
+    assert window.pause_reading.isHidden()
+
+
+def test_a_run_can_be_exported_and_the_glossary_reaches_it(make, tmp_path, monkeypatch):
+    w = make(developer=True)
+    w.dev.glossary.setText("Sara, Tehran")
+    pipeline = together(w)
+    assert pipeline.options.glossary == ["Sara", "Tehran"]
+    for event in (ev.SentenceMsg("1.1", 1, "سلام", "fa", 1.0, 2.0), ev.Translated("1.1", "Hello", "en", 300, "cuda", "m")):
+        w.events.put(event)
+    w.tick()
+    assert w.dev.export_button.isEnabled()
+    vad = paths.vad_model_file(tmp_path)  # the export's record names the speech detector's file
+    vad.parent.mkdir(parents=True, exist_ok=True)
+    vad.write_bytes(b"stand-in")
+    w.dev.export_to(tmp_path / "out")
+    assert "Hello" in (tmp_path / "out" / "conversation.txt").read_text(encoding="utf-8")
+    assert "Exported to" in w.dev.run_lines.text()
+
+
+def test_settings_offers_a_choice_only_if_the_setup_includes_it(make):
+    plain = make()
+    assert plain.speed_box.isHidden() and plain.voice_box.isHidden()
+    py = PythonConfig()
+    py.setup.faster, py.setup.accurate = ["hears-all", "small.gguf"], ["hears-all", "big.gguf"]
+    py.setup.voices, py.setup.languages = ["amir", "gyro"], ["fa", "en"]
+    w = make(pyconfig=py)
+    assert not w.speed_box.isHidden()
+    w.voices = [_engine("amir", ["fa"]), _engine("gyro", ["fa"]), _engine("lessac", ["en"])]
+    w._fill_voices()
+    assert not w.voice_box.isHidden() and list(w.voice_combos) == ["fa"]
+    w.voice_combos["fa"].setCurrentIndex(w.voice_combos["fa"].findData("gyro"))
+    w.speed_buttons[talk.FASTER].click()
+    assert PythonConfig.load(paths.python_config_file(w.root))[0].window.voices == ["gyro"]
+    assert PythonConfig.load(paths.python_config_file(w.root))[0].window.speed == "faster"
+    pipeline = together(w)
+    assert pipeline.options.mt == "small.gguf" and pipeline.options.asr == "hears-all"
+    assert pipeline.options.voices == ("gyro",)
+    assert w.config.shared.right_voice == "gyro", "the person speaking English is heard in the Persian voice"
+
+
+def test_a_bubble_says_what_was_heard_and_what_a_revision_replaced(window):
+    together(window)
+    for event in (ev.SentenceMsg("1.1", 1, "می‌خواهم", "fa", 1.0, 2.0, original="می خواهم"),
+                  ev.Translated("1.1", "I want", "en", 300, "cuda", "m"),
+                  ev.Revised("1.1", "I want", "I would like")):
+        window.events.put(event)
+    window.tick()
+    row = window.chat.rows["1.1"]
+    assert row.original.toolTip() == "As heard, before clean-up: می خواهم"
+    assert row.translation.toolTip() == "Earlier: I want" and row.note.text() == bubbles.REVISED
+
+
+def test_settings_from_the_old_window_still_load(tmp_path):
+    path = paths.python_config_file(tmp_path)
+    path.write_text("[window]\nadvanced_open = true\ntext_size = 14\n", encoding="utf-8")
+    assert PythonConfig.load(path)[0].window.text_size == 14
