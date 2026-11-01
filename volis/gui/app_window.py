@@ -16,17 +16,18 @@ from pathlib import Path
 from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import (
-    QApplication, QButtonGroup, QCheckBox, QComboBox, QDoubleSpinBox, QFrame, QHBoxLayout, QLabel, QLineEdit,
-    QListWidget, QListWidgetItem, QMainWindow, QMessageBox, QProgressBar, QPushButton, QSizePolicy, QStackedWidget,
+    QApplication, QButtonGroup, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QLineEdit,
+    QListWidget, QListWidgetItem, QMainWindow, QMenu, QMessageBox, QProgressBar, QPushButton, QSizePolicy, QStackedWidget,
     QToolButton, QVBoxLayout, QWidget,
 )
 
 from .. import audio, clips, conversations, models, paths, playback, typed, varieties
 from .. import events as ev
 from .. import peer as peer_mod
+from ..filesource import FileSourceError, read_16k_mono
 from .. import shared as shared_mod
 from ..config import Config, ConfigError, PythonConfig, save_python_selections
-from ..pipeline import Options, Pipeline
+from ..pipeline import ArraySource, Options, Pipeline
 from . import bubbles, devicetest, talk, theme, view
 from . import session as ses
 from .chat import AudioBar, ChatView
@@ -35,7 +36,7 @@ from .window import KEY_SYMBOLS, TurnKeyFilter, qt_key
 log = logging.getLogger(__name__)
 
 TALK, SAVED, SETTINGS = 0, 1, 2
-START, LOADING, CONVERSATION = 0, 1, 2
+START, LOADING, CONVERSATION, OPENING = 0, 1, 2, 3
 REFRESH_MS = 100
 ICON_SIZE = 24
 PAUSE_RANGE = (0.3, 3.0)  # seconds; [vad].min_silence_ms
@@ -152,6 +153,12 @@ class AppWindow(QMainWindow):
         self.events: queue.Queue = queue.Queue()
         self.pipeline: Pipeline | None = None
         self.ending = False
+        self.reading = False  # the conversation on the Talk page came from a recording
+        self.recording_name = ""
+        self.opening: Path | None = None  # a recording chosen, waiting for its languages
+        self.opening_audio = None
+        self._opened_now = None  # what the decoding thread produced, for the window's thread to take
+        self.share_folder = root
         self.clips = clips.Clips()
         self.replay = clips.Replay()
         self.review_player = None  # for listening once the conversation's own player has gone
@@ -179,6 +186,7 @@ class AppWindow(QMainWindow):
         self.setWindowTitle("Volis")
         self.resize(1180, 760)
         self.setFont(QFont("Segoe UI", 10))
+        self.setAcceptDrops(True)
         self._build()
         self.apply_theme()
         self._key_filter = TurnKeyFilter(self)
@@ -245,7 +253,8 @@ class AppWindow(QMainWindow):
         self.sound.setToolTip("Whether Volis speaks the translations. They are always shown.")
         self.sound.clicked.connect(self.sound_clicked)
         row.addWidget(self.sound)
-        row.addWidget(_text("Microphone", "muted"))
+        self.level_label = _text("Microphone", "muted")
+        row.addWidget(self.level_label)
         self.level = QProgressBar()
         self.level.setRange(0, 100)
         self.level.setTextVisible(False)
@@ -310,6 +319,7 @@ class AppWindow(QMainWindow):
         inner.addWidget(self._build_audio_bar())
         inner.addWidget(self._build_controls())
         self.talk_stack.addWidget(conversation)
+        self.talk_stack.addWidget(self._build_opening())
         column.addWidget(self.talk_stack, 1)
         return page
 
@@ -365,6 +375,47 @@ class AppWindow(QMainWindow):
         self.start_button = _named(QPushButton("Start"), "primary")
         self.start_button.clicked.connect(self.start)
         column.addWidget(self.start_button)
+        self.start_open = _named(QPushButton("Open a recording or a conversation file"), "link")
+        self.start_open.clicked.connect(self.open_clicked)
+        column.addWidget(self.start_open, 0, Qt.AlignmentFlag.AlignHCenter)
+        column.addStretch(2)
+        outer.addLayout(column)
+        outer.addStretch(1)
+        return page
+
+    def _build_opening(self) -> QWidget:
+        """A recording has been chosen: which languages?"""
+        page = _named(QWidget(), "page")
+        outer = QHBoxLayout(page)
+        outer.addStretch(1)
+        column = QVBoxLayout()
+        column.addStretch(1)
+        column.setSpacing(10)
+        column.addWidget(_text("Translate a recording", "heading", 18))
+        self.opening_file = _text("", "muted")
+        column.addWidget(self.opening_file)
+        column.addSpacing(10)
+        row = QHBoxLayout()
+        self.recording_language, self.recording_target = QComboBox(), QComboBox()
+        for words, combo in (("The recording is in", self.recording_language), ("Translate into", self.recording_target)):
+            part = QVBoxLayout()
+            part.addWidget(_text(words, "muted"))
+            part.addWidget(combo)
+            combo.setMinimumWidth(240)
+            combo.currentIndexChanged.connect(self.start_choices_changed)
+            row.addLayout(part)
+        column.addLayout(row)
+        column.addSpacing(14)
+        self.opening_note = _text("", "problem")
+        column.addWidget(self.opening_note)
+        buttons = QHBoxLayout()
+        self.opening_cancel = QPushButton("Cancel")
+        self.opening_cancel.clicked.connect(self.cancel_opening)
+        self.opening_start = _named(QPushButton("Translate"), "primary")
+        self.opening_start.clicked.connect(self.start_recording)
+        buttons.addWidget(self.opening_cancel)
+        buttons.addWidget(self.opening_start, 1)
+        column.addLayout(buttons)
         column.addStretch(2)
         outer.addLayout(column)
         outer.addStretch(1)
@@ -465,6 +516,10 @@ class AppWindow(QMainWindow):
         self.hands_free = _text("", "heading", 12)
         self.hands_free.setAlignment(Qt.AlignmentFlag.AlignCenter)
         column.addWidget(self.hands_free)
+        self.read_bar = QProgressBar()
+        self.read_bar.setRange(0, 1000)
+        self.read_bar.setTextVisible(False)
+        column.addWidget(self.read_bar)
         buttons = QHBoxLayout()
         self.speak_left, self.speak_right, self.speak_one = [_named(QPushButton(), "speak") for _ in range(3)]
         self.speak_left.clicked.connect(lambda: self.shared_key("left"))
@@ -516,6 +571,10 @@ class AppWindow(QMainWindow):
         self.saved_search.setPlaceholderText("Search")
         self.saved_search.textChanged.connect(self._draw_saved_list)
         column.addWidget(self.saved_search)
+        self.saved_open = QPushButton("Open...")
+        self.saved_open.setToolTip("Open a recording, or a conversation file someone shared")
+        self.saved_open.clicked.connect(self.open_clicked)
+        column.addWidget(self.saved_open)
         self.saved_items = QListWidget()
         self.saved_items.currentRowChanged.connect(self.saved_chosen)
         column.addWidget(self.saved_items, 1)
@@ -542,6 +601,17 @@ class AppWindow(QMainWindow):
         self.saved_name.setToolTip("Its name. Type to rename it.")
         self.saved_name.editingFinished.connect(self.saved_names_changed)
         first.addWidget(self.saved_name, 1)
+        self.saved_share = QPushButton("Share")
+        share_menu = QMenu(self.saved_share)
+        self.share_conversation = share_menu.addAction("Volis conversation file...", self.share_as_file)
+        self.share_words = share_menu.addAction("Text...", self.share_as_text)
+        self.share_sound = share_menu.addAction("Audio...", self.share_as_audio)
+        self.share_conversation.setToolTip("One file, with its audio, that opens in another Volis")
+        self.share_words.setToolTip("Speaker, original and translation")
+        self.share_sound.setToolTip("The whole conversation in the order heard, each original followed by its translation")
+        share_menu.setToolTipsVisible(True)
+        self.saved_share.setMenu(share_menu)
+        first.addWidget(self.saved_share)
         self.saved_delete = QPushButton("Delete")
         self.saved_delete.clicked.connect(self.saved_ask_delete)
         first.addWidget(self.saved_delete)
@@ -563,6 +633,9 @@ class AppWindow(QMainWindow):
         confirm.addWidget(self.saved_delete_no)
         self.saved_confirm.hide()
         rows.addWidget(self.saved_confirm)
+        self.saved_status = _text("", "status")
+        self.saved_status.hide()
+        rows.addWidget(self.saved_status)
         inner.addWidget(head)
         self.saved_chat = ChatView()
         self.saved_chat.bubble_clicked = self.saved_bubble_clicked
@@ -730,12 +803,10 @@ class AppWindow(QMainWindow):
         self.second_label.setText(self.way.second)
         self.refresh()
 
-    def _seconds(self, offered: list[str]) -> list[str]:
+    def _seconds(self, offered: list[str], one_way: bool = False) -> list[str]:
         """Hands-free only translates into the second language, so it needn't be one Volis can hear."""
-        if self.way.name != talk.HANDS_FREE:
+        if self.way.name != talk.HANDS_FREE and not one_way:
             return offered
-        from .. import varieties
-
         wanted = {t.lower() for t in self.pyconfig.setup.languages}
         return [v.tag for v in varieties.TABLE if not wanted or v.tag.lower() in wanted]
 
@@ -770,7 +841,13 @@ class AppWindow(QMainWindow):
         first, second = self.first_language.currentData(), self.second_language.currentData()
         talk.choose(self.config, self.way.name, first, second)
         self.save()
-        paired = self.way.name == talk.TWO_COMPUTERS
+        self.reading = False
+        self._begin(first, second, self.way.name == talk.TWO_COMPUTERS)
+
+    def _begin(self, first: str, second: str, paired: bool = False, source=None) -> None:
+        """Everything a conversation starts with; `source` is a recording to read
+        instead of the microphone. Its translations are spoken only to be kept:
+        nobody is waiting to hear them, and they can be listened to afterwards."""
         self.session.begin(first, second, False, True, paired)
         self.session.clear()
         self.saved_replay.stop()
@@ -788,19 +865,23 @@ class AppWindow(QMainWindow):
         if self.pyconfig.saving.mode != "never":
             try:
                 conversations.recover(self.root)  # never overwrite one that wasn't settled
-                self.keeper = conversations.Keeper(self.root, (first, second), self.way.name, self.clips)
+                self.keeper = conversations.Keeper(self.root, (first, second), self._way_name(), self.clips)
             except conversations.ConversationError as e:
                 self.session.last_error = str(e)
         ev.restart_clock()
         self.events = queue.Queue()
         self.preferred_asr = talk.recognizer_choice(first, self.engines, self.config.asr.engine)
         self.addresses = talk.addresses_to_show(peer_mod.local_addresses()) if paired else []
-        options = Options(speak=True, pair=paired, asr=self.preferred_asr, clips=self.clips)
-        self.pipeline = Pipeline(self.root, dataclasses.replace(self.config), options, self.events, None,
+        options = Options(speak=True, pair=paired, asr=self.preferred_asr, clips=self.clips,
+                          streaming=False if source is not None else None)
+        self.pipeline = Pipeline(self.root, dataclasses.replace(self.config), options, self.events, source,
                                  self.pyconfig)
-        self.pipeline.muted = not self.config.tts.enabled
+        self.pipeline.muted = source is not None or not self.config.tts.enabled
         self.pipeline.start()
         self.refresh()
+
+    def _way_name(self) -> str:
+        return talk.RECORDING if self.reading else self.way.name
 
     def end_conversation(self) -> None:
         if self.pipeline is not None:
@@ -824,6 +905,9 @@ class AppWindow(QMainWindow):
         if self._found_now is not None:
             self._take_found()
         changed = False
+        if self._opened_now is not None:
+            self._take_opened()
+            changed = True
         while True:
             try:
                 event = self.events.get_nowait()
@@ -838,7 +922,7 @@ class AppWindow(QMainWindow):
                 self.close_bar()
             elif isinstance(event, ev.Stopped):
                 self._finished()
-        silent = self.mic_watch.silent(talk.microphone_open(self.session), time.monotonic())
+        silent = self.mic_watch.silent(talk.microphone_open(self.session) and not self.reading, time.monotonic())
         if silent != self.mic_silent:
             self.mic_silent, changed = silent, True
         if self.replay.active():
@@ -860,9 +944,13 @@ class AppWindow(QMainWindow):
     def _finished(self) -> None:
         if self.pipeline is not None:
             self.pipeline.join(2.0)
+        stopped_by_hand = self.ending
         self.pipeline, self.ending = None, False
         self._keep()
         self._settle()
+        if self.reading and not self.session.lines and not stopped_by_hand and not self.session.last_error:
+            self.start_notice.setText(talk.NO_SPEECH)
+            self.start_notice.show()
 
     # -------------------------------------------------------------- saving
 
@@ -913,10 +1001,12 @@ class AppWindow(QMainWindow):
             first, second = (bubbles.native_name(t) for t in self.session.languages)
             self.save_left.setPlaceholderText(f"The name of who speaks {first} (optional)")
             self.save_right.setPlaceholderText(f"The name of who speaks {second} (optional)")
-            self.save_right.setVisible(self.way.name != talk.HANDS_FREE)
+            self.save_right.setVisible(not talk.one_speaker(self._way_name()))
             self.save_audio.setChecked(True)
 
     def _default_name(self) -> str:
+        if self.reading:
+            return self.recording_name
         return conversations.default_name(self.session.languages, self.keeper.conversation.created, varieties.display_name)
 
     def _discard_keeper(self) -> None:
@@ -949,6 +1039,150 @@ class AppWindow(QMainWindow):
         self.pyconfig.saving.mode = mode
         self.save()
         self.refresh()
+
+    # -------------------------------------------------------------- opening files
+
+    def open_clicked(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(self, "Open a recording or a conversation file", str(self.root),
+                                              talk.OPEN_FILTER)
+        if path:
+            self.open_path(Path(path))
+
+    def dragEnterEvent(self, event) -> None:  # noqa: N802 - Qt's name
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event) -> None:  # noqa: N802 - Qt's name
+        urls = event.mimeData().urls()
+        if urls and urls[0].isLocalFile():
+            self.open_path(Path(urls[0].toLocalFile()))
+
+    def open_path(self, path: Path) -> None:
+        """One Open for both kinds of file: the name decides which."""
+        if talk.is_conversation_file(path):
+            self._open_conversation(path)
+        else:
+            self._open_recording(path)
+
+    def _open_conversation(self, path: Path) -> None:
+        self.saved_search.clear()
+        self.rail_buttons[SAVED].click()
+        try:
+            opened, already = conversations.open_file(self.root, path)
+        except conversations.ConversationError as e:
+            self.saved_problem.setText(str(e))
+            self.saved_problem.show()
+            return
+        self.saved_current = opened
+        self.load_saved()
+        self._say_saved(f"This conversation was already in Saved: {opened.name}" if already else f"Opened {opened.name}")
+
+    def _open_recording(self, path: Path) -> None:
+        if self.pipeline is not None or self.pending_save:
+            words = talk.END_FIRST if self.pipeline is not None else talk.FINISH_FIRST
+            self.rail_buttons[TALK if self.pending_save else SAVED].click()
+            self.saved_problem.setText(words)
+            self.saved_problem.show()
+            return
+        self.new_conversation()
+        self.start_notice.hide()
+        self.opening, self.opening_audio = path, None
+        self.opening_note.setText("")
+        self.opening_file.setText(f"{path.name}\nReading the file...")
+        self._fill_recording_languages()
+        self.rail_buttons[TALK].click()
+
+        def decode() -> None:
+            try:
+                self._opened_now = (path, read_16k_mono(path), "")
+            except FileSourceError as e:
+                self._opened_now = (path, None, str(e))
+
+        threading.Thread(target=decode, name="volis-open-recording", daemon=True).start()
+        self.refresh()
+
+    def _take_opened(self) -> None:
+        path, samples, problem = self._opened_now
+        self._opened_now = None
+        if path != self.opening:  # cancelled, or another chosen since
+            return
+        self.opening_audio = samples
+        if problem:
+            self.opening_file.setText(path.name)
+            self.opening_note.setText(f"Volis can't read this file. {problem}")
+        else:
+            self.opening_file.setText(f"{path.name}\n{ses.clock(len(samples) / audio.SAMPLE_RATE)} long")
+
+    def _fill_recording_languages(self) -> None:
+        offered = talk.languages_offered(self.pyconfig, self.engines)
+        self.language_tags = offered
+        self._filling = True
+        for combo, chosen, tags in ((self.recording_language, self.config.languages.source, offered),
+                                    (self.recording_target, self.config.languages.target, self._seconds(offered, True))):
+            combo.clear()
+            for tag in tags:
+                combo.addItem(talk.language_choice(tag), tag)
+            combo.setCurrentIndex(max(0, combo.findData(chosen)))
+        self._filling = False
+
+    def recording_problem(self) -> str:
+        if self.opening_note.text():
+            return self.opening_note.text()
+        if not self.found:
+            return "Getting ready..."
+        return talk.can_start(talk.HANDS_FREE, self.recording_language.currentData() or "",
+                              self.recording_target.currentData() or "", self.language_tags)
+
+    def cancel_opening(self) -> None:
+        self.opening, self.opening_audio = None, None
+        self.refresh()
+
+    def start_recording(self) -> None:
+        if self.opening_audio is None or self.recording_problem() or self.pipeline is not None:
+            return
+        first, second = self.recording_language.currentData(), self.recording_target.currentData()
+        self.config.languages.source, self.config.languages.target = first, second
+        self.save()
+        self.reading, self.recording_name = True, self.opening.stem
+        source = ArraySource(self.opening_audio)  # as fast as it can: nobody is listening along
+        self.opening, self.opening_audio = None, None
+        self._begin(first, second, False, source)
+
+    # -------------------------------------------------------------- sharing
+
+    def _share(self, title: str, suffix: str, kind: str, write) -> None:
+        c = self.saved_current
+        if c is None:
+            return
+        suggested = self.share_folder / f"{conversations.safe_name(c.name) or 'conversation'}{suffix}"
+        path, _ = QFileDialog.getSaveFileName(self, title, str(suggested), f"{kind} (*{suffix})")
+        if not path:
+            return
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)  # a long conversation's audio takes a moment
+        try:
+            written = write(c, Path(path))
+        except conversations.ConversationError as e:
+            self.saved_problem.setText(str(e))
+            self.saved_problem.show()
+            return
+        finally:
+            QApplication.restoreOverrideCursor()
+        self.share_folder = written.parent
+        self._say_saved(f"Saved as {written}")
+
+    def _say_saved(self, words: str) -> None:
+        self.saved_status.setText(words)
+        self.saved_status.show()
+
+    def share_as_file(self) -> None:
+        self._share("Share as a Volis conversation file", conversations.FILE_SUFFIX, "Volis conversation",
+                    conversations.share_file)
+
+    def share_as_text(self) -> None:
+        self._share("Share the text", ".txt", "Text", conversations.share_text)
+
+    def share_as_audio(self) -> None:
+        self._share("Share the audio", ".wav", "Audio", conversations.share_audio)
 
     # -------------------------------------------------------------- the Saved page
 
@@ -996,6 +1230,7 @@ class AppWindow(QMainWindow):
         shown = self._shown_conversations()
         self.saved_current = shown[row] if 0 <= row < len(shown) else None
         self.saved_confirm.hide()
+        self.saved_status.hide()
         self._draw_saved()
 
     def _draw_saved(self) -> None:
@@ -1010,10 +1245,11 @@ class AppWindow(QMainWindow):
         first, second = (bubbles.native_name(t) for t in c.languages)
         self.saved_left.setPlaceholderText(f"The name of who speaks {first}")
         self.saved_right.setPlaceholderText(f"The name of who speaks {second}")
-        self.saved_right.setVisible(c.way != talk.HANDS_FREE)
+        self.saved_right.setVisible(not talk.one_speaker(c.way))
         self._draw_saved_chat()
         has_audio = c.has_audio()
         self.saved_all.setEnabled(has_audio)
+        self.share_sound.setEnabled(has_audio)
         self.saved_track_button.setEnabled(has_audio)
         original = self.saved_track == conversations.ORIGINAL
         self.saved_track_button.setChecked(original)
@@ -1446,12 +1682,17 @@ class AppWindow(QMainWindow):
     def refresh(self) -> None:
         s = self.session
         running = self.pipeline is not None
-        screen = LOADING if s.state == ses.STARTING else CONVERSATION if running or s.lines else START
+        screen = LOADING if s.state == ses.STARTING else CONVERSATION if running or s.lines \
+            else OPENING if self.opening is not None else START
         self.talk_stack.setCurrentIndex(screen)
         self.top_bar.setVisible(screen == CONVERSATION)
         self._draw_banner()
         if screen == START:
             self._draw_start()
+        elif screen == OPENING:
+            self.opening_note.setVisible(bool(self.opening_note.text()))
+            self.opening_start.setEnabled(self.opening_audio is not None and not self.recording_problem())
+            self.opening_start.setToolTip(self.recording_problem())
         elif screen == LOADING:
             self.loading_words.setText(talk.loading_words(s.loading))
             self.cancel_button.setEnabled(not self.ending)
@@ -1495,11 +1736,13 @@ class AppWindow(QMainWindow):
         on = self.config.tts.enabled
         self.sound.setChecked(on)
         self.sound.setText("Sound on" if on else "Sound off")
+        for widget in (self.sound, self.level_label, self.level):
+            widget.setVisible(not self.reading)  # a recording has no microphone, and isn't read aloud
         self.level.setValue(talk.level_share(self.session.level_db))
         _restyle(self.level, "silent", self.mic_silent)
         self.end_button.setVisible(running)
         self.end_button.setEnabled(not self.ending)
-        self.end_button.setText("Ending..." if self.ending else "End conversation")
+        self.end_button.setText("Ending..." if self.ending else "Stop reading" if self.reading else "End conversation")
 
     def _draw_speak(self, button: QPushButton, state: talk.Speak) -> None:
         button.setText(f"{state.label}\n{state.hint}")
@@ -1508,14 +1751,15 @@ class AppWindow(QMainWindow):
 
     def _draw_controls(self, running: bool) -> None:
         s = self.session
-        name = self.way.name
+        name = self._way_name()
         together, two = running and name == talk.TOGETHER, running and name == talk.TWO_COMPUTERS
         self.speak_left.setVisible(together)
         self.speak_right.setVisible(together)
         self.speak_one.setVisible(two)
-        self.hands_free.setVisible(running and name == talk.HANDS_FREE)
-        self.type_toggle.setVisible(running)
-        self.type_box.setVisible(self.type_box.isVisible() and running)
+        self.hands_free.setVisible(running and talk.one_speaker(name))
+        self.read_bar.setVisible(running and self.reading)
+        self.type_toggle.setVisible(running and not self.reading)
+        self.type_box.setVisible(self.type_box.isVisible() and running and not self.reading)
         self.save_box.setVisible(self.pending_save and not running)
         self.new_button.setVisible(not running and not self.pending_save)
         self.saved_words.setVisible(bool(self.saved_words.text()))
@@ -1532,7 +1776,8 @@ class AppWindow(QMainWindow):
         notes = [n for n in (*self.side_notes.values(), *s.side_problems.values()) if n] if together else []
         self.side_note.setText(" ".join(dict.fromkeys(notes)))
         self.side_note.setVisible(bool(notes))
-        self.hands_free.setText(talk.hands_free_words(s))
+        self.hands_free.setText(talk.reading_words(s.progress) if self.reading else talk.hands_free_words(s))
+        self.read_bar.setValue(talk.reading_share(s.progress))
         link = talk.link(s)
         self.link_words.setVisible(two)
         self.peer_box.setVisible(two and link.can_connect)

@@ -7,10 +7,12 @@ from dataclasses import dataclass
 
 from .. import models, varieties
 from ..config import Config, PythonConfig
+from ..conversations import FILE_SUFFIX
 from . import bubbles
 from . import session as ses
 
 TOGETHER, TWO_COMPUTERS, HANDS_FREE = "together", "two-computers", "hands-free"
+RECORDING = "recording"  # not a way of talking: a saved conversation may have come from a file
 
 
 @dataclass(frozen=True)
@@ -170,6 +172,43 @@ LOADING_WORDS = {"models": "Getting started...", "recognizer": "Loading speech r
 
 def loading_words(what: str) -> str:
     return LOADING_WORDS.get(what.split(" ")[0], "Getting ready...")
+
+
+def one_speaker(way: str) -> bool:
+    """Whether a conversation had only the one person to name."""
+    return way in (HANDS_FREE, RECORDING)
+
+
+# ---------------------------------------------------------------- opening files
+
+
+RECORDINGS = ("wav", "mp3", "m4a", "flac", "ogg", "opus", "aac", "mp4", "mka", "webm")
+OPEN_FILTER = (f"Recordings and Volis conversations ({' '.join(f'*.{s}' for s in RECORDINGS)} *{FILE_SUFFIX})"
+               ";;All files (*)")
+NO_SPEECH = "Volis found no speech in that recording."
+FINISH_FIRST = "Save or delete the conversation on the Talk page first."
+END_FIRST = "End the conversation to open a recording."
+
+
+def is_conversation_file(path) -> bool:
+    return path.suffix.lower() == FILE_SUFFIX
+
+
+def reading_words(progress: tuple[float, float] | None) -> str:
+    """How far through a recording Volis is."""
+    if progress is None:
+        return "Reading the recording..."
+    position, duration = progress
+    if position >= duration:
+        return "Finishing the last sentences..."
+    return f"Reading the recording: {ses.clock(position)} of {ses.clock(duration)}"
+
+
+def reading_share(progress: tuple[float, float] | None) -> int:
+    """How far, out of 1000, for the bar."""
+    if progress is None or progress[1] <= 0:
+        return 0
+    return min(1000, int(1000 * progress[0] / progress[1]))
 
 
 # ---------------------------------------------------------------- the shared bar

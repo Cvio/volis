@@ -1,6 +1,7 @@
 """A conversation's audio, and playing one clip (U3). No sound device."""
 
 import queue
+import threading
 from types import SimpleNamespace
 
 import numpy as np
@@ -130,7 +131,8 @@ def speaker(monkeypatch, tmp_path, muted=False):
 
     seen, played = queue.Queue(), []
     store = clips.Clips()
-    pipeline = SimpleNamespace(root=tmp_path, pyconfig=PythonConfig(), emit=seen.put, generation=0, muted=muted, clips=store)
+    pipeline = SimpleNamespace(root=tmp_path, pyconfig=PythonConfig(), emit=seen.put, generation=0, muted=muted, clips=store,
+                               source=SimpleNamespace(lossless=False))
     player = SimpleNamespace(play=lambda samples, rate: played.append(rate), queued=lambda: 0, close=lambda: None)
     thread = SpeakThread(pipeline, player)
     monkeypatch.setattr(thread, "_voice", lambda language, folder="": Voice())
@@ -156,3 +158,27 @@ def test_with_the_sound_off_it_is_kept_but_not_played(monkeypatch, tmp_path):
     while not seen.empty():
         events.append(seen.get())
     assert any(isinstance(e, ev.NotSpoken) for e in events), "the turn must not wait for speech that won't come"
+
+
+def test_a_file_waits_for_the_voice_rather_than_lose_a_sentence():
+    """A recording is read far faster than it can be spoken."""
+    def thread(lossless):
+        return SimpleNamespace(queue=queue.Queue(1), pipeline=SimpleNamespace(source=SimpleNamespace(lossless=lossless),
+                                                                               emit=emitted.append))
+
+    emitted: list = []
+    live = thread(False)
+    SpeakThread.submit(live, "1", "a", "en", 0.0)
+    SpeakThread.submit(live, "2", "b", "en", 0.0)
+    assert len(emitted) == 1 and "fell behind" in emitted[0].message
+
+    emitted.clear()
+    file = thread(True)
+    SpeakThread.submit(file, "1", "a", "en", 0.0)
+    second = threading.Thread(target=SpeakThread.submit, args=(file, "2", "b", "en", 0.0), daemon=True)
+    second.start()
+    second.join(0.1)
+    assert second.is_alive() and not emitted  # waiting, not dropped
+    assert file.queue.get(timeout=1)[0] == "1"
+    second.join(1)
+    assert file.queue.get(timeout=1)[0] == "2" and not emitted

@@ -161,3 +161,15 @@ def test_loading_words_and_the_level():
 def test_a_language_is_offered_in_its_own_script():
     assert talk.language_choice("en") == "English"
     assert "فارسی" in talk.language_choice("fa") and "Persian" in talk.language_choice("fa")
+
+
+def test_how_far_through_a_recording():
+    assert talk.reading_words(None) == "Reading the recording..."
+    assert talk.reading_words((30.0, 120.0)) == "Reading the recording: 0:30 of 2:00"
+    assert talk.reading_words((120.0, 120.0)) == "Finishing the last sentences..."
+    assert (talk.reading_share(None), talk.reading_share((30.0, 120.0)), talk.reading_share((5.0, 0.0))) == (0, 250, 0)
+
+
+def test_the_file_name_decides_what_open_does(tmp_path):
+    assert talk.is_conversation_file(tmp_path / "A.VOLIS") and not talk.is_conversation_file(tmp_path / "a.m4a")
+    assert "*.m4a" in talk.OPEN_FILTER and "*.volis" in talk.OPEN_FILTER

@@ -1471,6 +1471,9 @@ class SpeakThread:
 
     def submit(self, sentence_id: str, text: str, language: str, cut_at: float, folder: str = "",
                generation: int | None = None) -> None:
+        if self.pipeline.source.lossless:
+            self.queue.put((sentence_id, text, language, cut_at, folder, generation))  # a file waits rather than lose a sentence
+            return
         try:
             self.queue.put_nowait((sentence_id, text, language, cut_at, folder, generation))
         except queue.Full:

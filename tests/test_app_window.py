@@ -6,6 +6,7 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import time  # noqa: E402
+import zipfile  # noqa: E402
 
 import pytest  # noqa: E402
 
@@ -27,7 +28,7 @@ class FakePipeline:
     made: list = []
 
     def __init__(self, root, config, options, events, source=None, pyconfig=None):
-        self.config, self.options, self.events = config, options, events
+        self.config, self.options, self.events, self.source = config, options, events, source
         self.asked: list = []
         self.muted = False
         FakePipeline.made.append(self)
@@ -902,3 +903,200 @@ def test_lines_removed_from_the_session_are_removed_from_the_screen(window):
 def test_a_live_session_state_is_not_stopped_by_drawing(window):
     together(window)
     assert window.session.state == ses.LISTENING
+
+
+# ---------------------------------------------------------------- open and share
+
+
+def recording_chosen(w, tmp_path, monkeypatch, seconds=3):
+    monkeypatch.setattr(app_window, "read_16k_mono", lambda path: np.zeros(16000 * seconds, np.float32))
+    w.open_path(tmp_path / "interview.m4a")
+    deadline = time.monotonic() + 5
+    while w.opening_audio is None and time.monotonic() < deadline:
+        w.tick()
+        time.sleep(0.01)
+    w.recording_language.setCurrentIndex(w.recording_language.findData("fa"))
+    w.recording_target.setCurrentIndex(w.recording_target.findData("en"))
+    w.refresh()
+
+
+def reading(w, tmp_path, monkeypatch):
+    recording_chosen(w, tmp_path, monkeypatch)
+    w.opening_start.click()
+    w.events.put(ev.Listening())
+    w.events.put(ev.Mode("continuous"))
+    w.tick()
+    return w.pipeline
+
+
+def test_a_recording_asks_for_its_languages(window, tmp_path, monkeypatch):
+    recording_chosen(window, tmp_path, monkeypatch, 65)
+    assert window.talk_stack.currentIndex() == app_window.OPENING
+    assert window.pages.currentIndex() == app_window.TALK
+    assert "interview.m4a" in window.opening_file.text() and "1:05" in window.opening_file.text()
+    assert window.opening_start.isEnabled()
+    window.recording_target.setCurrentIndex(window.recording_target.findData("fa"))
+    window.refresh()
+    assert not window.opening_start.isEnabled()
+    window.opening_cancel.click()
+    assert window.talk_stack.currentIndex() == app_window.START
+
+
+def test_a_recording_runs_from_the_file_at_full_speed_and_silently(window, tmp_path, monkeypatch):
+    pipeline = reading(window, tmp_path, monkeypatch)
+    assert pipeline.options.speak and pipeline.options.clips is window.clips and pipeline.options.streaming is False
+    assert pipeline.muted and pipeline.source.lossless and not pipeline.source.realtime
+    assert not pipeline.options.pair
+    assert window.config.languages.source == "fa" and window.config.languages.target == "en"
+
+
+def test_reading_shows_how_far_and_has_no_microphone_or_buttons(window, tmp_path, monkeypatch):
+    reading(window, tmp_path, monkeypatch)
+    window.events.put(ev.Progress(30.0, 120.0))
+    window.tick()
+    assert window.talk_stack.currentIndex() == app_window.CONVERSATION
+    assert window.hands_free.text() == "Reading the recording: 0:30 of 2:00" and window.read_bar.value() == 250
+    assert window.end_button.text() == "Stop reading"
+    for hidden in (window.sound, window.level, window.speak_left, window.speak_one, window.type_toggle):
+        assert hidden.isHidden()
+
+
+def test_a_silent_file_never_warns_about_the_microphone(window, tmp_path, monkeypatch):
+    reading(window, tmp_path, monkeypatch)
+    window.mic_watch.silent(True, time.monotonic() - 100)
+    window.tick()
+    assert not window.mic_silent
+
+
+def test_a_recording_ends_like_a_conversation_named_after_its_file(window, tmp_path, monkeypatch):
+    reading(window, tmp_path, monkeypatch)
+    for event in (ev.SentenceMsg("1.1", 1, "سلام", "fa", 1.0, 2.0), ev.Translated("1.1", "Hello", "en", 300, "cuda", "m"),
+                  ev.Stopped()):
+        window.events.put(event)
+    window.tick()
+    assert window.save_name.placeholderText() == "interview" and window.save_right.isHidden()
+    window.save_button.click()
+    saved = only_saved(window)
+    assert saved.name == "interview" and saved.way == talk.RECORDING
+
+
+def test_a_recording_with_no_speech_says_so(window, tmp_path, monkeypatch):
+    reading(window, tmp_path, monkeypatch)
+    window.events.put(ev.Stopped())
+    window.tick()
+    assert window.talk_stack.currentIndex() == app_window.START
+    assert window.start_notice.text() == talk.NO_SPEECH and not window.start_notice.isHidden()
+
+
+def test_a_file_that_can_not_be_read_says_so(window, tmp_path, monkeypatch):
+    def fails(path):
+        raise app_window.FileSourceError(f"cannot decode {path}")
+
+    monkeypatch.setattr(app_window, "read_16k_mono", fails)
+    window.open_path(tmp_path / "broken.m4a")
+    deadline = time.monotonic() + 5
+    while not window.opening_note.text() and time.monotonic() < deadline:
+        window.tick()
+        time.sleep(0.01)
+    assert "broken.m4a" in window.opening_note.text() and not window.opening_note.isHidden()
+    assert not window.opening_start.isEnabled()
+
+
+def test_a_recording_waits_for_the_conversation_in_hand(window, tmp_path, monkeypatch):
+    together(window)
+    window.open_path(tmp_path / "a.m4a")
+    assert window.opening is None and window.saved_problem.text() == talk.END_FIRST
+    window.pages.setCurrentIndex(app_window.TALK)
+    ended_window = window
+    ended_window.events.put(ev.SentenceMsg("1.1", 1, "سلام", "fa", 1.0, 2.0))
+    ended_window.end_button.click()
+    ended_window.tick()
+    window.open_path(tmp_path / "a.m4a")
+    assert window.opening is None and window.saved_problem.text() == talk.FINISH_FIRST
+    assert not window.save_box.isHidden()
+
+
+def test_starting_a_conversation_after_a_recording_is_a_conversation_again(window, tmp_path, monkeypatch):
+    reading(window, tmp_path, monkeypatch)
+    window.events.put(ev.Stopped())
+    window.tick()
+    pipeline = together(window)
+    assert not window.reading and pipeline.source is None if hasattr(pipeline, "source") else True
+    assert not window.speak_left.isHidden()
+
+
+def picking(monkeypatch, path):
+    monkeypatch.setattr(app_window.QFileDialog, "getSaveFileName", lambda *a, **k: (str(path), ""))
+
+
+def test_each_kind_of_share_writes_its_file(window, tmp_path, monkeypatch):
+    saved_one(window)
+    show_saved(window)
+    for action, name, check in ((window.share_conversation, "out.volis", lambda p: zipfile.is_zipfile(p)),
+                                (window.share_words, "out.txt", lambda p: "Hello" in p.read_text(encoding="utf-8-sig")),
+                                (window.share_sound, "out.wav", lambda p: conversations.read_wav(p).seconds > 1)):
+        picking(monkeypatch, tmp_path / name)
+        action.trigger()
+        assert check(tmp_path / name) and name in window.saved_status.text()
+
+
+def test_cancelling_a_share_writes_nothing(window, tmp_path, monkeypatch):
+    saved_one(window)
+    show_saved(window)
+    monkeypatch.setattr(app_window.QFileDialog, "getSaveFileName", lambda *a, **k: ("", ""))
+    before = set(tmp_path.iterdir())
+    window.share_conversation.trigger()
+    assert set(tmp_path.iterdir()) == before and window.saved_status.isHidden()
+
+
+def test_a_share_that_fails_says_where(window, tmp_path, monkeypatch):
+    saved_one(window)
+    show_saved(window)
+    picking(monkeypatch, tmp_path / "no-such-folder" / "out.txt")
+    window.share_words.trigger()
+    assert "no-such-folder" in window.saved_problem.text()
+    assert QApplication.overrideCursor() is None
+
+
+def test_audio_can_not_be_shared_when_none_was_kept(window):
+    ended(window)
+    window.save_audio.setChecked(False)
+    window.save_button.click()
+    show_saved(window)
+    assert not window.share_sound.isEnabled() and window.share_words.isEnabled()
+
+
+def test_open_shows_a_shared_conversation_in_saved(make, tmp_path, monkeypatch):
+    w = make()
+    saved_one(w, "Lunch")
+    show_saved(w)
+    shared_file = tmp_path / "out" / "Lunch.volis"
+    shared_file.parent.mkdir()
+    conversations.share_file(only_saved(w), shared_file)
+    conversations.remove(only_saved(w).folder)
+    w.rail_buttons[app_window.TALK].click()
+    w.open_path(shared_file)
+    assert w.pages.currentIndex() == app_window.SAVED
+    assert w.saved_current.name == "Lunch" and w.saved_items.currentRow() == 0
+    assert w.saved_name.text() == "Lunch" and "Opened Lunch" in w.saved_status.text()
+    assert w.saved_chat.rows["1.1"].translation.text()
+    w.open_path(shared_file)
+    assert "already in Saved" in w.saved_status.text() and len(conversations.load_all(tmp_path)[0]) == 1
+
+
+def test_a_bad_conversation_file_is_a_problem_on_the_saved_page(window, tmp_path):
+    bad = tmp_path / "bad.volis"
+    bad.write_bytes(b"not a zip")
+    window.open_path(bad)
+    assert window.pages.currentIndex() == app_window.SAVED and "bad.volis" in window.saved_problem.text()
+    assert not window.saved_problem.isHidden()
+
+
+def test_open_is_offered_on_the_start_screen_and_in_saved(window, tmp_path, monkeypatch):
+    opened = []
+    monkeypatch.setattr(app_window.QFileDialog, "getOpenFileName", lambda *a, **k: (str(tmp_path / "x.volis"), ""))
+    monkeypatch.setattr(window, "open_path", opened.append)
+    window.start_open.click()
+    window.saved_open.click()
+    assert opened == [tmp_path / "x.volis"] * 2
+    assert not window.start_open.isHidden()

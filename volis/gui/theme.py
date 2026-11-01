@@ -84,6 +84,10 @@ QComboBox QAbstractItemView {{
 }}
 QCheckBox {{ spacing: 8px; }}
 
+QMenu {{ background: {t.surface}; color: {t.text}; border: 1px solid {t.muted}; padding: 4px; }}
+QMenu::item {{ padding: 6px 18px; border-radius: 4px; }}
+QMenu::item:selected {{ background: {t.accent}; color: {t.surface}; }}
+QMenu::item:disabled {{ color: {t.muted}; background: transparent; }}
 QProgressBar {{ background: {t.surface}; border: none; border-radius: 4px; max-height: 8px; }}
 QProgressBar::chunk {{ background: {t.accent}; border-radius: 4px; }}
 QProgressBar[silent="true"] {{ background: {t.listening}; }}

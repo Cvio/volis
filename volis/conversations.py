@@ -7,6 +7,9 @@ An ordinary folder inside Volis, one folder per conversation:
         conversation.txt    the same words, for reading anywhere
         audio\\0001-original.wav, 0001-translation.wav, ...
 
+Sharing makes one file of a conversation (a zip, named .volis) that another
+Volis opens, or its text, or all its audio in the order it was heard.
+
 While a conversation runs it is kept up to date in conversations\\in-progress,
 so a crash loses at most the last moments. Whatever is found there when Volis
 opens is moved to an ordinary conversation, marked as recovered.
@@ -21,12 +24,13 @@ import re
 import shutil
 import time
 import wave
+import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
 
-from . import paths
+from . import audio, paths
 from .clips import Clip, Clips
 
 log = logging.getLogger(__name__)
@@ -36,6 +40,11 @@ JSON_NAME, TEXT_NAME, AUDIO_DIR = "conversation.json", "conversation.txt", "audi
 ORIGINAL, TRANSLATION = "original", "translation"
 RECOVERED_NAME = "Recovered conversation"
 LEFT, RIGHT = "left", "right"
+FILE_SUFFIX = ".volis"
+_AUDIO_NAME = re.compile(r"audio/\d+-(original|translation)\.wav")  # the only names a Keeper gives
+BETWEEN_PARTS, BETWEEN_SENTENCES = 0.4, 0.8  # seconds of silence in a conversation's whole audio
+_TEXT_FIELDS = ("key", "side", "speaker", "when", "original", "translation", "problem", "note", "text", "speech",
+                "audio_original", "audio_translation")
 
 
 class ConversationError(Exception):
@@ -130,20 +139,49 @@ def write_wav(path: Path, clip: Clip) -> None:
 def read_wav(path: Path) -> Clip:
     try:
         with wave.open(str(path), "rb") as source:
+            if source.getnchannels() != 1 or source.getsampwidth() != 2 or source.getframerate() <= 0:
+                raise wave.Error("not 16-bit mono")
             samples = np.frombuffer(source.readframes(source.getnframes()), "<i2")
             return Clip(samples, source.getframerate())
-    except (OSError, EOFError, wave.Error) as e:
+    except (OSError, EOFError, ValueError, wave.Error) as e:
         raise ConversationError(f"cannot read {path.absolute()}: {e}") from e
+
+
+def _is_text(value) -> bool:
+    return isinstance(value, str)
+
+
+def _parse(text: str, folder: Path) -> Conversation:
+    """A conversation.json's words. One from another computer can say anything,
+    so everything is checked here rather than where it would later go wrong.
+    Raises ValueError, KeyError or TypeError."""
+    data = json.loads(text)
+    if not isinstance(data["version"], int):
+        raise ValueError("its version is not a number")
+    if data["version"] > VERSION:
+        raise ValueError("it was saved by a newer Volis")
+    languages, speakers, lines = data["languages"], data.get("speakers", {}), data["lines"]
+    if not (isinstance(languages, list) and len(languages) == 2 and all(map(_is_text, languages))):
+        raise ValueError("its languages are not two names")
+    if not (isinstance(speakers, dict) and all(map(_is_text, speakers.values()))):
+        raise ValueError("its speakers are not names")
+    if not isinstance(lines, list):
+        raise ValueError("its lines are not a list")
+    for line in lines:
+        if not (isinstance(line, dict) and _is_text(line["key"]) and all(_is_text(line.get(f, "")) for f in _TEXT_FIELDS)):
+            raise ValueError("one of its lines is not readable")
+        if line.get("kind") == "note" and "text" not in line:
+            raise ValueError("one of its notes has no words")
+    name, created, way = data["name"], data["created"], data.get("way", "")
+    if not all(map(_is_text, (name, created, way))):
+        raise ValueError("its name or date is not text")
+    return Conversation(folder, name, created, tuple(languages), way, speakers, lines, bool(data.get("recovered", False)))
 
 
 def load(folder: Path) -> Conversation:
     path = folder / JSON_NAME
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        if data["version"] > VERSION:
-            raise ConversationError(f"{path.absolute()} was saved by a newer Volis")
-        return Conversation(folder, data["name"], data["created"], tuple(data["languages"]), data.get("way", ""),
-                            data.get("speakers", {}), data["lines"], data.get("recovered", False))
+        return _parse(path.read_text(encoding="utf-8"), folder)
     except (OSError, ValueError, KeyError, TypeError) as e:
         raise ConversationError(f"cannot read {path.absolute()}: {e}") from e
 
@@ -174,12 +212,16 @@ def default_name(languages: tuple[str, str], created: str, names=lambda tag: tag
     return f"{names(languages[0])} and {names(languages[1])}, {created}"
 
 
+def safe_name(name: str) -> str:
+    """A name, as far as Windows allows it in a file or folder's name."""
+    return re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", name).strip(" .")[:60].strip(" .")
+
+
 def _folder_for(root: Path, name: str, stamp: str) -> Path:
-    """A new folder's name: when it was, and what it is called, as far as
-    Windows allows. Renaming later changes the name shown, not the folder."""
-    clean = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", name).strip(" .")[:60].strip(" .")
+    """A new folder's name: when it was, and what it is called. Renaming later
+    changes the name shown, not the folder."""
     base = paths.conversations_dir(root)
-    stem = f"{stamp} {clean}".strip()
+    stem = f"{safe_name(stamp)} {safe_name(name)}".strip() or "conversation"
     candidate, n = base / stem, 2
     while candidate.exists():
         candidate, n = base / f"{stem} ({n})", n + 1
@@ -232,6 +274,134 @@ def remove(folder: Path) -> None:
         shutil.rmtree(folder)
     except OSError as e:
         raise ConversationError(f"cannot delete {folder.absolute()}: {e}") from e
+
+
+# ---------------------------------------------------------------- sharing
+
+
+def _with_suffix(path: Path, suffix: str) -> Path:
+    return path if path.suffix.lower() == suffix else path.with_name(path.name + suffix)
+
+
+def _audio_files(c: Conversation) -> list[Path]:
+    found = {}
+    for line in c.sentences():
+        for track in (ORIGINAL, TRANSLATION):
+            path = c.audio_path(line, track)
+            if path is not None and path.is_file():
+                found[path.name] = path
+    return list(found.values())
+
+
+def share_file(c: Conversation, target: Path) -> Path:
+    """One file with everything, which another Volis can open. The audio is
+    stored as it is: squeezing speech takes long and saves little. A failure
+    leaves no half-written file under the name asked for."""
+    target = _with_suffix(target, FILE_SUFFIX)
+    temporary = target.with_name(target.name + ".tmp")
+    try:
+        with zipfile.ZipFile(temporary, "w", zipfile.ZIP_DEFLATED) as out:
+            out.write(c.folder / JSON_NAME, JSON_NAME)
+            for path in _audio_files(c):
+                out.write(path, f"{AUDIO_DIR}/{path.name}", zipfile.ZIP_STORED)
+        os.replace(temporary, target)
+    except OSError as e:
+        temporary.unlink(missing_ok=True)
+        raise ConversationError(f"cannot write {target.absolute()}: {e}") from e
+    return target
+
+
+def share_text(c: Conversation, target: Path) -> Path:
+    """The words: speaker, original, translation. With the mark and line ends
+    that Word and Notepad recognise, so Farsi and Arabic arrive intact."""
+    target = _with_suffix(target, ".txt")
+    try:
+        target.write_text(c.text(), encoding="utf-8-sig", newline="\r\n")
+    except OSError as e:
+        raise ConversationError(f"cannot write {target.absolute()}: {e}") from e
+    return target
+
+
+def whole_audio(c: Conversation) -> Clip | None:
+    """Everything in the order it was heard, each original followed by its
+    translation, at the rate the originals have. None if no audio was kept."""
+    pieces: list[np.ndarray] = []
+
+    def silence(seconds: float) -> None:
+        pieces.append(np.zeros(int(seconds * audio.SAMPLE_RATE), np.int16))
+
+    for line in c.sentences():
+        said = False
+        for track in (ORIGINAL, TRANSLATION):
+            clip = c.clip(line, track)
+            if clip is None or not len(clip.samples):
+                continue
+            if said:
+                silence(BETWEEN_PARTS)
+            samples = clip.samples
+            if clip.rate != audio.SAMPLE_RATE:
+                samples = np.clip(audio.resample(clip.floats(), clip.rate) * 32767.0, -32768, 32767).astype(np.int16)
+            pieces.append(samples)
+            said = True
+        if said:
+            silence(BETWEEN_SENTENCES)
+    return Clip(np.concatenate(pieces), audio.SAMPLE_RATE) if pieces else None
+
+
+def share_audio(c: Conversation, target: Path) -> Path:
+    target = _with_suffix(target, ".wav")
+    whole = whole_audio(c)
+    if whole is None:
+        raise ConversationError(f"{c.name} has no audio to share")
+    temporary = target.with_name(target.name + ".tmp")
+    try:
+        write_wav(temporary, whole)
+        os.replace(temporary, target)
+    except OSError as e:
+        temporary.unlink(missing_ok=True)
+        raise ConversationError(f"cannot write {target.absolute()}: {e}") from e
+    return target
+
+
+def open_file(root: Path, path: Path) -> tuple[Conversation, bool]:
+    """A shared conversation, into this Volis's Saved: the conversation, and
+    whether it was there already. Only the two kinds of file a conversation has
+    are read out of the zip, each under a name decided here, so a file from
+    elsewhere can't write anywhere else."""
+    source = path.absolute()
+    try:
+        with zipfile.ZipFile(path) as zipped:
+            try:
+                info = zipped.getinfo(JSON_NAME)
+            except KeyError:
+                raise ConversationError(f"{source} isn't a Volis conversation file") from None
+            incoming = _parse(zipped.read(info).decode("utf-8"), Path())
+            known, _ = load_all(root)
+            same = next((c for c in known if (c.created, c.lines) == (incoming.created, incoming.lines)), None)
+            if same is not None:
+                return same, True
+            members = {f"{AUDIO_DIR}/{p.name}" for line in incoming.sentences() for p in
+                       (incoming.audio_path(line, ORIGINAL), incoming.audio_path(line, TRANSLATION)) if p is not None}
+            wanted = [i for i in zipped.infolist() if i.filename in members and _AUDIO_NAME.fullmatch(i.filename)]
+            folder = _folder_for(root, incoming.name, _stamp(incoming.created))
+            folder.parent.mkdir(parents=True, exist_ok=True)
+            needed = info.file_size + sum(i.file_size for i in wanted)
+            if needed > shutil.disk_usage(folder.parent).free:
+                raise ConversationError(f"not enough room on the disk for {source} in {folder.parent.absolute()}")
+            try:
+                (folder / AUDIO_DIR).mkdir(parents=True)
+                for member in wanted:
+                    (folder / AUDIO_DIR / Path(member.filename).name).write_bytes(zipped.read(member))
+                incoming.folder = folder
+                incoming.write()  # last: without it, what is there isn't a conversation yet
+            except (OSError, zipfile.BadZipFile, ConversationError):
+                shutil.rmtree(folder, ignore_errors=True)
+                raise
+    except ConversationError:
+        raise
+    except (OSError, ValueError, KeyError, TypeError, zipfile.BadZipFile) as e:
+        raise ConversationError(f"cannot open {source}: {e}") from e
+    return incoming, False
 
 
 class Keeper:

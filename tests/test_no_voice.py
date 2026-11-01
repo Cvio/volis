@@ -14,7 +14,8 @@ from test_window_p15 import ES, settle, window  # noqa: F401 - the window fixtur
 
 def test_a_language_with_no_voice_is_said_once_then_shown_without_a_word(tmp_path):
     events: list = []
-    speaker = SpeakThread(SimpleNamespace(root=tmp_path, pyconfig=PythonConfig(), emit=events.append, generation=0),
+    speaker = SpeakThread(SimpleNamespace(root=tmp_path, pyconfig=PythonConfig(), emit=events.append, generation=0,
+                                          source=SimpleNamespace(lossless=False)),
                           player=None)
     try:
         speaker.prepare("fa")

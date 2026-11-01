@@ -41,6 +41,16 @@ P20.** The old window stays the default until U6; the new one opens with `--new-
   when Volis opens, rather than prompting. Saved page: list, search, rename, speakers, delete with a
   confirmation, the same bubbles, a Translation/Original switch and Play all. Renaming changes the name
   shown and the text file, not the folder. `Session.max_lines = None` in the new window: nothing is cut off.
+- **U5 built:** one Open (Start screen, Saved page, or dropping a file on the window); the file's name
+  decides what it is. A recording asks for its languages and runs through the ordinary pipeline from an
+  `ArraySource` at full speed, without streaming passes, muted, with its speech kept, then ends like any
+  conversation (`way = "recording"`, suggested name from the file). `conversations.py`: Share as a `.volis`
+  file (a zip of `conversation.json` and `audio\`), as text (UTF-8 with a BOM and CRLF, for Word and Notepad),
+  or as one WAV at 16 kHz with each original followed by its translation. `open_file` treats a `.volis` as
+  untrusted: every field's type is checked, only audio named as a `Keeper` names it is read, folder names
+  are cleaned, nothing is left behind on failure; opening the same conversation again selects it rather than
+  copying it. Engine change: `SpeakThread.submit` waits for a lossless source instead of dropping a sentence
+  when the queue is full, which `--file` with speech also gets. The old window keeps its own File mode until U6.
 
 ## Priorities (2026-10-10)
 

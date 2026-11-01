@@ -1,5 +1,9 @@
 """Saved conversations (U4). No Qt and no sound device."""
 
+import json
+import wave
+import zipfile
+
 import numpy as np
 import pytest
 
@@ -192,3 +196,138 @@ def test_a_session_can_keep_everything():
     for n in range(ses.MAX_LINES + 50):
         s.apply(ev.SentenceMsg(f"{n}.1", n, "x", "fa", 0.0, 1.0))
     assert len(s.lines) == ses.MAX_LINES + 50
+
+
+# ---------------------------------------------------------------- sharing
+
+
+def a_saved(tmp_path):
+    return a_keeper(tmp_path).save("Menu", True, {"left": "Sara"})
+
+
+def test_a_shared_file_opens_the_same_in_another_volis(tmp_path):
+    saved = a_saved(tmp_path / "one")
+    shared = conversations.share_file(saved, tmp_path / "Menu")
+    assert shared.name == "Menu.volis"
+    opened, already = conversations.open_file(tmp_path / "two", shared)
+    assert not already and opened.folder.parent == paths.conversations_dir(tmp_path / "two")
+    again = conversations.load(opened.folder)
+    assert (again.name, again.speakers, again.lines) == (saved.name, saved.speakers, saved.lines)
+    line = again.sentences()[0]
+    assert len(again.clip(line, conversations.ORIGINAL).samples) == 16000
+    assert again.clip(line, conversations.TRANSLATION).rate == 22050
+    assert (opened.folder / "conversation.txt").is_file()
+
+
+def test_opening_the_same_file_again_makes_no_copy(tmp_path):
+    shared = conversations.share_file(a_saved(tmp_path / "one"), tmp_path / "Menu.volis")
+    first, _ = conversations.open_file(tmp_path / "two", shared)
+    second, already = conversations.open_file(tmp_path / "two", shared)
+    assert already and second.folder == first.folder
+    assert len(conversations.load_all(tmp_path / "two")[0]) == 1
+
+
+def a_zip(path, data, members=()):
+    with zipfile.ZipFile(path, "w") as out:
+        out.writestr("conversation.json", json.dumps(data))
+        for name, content in members:
+            out.writestr(name, content)
+    return path
+
+
+def good_data(**changes):
+    return {"version": 1, "name": "Menu", "created": "2026-10-31 14:05", "languages": ["fa", "en"], "lines": [
+        {"kind": "bubble", "key": "1.1", "audio_original": "0001-original.wav"}], **changes}
+
+
+def test_a_file_from_elsewhere_can_not_write_outside_its_folder(tmp_path):
+    root = tmp_path / "root"
+    outside = "../../../outside.wav"
+    path = a_zip(tmp_path / "bad.volis", good_data(created="../../../escaped", name="..\\..\\away", lines=[
+        {"kind": "bubble", "key": "1.1", "audio_original": outside},
+        {"kind": "bubble", "key": "1.2", "audio_original": "0002-original.wav"}]),
+        [(outside, b"x"), ("audio/" + outside, b"x"), ("audio/0002-original.wav", b"good"), ("audio/other.exe", b"x")])
+    opened, _ = conversations.open_file(root, path)
+    base = paths.conversations_dir(root)
+    assert opened.folder.parent == base
+    assert [p.name for p in (opened.folder / "audio").iterdir()] == ["0002-original.wav"]
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["bad.volis", "root"]
+    assert [p.name for p in base.iterdir()] == [opened.folder.name]
+
+
+@pytest.mark.parametrize("changes", [
+    {"version": 99}, {"version": "1"}, {"languages": ["fa"]}, {"languages": "fa"}, {"name": 3}, {"speakers": {"left": 3}},
+    {"lines": "many"}, {"lines": ["one"]}, {"lines": [{"kind": "bubble"}]},
+    {"lines": [{"kind": "bubble", "key": "1", "original": 3}]}, {"lines": [{"kind": "note", "key": "1"}]},
+])
+def test_a_bad_file_says_so_and_leaves_nothing(tmp_path, changes):
+    path = a_zip(tmp_path / "bad.volis", good_data(**changes))
+    with pytest.raises(ConversationError, match="bad.volis"):
+        conversations.open_file(tmp_path / "root", path)
+    assert not paths.conversations_dir(tmp_path / "root").exists()
+
+
+def test_something_that_is_not_a_conversation_file_says_so(tmp_path):
+    not_a_zip = tmp_path / "a.volis"
+    not_a_zip.write_bytes(b"hello")
+    with pytest.raises(ConversationError, match="a.volis"):
+        conversations.open_file(tmp_path, not_a_zip)
+    other = tmp_path / "b.volis"
+    with zipfile.ZipFile(other, "w") as out:
+        out.writestr("something.txt", "x")
+    with pytest.raises(ConversationError, match="isn't a Volis conversation file"):
+        conversations.open_file(tmp_path, other)
+    with pytest.raises(ConversationError, match="c.volis"):
+        conversations.open_file(tmp_path, tmp_path / "c.volis")
+
+
+def test_a_wav_that_is_not_ours_is_a_problem_not_a_crash(tmp_path):
+    path = tmp_path / "odd.wav"
+    with wave.open(str(path), "wb") as out:
+        out.setnchannels(2)
+        out.setsampwidth(2)
+        out.setframerate(16000)
+        out.writeframes(b"\0\0\0\0")
+    with pytest.raises(ConversationError, match="odd.wav"):
+        conversations.read_wav(path)
+
+
+def test_the_shared_text_opens_as_unicode_in_word_and_notepad(tmp_path):
+    written = conversations.share_text(a_saved(tmp_path), tmp_path / "Menu")
+    raw = written.read_bytes()
+    assert written.suffix == ".txt" and raw.startswith(b"\xef\xbb\xbf") and b"\r\n" in raw
+    words = raw.decode("utf-8-sig")
+    assert words.index("Sara") < words.index("سلام") < words.index("Hello")
+
+
+def test_the_whole_audio_is_each_original_then_its_translation(tmp_path):
+    keeper_clips = clips.Clips()
+    keeper_clips.put_heard(1, 10.0, np.full(16000, 0.5, np.float32))
+    keeper_clips.put_spoken("1.1", np.full(16000, -0.5, np.float32), 16000)
+    keeper_clips.put_spoken("2.1", np.full(8000, -0.25, np.float32), 16000)
+    s = a_session()
+    s.apply(ev.Translated("2.1", "Hi", "fa", 300, "cuda", "m"))
+    keeper = Keeper(tmp_path, ("fa", "en"), "together", keeper_clips, "2026-10-31 14:05")
+    keeper.update(bubbles.lines_from(s))
+    saved = keeper.save("Menu")
+    whole = conversations.whole_audio(saved)
+    part, sentence = int(conversations.BETWEEN_PARTS * 16000), int(conversations.BETWEEN_SENTENCES * 16000)
+    assert whole.rate == 16000 and len(whole.samples) == 16000 + part + 16000 + sentence + 8000 + sentence
+    assert whole.samples[100] > 0 and whole.samples[16000 + 100] == 0 and whole.samples[16000 + part + 100] < 0
+    written = conversations.share_audio(saved, tmp_path / "all")
+    assert written.suffix == ".wav" and conversations.read_wav(written).seconds == whole.seconds
+
+
+def test_the_whole_audio_brings_every_voice_to_one_rate(tmp_path):
+    whole = conversations.whole_audio(a_saved(tmp_path))
+    expected = 16000 + int(conversations.BETWEEN_PARTS * 16000) + 1600 + int(conversations.BETWEEN_SENTENCES * 16000)
+    assert whole.rate == 16000 and abs(len(whole.samples) - expected) < 50
+
+
+def test_no_audio_means_nothing_to_share(tmp_path):
+    saved = a_keeper(tmp_path).save("Menu", False)
+    assert conversations.whole_audio(saved) is None
+    with pytest.raises(ConversationError, match="no audio"):
+        conversations.share_audio(saved, tmp_path / "all.wav")
+    shared = conversations.share_file(saved, tmp_path / "Menu.volis")
+    assert not conversations.open_file(tmp_path / "two", shared)[0].has_audio()
