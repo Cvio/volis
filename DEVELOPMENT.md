@@ -81,6 +81,26 @@ internet.
 
 It uses PyInstaller in one-folder mode (`volis.spec`), installed from `uv.lock`'s `build` group.
 
+### Commands
+
+Run these from the `volis` folder.
+
+| Command | What it does |
+|---|---|
+| `.\build.ps1` | Builds the folder with this machine's models, keeping developer mode. |
+| `.\build.ps1 -NoModels` | The same without the models. |
+| `.\build.ps1 -NoModels -Customer` | Builds a customer's copy without the models. |
+| `.\.venv\Scripts\python.exe -m volis` | Runs Volis from the source code, with no build. |
+
+To check a customer's copy, start it in developer mode. It should open the ordinary window,
+with no developer pages:
+
+```powershell
+.\dist\volis\volis.exe --developer
+```
+
+Before translating with a `-NoModels` build, put a `models\` folder in `dist\volis\`.
+
 ## Developer mode
 
 `Volis (developer).cmd` opens the same window with four more pages (`--developer`). A customer's copy,
