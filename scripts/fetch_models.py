@@ -81,22 +81,13 @@ class Model:
 # their name in engine.toml instead.
 PLAIN_NAMES = {
     "asr/whisper-large-v3-turbo": "Whisper turbo — many languages",
-    "asr/whisper-large-v3-turbo-es": "Whisper turbo — Spanish",
-    "asr/whisper-large-v3-turbo-arabic-dialectal-hf": "Whisper turbo — Arabic dialects",
     "asr/cohere-transcribe-arabic-07-2026": "Cohere Transcribe — Arabic and English",
-    "asr/mms-1b-all": "MMS — Arabic, English, Persian, Spanish (no punctuation)",
-    "asr/whisper-small": "Whisper small — lighter, less accurate",
-    "asr/whisper-algerian-darja-small": "Whisper small — Algerian Arabic (adapter)",
     "mt/gemma-3-4b-it-GGUF": "Gemma 3 4B — good all-round",
     "mt/gemma-4-E4B-it-GGUF": "Gemma 4 E4B — good for Arabic",
     "mt/translategemma-4b-it-GGUF": "TranslateGemma 4B — translation only",
     "mt/gemma-4-12b-it-GGUF": "Gemma 4 12B — best; needs a 16 GB card",
-    "mt/gemma-3-12b-it-GGUF": "Gemma 3 12B — needs a 16 GB card",
     "mt/translategemma-12b-it-GGUF": "TranslateGemma 12B — needs a 16 GB card",
     "mt/Qwen3-8B-GGUF": "Qwen3 8B",
-    "mt/madlad400-3b-mt": "MADLAD-400 3B — translation only, 400 languages",
-    "mt/nllb-200-distilled-1.3B": "NLLB-200 1.3B — translation only, 200 languages (non-commercial licence)",
-    "mt/Qwen3-0.6B": "Qwen3 0.6B — slow; for testing",
 }
 
 LIST = [
@@ -106,34 +97,10 @@ LIST = [
     Model("tashkeel", "", "use", "libtashkeel, the Arabic vowel-marking model Piper uses ([tts] diacritize)",
           url="https://raw.githubusercontent.com/rhasspy/piper-phonemize/master/etc/libtashkeel_model.ort",
           expect=("libtashkeel_model.ort",)),
-    # Model("mt", "", "use", "Qwen3 1.7B Q4_K_M (the one .gguf at the top of mt)",
-    #       repo="unsloth/Qwen3-1.7B-GGUF", file="Qwen3-1.7B-Q4_K_M.gguf", save_as="qwen3-1.7b-q4_k_m.gguf"),
-    # Model("asr", "parakeet-tdt-0.6b-v3-onnx-int8", "use", "Parakeet TDT 0.6B v3, ONNX int8 (sherpa-onnx, CPU)",
-    #       url=f"{SHERPA_ASR}/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2",
-    #       members=("encoder.int8.onnx", "decoder.int8.onnx", "joiner.int8.onnx", "tokens.txt"),
-    #       expect=("encoder.int8.onnx", "decoder.int8.onnx", "joiner.int8.onnx", "tokens.txt"),
-    #       write={"engine.toml": 'name = "Parakeet TDT 0.6B v3 (ONNX int8, CPU)"\nkind = "segment"\nbackend = "nemo_transducer"\n'
-    #                             'languages = ["es", "en", "de", "fr", "it", "pt", "nl", "pl", "ru"]\n\n[files]\n'
-    #                             'encoder = "encoder.int8.onnx"\ndecoder = "decoder.int8.onnx"\n'
-    #                             'joiner  = "joiner.int8.onnx"\ntokens  = "tokens.txt"\n'}),
-    # Model("asr", "whisper-large-v3-turbo-onnx-int8", "use", "Whisper large-v3-turbo, ONNX int8 (sherpa-onnx, CPU)",
-    #       url=f"{SHERPA_ASR}/sherpa-onnx-whisper-turbo.tar.bz2",
-    #       members=("turbo-encoder.int8.onnx", "turbo-decoder.int8.onnx", "turbo-tokens.txt"),
-    #       expect=("turbo-encoder.int8.onnx", "turbo-decoder.int8.onnx", "turbo-tokens.txt"),
-    #       write={"engine.toml": 'name = "Whisper large-v3-turbo (ONNX int8, CPU)"\nkind = "segment"\nbackend = "whisper"\n'
-    #                             'languages = ["es", "en", "de", "fr", "it", "pt", "nl", "pl", "ru", "ar", "fa"]\n\n'
-    #                             '[files]\nencoder = "turbo-encoder.int8.onnx"\ndecoder = "turbo-decoder.int8.onnx"\n'
-    #                             'tokens  = "turbo-tokens.txt"\n'}),
-
 
     # ------------------------------------------------------------ recognizers
     Model("asr", "whisper-large-v3-turbo", "use", "Whisper large-v3-turbo as published, all languages (transformers, GPU)",
           repo="openai/whisper-large-v3-turbo"),
-    # Model("asr", "whisper-large-v3-turbo-es", "use", "Whisper large-v3-turbo tuned for Spanish (transformers, GPU)",
-    #       repo="adriszmar/whisper-large-v3-turbo-es"),
-    # Model("asr", "whisper-large-v3-turbo-arabic-dialectal-hf", "use",
-    #       "Whisper large-v3-turbo tuned for dialectal Arabic (transformers, GPU)",
-    #       repo="oddadmix/whisper-large-v3-turbo-arabic-dialectal"),
     Model("asr", "cohere-transcribe-arabic-07-2026", "use",
           "Cohere Transcribe Arabic (transformers, GPU; gated: accept its terms, then fetch-model.ps1 -Login)",
           repo="CohereLabs/cohere-transcribe-arabic-07-2026", gated=True),
@@ -141,30 +108,14 @@ LIST = [
           repo="facebook/mms-1b-all",
           include=("model.safetensors", "adapter.ara.safetensors", "adapter.eng.safetensors",
                    "adapter.fas.safetensors", "adapter.spa.safetensors")),
-    # Model("asr", "whisper-small", "tested", "Whisper small (transformers); the base of the LoRA adapter below",
-    #       repo="openai/whisper-small"),
-    # Model("asr", "whisper-algerian-darja-small", "tested",
-    #       "a LoRA adapter on whisper-small (Algerian Darja); needs whisper-small beside it",
-    #       repo="touati-kamel/whisper-algerian-darja-small",
-    #       include=("adapter_config.json", "adapter_model.safetensors")),
 
     # ------------------------------------------------------------ translators
-    Model("mt", "gemma-3-4b-it-GGUF", "use", "Gemma 3 4B Q4_K_M",
-          repo="unsloth/gemma-3-4b-it-GGUF", include=("*Q4_K_M.gguf",)),
     Model("mt", "gemma-4-E4B-it-GGUF", "use", "Gemma 4 E4B Q4_K_M",
           repo="unsloth/gemma-4-E4B-it-GGUF", include=("gemma-4-E4B-it-Q4_K_M.gguf",)),
     Model("mt", "translategemma-4b-it-GGUF", "use", "TranslateGemma 4B Q4_K_M",
           repo="mradermacher/translategemma-4b-it-GGUF", include=("*.Q4_K_M.gguf",)),
     # Dedicated translation models (seq2seq, through transformers). MADLAD's repository also holds
     # .gguf files volis can't run (llama.cpp has no chat format for T5); they are not fetched.
-    Model("mt", "madlad400-3b-mt", "tested", "MADLAD-400 3B (11.8 GB; Apache 2.0)",
-          repo="google/madlad400-3b-mt",
-          include=("config.json", "generation_config.json", "model.safetensors", "spiece.model", "tokenizer.json",
-                   "tokenizer_config.json", "special_tokens_map.json", "added_tokens.json")),
-    Model("mt", "nllb-200-distilled-1.3B", "tested", "NLLB-200 distilled 1.3B (5.5 GB; CC-BY-NC 4.0: non-commercial use only)",
-          repo="facebook/nllb-200-distilled-1.3B",
-          include=("config.json", "generation_config.json", "pytorch_model.bin", "sentencepiece.bpe.model",
-                   "tokenizer.json", "tokenizer_config.json", "special_tokens_map.json")),
     Model("mt", "gemma-4-12b-it-GGUF", "bigger", "Gemma 4 12B Q4_K_M (best Arabic measured; needs more than 8 GB of GPU memory)",
           repo="unsloth/gemma-4-12b-it-GGUF", include=("gemma-4-12b-it-Q4_K_M.gguf",)),
     # Model("mt", "gemma-3-12b-it-GGUF", "bigger", "Gemma 3 12B Q4_K_M (needs more than 8 GB of GPU memory)",
@@ -173,19 +124,11 @@ LIST = [
           repo="mradermacher/translategemma-12b-it-GGUF", include=("*.Q4_K_M.gguf",)),
     # Model("mt", "Qwen3-8B-GGUF", "tested", "Qwen3 8B Q4_K_M (no better than the 4B models, and slower)",
     #       repo="Qwen/Qwen3-8B-GGUF", include=("Qwen3-8B-Q4_K_M.gguf",)),
-    # Model("mt", "Qwen3-0.6B", "tested", "Qwen3 0.6B safetensors (only there to prove the transformers translator)",
-    #       repo="Qwen/Qwen3-0.6B"),
 
     # ------------------------------------------------------------ voices
     Model("tts", "vits-piper-ar_JO-kareem-medium", "use", "Piper voice, Arabic, male",
           repo="csukuangfj/vits-piper-ar_JO-kareem-medium",
           write={"engine.toml": piper_engine("Piper ar_JO kareem (medium)", "ar", "ar_JO-kareem-medium.onnx")}),
-    # Model("tts", "arabic-emirati-female-model", "use", "Piper voice, Arabic (Emirati), female; a raw Piper model, converted here",
-    #       repo="vadimbelsky/arabic-emirati-female-piper", piper_language="Arabic",
-    #       write={"engine.toml": piper_engine(
-    #           "Piper ar_AE Emirati female", "ar", "arabic-emirati-female-model.sherpa.onnx",
-    #           note="# The download is a raw Piper model. sherpa-onnx needs a few fields inside the model file,\n"
-    #                "# so this is a copy with them added; arabic-emirati-female-model.onnx is the original, untouched.\n")}),
     Model("tts", "vits-piper-fa_IR-amir-medium", "use", "Piper voice, Persian (Iran); CC0 licence",
           repo="csukuangfj/vits-piper-fa_IR-amir-medium",
           write={"engine.toml": piper_engine("Piper fa_IR amir (medium)", "fa", "fa_IR-amir-medium.onnx", "fa-IR")}),
@@ -197,10 +140,6 @@ LIST = [
           url=f"{SHERPA_TTS}/vits-piper-en_US-lessac-medium.tar.bz2",
           expect=("en_US-lessac-medium.onnx", "tokens.txt", "espeak-ng-data/phontab"),
           write={"engine.toml": piper_engine("Piper en_US lessac (medium)", "en", "en_US-lessac-medium.onnx", "en-US")}),
-    # Model("tts", "vits-piper-es_ES-carlfm-x_low", "use", "Piper voice, Spanish (Spain)",
-    #       url=f"{SHERPA_TTS}/vits-piper-es_ES-carlfm-x_low.tar.bz2",
-    #       expect=("es_ES-carlfm-x_low.onnx", "tokens.txt", "espeak-ng-data/phontab"),
-    #       write={"engine.toml": piper_engine("Piper es_ES carlfm (x_low)", "es", "es_ES-carlfm-x_low.onnx", "es-ES")}),
     Model("tts", "vits-piper-es_MX-claude-high", "use", "Piper voice, Spanish (Mexico)",
           url=f"{SHERPA_TTS}/vits-piper-es_MX-claude-high.tar.bz2",
           expect=("es_MX-claude-high.onnx", "tokens.txt", "espeak-ng-data/phontab"),
