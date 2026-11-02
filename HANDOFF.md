@@ -162,6 +162,16 @@ and with real people.
   its extension, so sherpa-onnx's 1.28.2 stays the only `onnxruntime.dll` in the process.
 - **GPU memory per program isn't reported by Windows,** so Volis's share is the sum of its loaded
   models and "others" is the rest.
+- **The Download section runs `fetch_model.py` as a separate program,** so Volis keeps
+  `HF_HUB_OFFLINE` and never imports the code that goes online. `download.py` must not import
+  `fetch_model`, which removes that setting; a test checks it brings in no Hugging Face library.
+- **A stopped download can't resume.** With `huggingface_hub` 1.33.0, a new run started the file
+  from zero under a new name and left the old partial file behind, so `remove_leftovers` deletes
+  it. Finished files stay.
+- **The window's downloads turn Xet off** (`--progress`). Xet writes a file nearly all at once, so
+  there is nothing to measure; plain HTTP grows in 10 MB steps. `fetch-model.ps1` still uses Xet.
+- **A display name covers the whole folder,** so two versions in one named folder show the same
+  name. Give a second version its own folder to tell them apart.
 
 ### Two computers
 

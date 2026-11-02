@@ -72,10 +72,29 @@ developer pages:
 
 | Page | What is there |
 |---|---|
-| **Models** | The recognizer and translator, with a warning if they won't fit or were too slow here; each side's recognizer and voice for two people on one computer; rescanning models and devices (F5). |
+| **Models** | The recognizer and translator, with a warning if they won't fit or were too slow here; each side's recognizer and voice for two people on one computer; rescanning models and devices (F5); downloading a model (below). |
 | **Test bench** (Ctrl+Shift+T) | Comparing models; below. |
 | **Performance** (Ctrl+Shift+P) | The last sentence's timings and the run's summary, **Export this run**, and the panel below. |
 | **Developer** | Streaming, joining fragments, holding the key while speaking, context, revision, waiting before speaking, vowel marks, the glossary, and how a recording is read. |
+
+### Downloading a model
+
+**Download a model** on the Models page does what `.\fetch-model.ps1` does, without the terminal.
+It works only from the source folder; in a ready-made folder it says so.
+
+1. Paste a Hugging Face link or `owner/name`, choose **Recognizer**, **Translator** or **Voice**, and
+   press **Look up**.
+2. Check the licence, choose a version if the repo has several, and change the folder name or add
+   a display name if you want to.
+3. Press **Download**. You can keep working while it runs, and Cancel stops it. Volis then rescans,
+   and says "Added" or why it can't use the model. That check reads the model but doesn't run it.
+
+A cancelled download keeps its finished files, and the file under way starts again next time. For
+a gated model the section shows the steps: accept its terms, run `.\fetch-model.ps1 -Login` once,
+and press **Look up** again. The sign-in stays in the terminal, so the window never handles a token.
+
+In the code, `download.py` has the rules and no Qt, `gui\download_panel.py` paints them, and
+`scripts\fetch_model.py` does the downloading as a separate program.
 
 ### The test bench
 

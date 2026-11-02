@@ -2121,6 +2121,9 @@ class AppWindow(QMainWindow):
             self.peer_mine.setText("This computer's address: " + (", ".join(self.addresses) or "no network"))
 
     def closeEvent(self, event) -> None:  # noqa: N802
+        if self.dev is not None and not self.dev.may_close():
+            event.ignore()
+            return
         if self.pipeline is not None:
             self.pipeline.stop()
             self.pipeline.join(5.0)

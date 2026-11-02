@@ -25,6 +25,7 @@ from . import rescan as rescan_mod
 from . import session as ses
 from . import talk, view
 from .chat import scrolled
+from .download_panel import DownloadPanel
 from .perf_panel import PerfPanel
 
 log = logging.getLogger(__name__)
@@ -168,6 +169,9 @@ class Hub:
         self.notice = _note()
         self.notice.hide()
         column.addWidget(self.notice)
+        column.addSpacing(10)
+        self.download_panel = DownloadPanel(self.root, self.window.rescan)
+        column.addWidget(self.download_panel)
         column.addStretch(1)
         return scrolled(page)
 
@@ -557,7 +561,11 @@ class Hub:
             self.update_fit_warning()
         self.draw()
 
+    def may_close(self) -> bool:
+        return self.download_panel.may_close()
+
     def shutdown(self) -> None:
+        self.download_panel.shutdown()
         self.perf_panel.sampler.stop()
         if self.test_bench is not None:
             self.test_bench.shutdown()

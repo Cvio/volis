@@ -23,6 +23,10 @@ Which document holds what:
    library opens a connection to anywhere but the local network. Local network sockets for
    two-computer conversations are allowed, under this test: *would it still work with the WAN
    cable unplugged and no DNS server anywhere on the segment?*
+   The one exception: the developer Models page may start `scripts\fetch_model.py` as a separate
+   program, only from source. Volis itself stays offline, and the no-connections test still applies
+   to it. The goal is that translation always works fully offline, not to stop a developer fetching
+   a model.
 2. **No separate services.** Every model runs in-process. No Ollama, no local servers, no helper
    processes that serve models. (A Python thread is fine. A child process running inference is
    not.)

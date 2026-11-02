@@ -289,15 +289,15 @@ GGUF files on the graphics card.
 | Model | Group | Disk | es>en | ar>en | fa>en | en>es | mean chrF | obey | ms / sentence | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
 | Qwen3 1.7B | off | 1.1 GB | 59.2 | 64.3 | 58.8 | 58.3 | 60.2 | 24 / 24 | **261** | The smallest and fastest, 3 to 6 chrF below the rest. |
-| Gemma 3 4B | use | 2.5 GB | **65.9** | 67.7 | 65.5 | 60.0 | 64.8 | 24 / 24 | 444 | The best all-rounder that fits 8 GB with a recognizer loaded. |
+| Gemma 3 4B | off | 2.5 GB | **65.9** | 67.7 | 65.5 | 60.0 | 64.8 | 24 / 24 | 444 | The best all-rounder that fits 8 GB with a recognizer loaded. |
 | Gemma 4 E4B | use | 5.0 GB | 64.3 | 71.3 | 63.8 | 60.9 | 65.1 | 24 / 23 | 586 | Clearly better Arabic than the other small ones. |
 | TranslateGemma 4B | use | 2.5 GB | 64.2 | 66.9 | 65.9 | 60.0 | 64.3 | 23 / 24 | 511 | Trained only to translate. Its own prompt format: the prompt file and the glossary are not used. The one revision mode helps most. |
 | Gemma 4 12B | bigger | 7.1 GB | 62.2 | **73.1** | 66.6 | **62.7** | **66.1** | 24 / 24 | 5909 * | The best Arabic and the best mean measured. |
 | Gemma 3 12B | off | 7.3 GB | 63.1 | 70.3 | **66.9** | 60.5 | 65.2 | 24 / 24 | 9313 * | |
 | TranslateGemma 12B | bigger | 7.3 GB | 62.3 | 68.4 | 64.9 | 61.2 | 64.2 | 24 / 24 | 8040 * | |
 | Qwen3 8B | off | 5.0 GB | 64.3 | 67.3 | 62.3 | 59.9 | 63.4 | 24 / 23 | 867 | No better than the 4B models and slower. |
-| NLLB-200 1.3B | tested | 5.5 GB | 61.6 | 68.6 | **70.2** | 61.6 | 65.5 | 23 / n/a | 687 | Made only to translate, not a chat model: no earlier sentences, no glossary, no dialect wording. The best Persian measured, and it fits 8 GB. **Non-commercial licence.** |
-| MADLAD-400 3B | tested | 11.8 GB | 62.8 | 69.4 | 66.5 | 62.2 | 65.2 | 23 / n/a | 1937 | Made only to translate, 400 languages, Apache 2.0. About 6 GB of graphics memory: on an 8 GB card it does not fit beside a recognizer (7 s a sentence when it was tried with Whisper). No better than NLLB on anything measured, and three times slower. |
+| NLLB-200 1.3B | off | 5.5 GB | 61.6 | 68.6 | **70.2** | 61.6 | 65.5 | 23 / n/a | 687 | Made only to translate, not a chat model: no earlier sentences, no glossary, no dialect wording. The best Persian measured, and it fits 8 GB. **Non-commercial licence.** |
+| MADLAD-400 3B | off | 11.8 GB | 62.8 | 69.4 | 66.5 | 62.2 | 65.2 | 23 / n/a | 1937 | Made only to translate, 400 languages, Apache 2.0. About 6 GB of graphics memory: on an 8 GB card it does not fit beside a recognizer (7 s a sentence when it was tried with Whisper). No better than NLLB on anything measured, and three times slower. |
 | Qwen3 0.6B (safetensors) | off | 1.5 GB | 58.8 on the Spanish file | | | | | | 1974 | Through transformers, not llama.cpp: proves that backend. Five times slower a sentence than a GGUF of a larger model. |
 
 \* didn't fit the laptop's 8 GB card and spilled into ordinary memory. These times say nothing
